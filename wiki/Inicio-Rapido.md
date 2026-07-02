@@ -64,17 +64,20 @@ Abre `http://localhost:3000` en el navegador.
 
 ### Usuarios de prueba
 
+Sembrados automáticamente en el primer arranque (`seedUsers()` en `Backend/orders-service/src/index.js`):
+
 | Usuario | Contraseña | Rol | Página inicial |
 |---------|-----------|-----|---------------|
-| `admin` | `Demo1234!` | owner | `/dashboard` |
-| `ops1` | `Demo1234!` | ops | `/orders` |
-| `bodega1` | `Demo1234!` | warehouse | `/inventory` |
-| `transportista1` | `Demo1234!` | shipper | `/deliveries` |
-| `vendedor1` | `Demo1234!` | vendor | `/pos` |
-| `soporte1` | `Demo1234!` | support | `/alerts` |
-| `cliente1` | `Demo1234!` | customer | `/tracking` |
+| `admin` | `Admin123!` | owner | `/dashboard` |
+| `operaciones` | `Ops123!` | ops | `/orders` |
+| `bodega` | `Bodega123!` | warehouse | `/inventory` |
+| `transportista` | `Trans123!` | shipper | `/deliveries` |
+| `vendedor1` | `Vend123!` | vendor | `/pos` |
+| `vendedor2` | `Vend123!` | vendor | `/pos` |
+| `soporte` | `Sop123!` | support | `/alerts` |
+| `cliente` | `Cli123!` | customer | `/tracking` |
 
-> **Nota:** En el modo demo local, el login acepta cualquier contraseña para los usuarios listados. Los roles se asignan por nombre de usuario.
+> **Nota:** El login valida la contraseña contra el hash `bcrypt` guardado en la tabla `users` — no acepta cualquier contraseña. El rol viene del campo `role` del usuario, no se infiere del nombre.
 
 ---
 

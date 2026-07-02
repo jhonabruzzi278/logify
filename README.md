@@ -104,17 +104,20 @@ El sistema tiene 7 roles con rutas y permisos diferenciados. Cada usuario solo v
 | `support` | `/alerts` | Monitorea operación, revisa trazabilidad |
 | `customer` | `/tracking` | Consulta su pedido con código `SL-XXXXXX` |
 
-### Usuarios de prueba (modo demo)
+### Usuarios de prueba
+
+Sembrados automáticamente en el primer arranque (`seedUsers()` en `Backend/orders-service/src/index.js`), con contraseña real verificada vía `bcrypt`:
 
 | Usuario | Contraseña | Rol |
 |---------|-----------|-----|
-| `admin` | `Demo1234!` | owner |
-| `ops1` | `Demo1234!` | ops |
-| `bodega1` | `Demo1234!` | warehouse |
-| `transportista1` | `Demo1234!` | shipper |
-| `vendedor1` | `Demo1234!` | vendor |
-| `soporte1` | `Demo1234!` | support |
-| `cliente1` | `Demo1234!` | customer |
+| `admin` | `Admin123!` | owner |
+| `operaciones` | `Ops123!` | ops |
+| `bodega` | `Bodega123!` | warehouse |
+| `transportista` | `Trans123!` | shipper |
+| `vendedor1` | `Vend123!` | vendor |
+| `vendedor2` | `Vend123!` | vendor |
+| `soporte` | `Sop123!` | support |
+| `cliente` | `Cli123!` | customer |
 
 ---
 
@@ -230,7 +233,7 @@ curl -X POST http://localhost:8080/api/orders \
 curl -X PUT http://localhost:8080/api/orders/1/confirm
 
 # 5. Asignar transportista
-curl -X PUT "http://localhost:8080/api/orders/1/assign?transporter=transportista1"
+curl -X PUT "http://localhost:8080/api/orders/1/assign?transporter=transportista"
 
 # 6. Avanzar etapas del envío
 curl -X PUT "http://localhost:8080/api/shipments/1/stage?stage=EN_REPARTO"

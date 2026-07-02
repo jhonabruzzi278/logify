@@ -117,10 +117,10 @@ Respuesta:
 ### 5. Asignar transportista
 
 ```bash
-curl -X PUT "http://localhost:8080/api/orders/1/assign?transporter=transportista1"
+curl -X PUT "http://localhost:8080/api/orders/1/assign?transporter=transportista"
 ```
 
-El campo `assigned_to` de la orden se actualiza. Solo las órdenes con ese valor de `assigned_to` aparecen en la vista del transportista.
+El campo `assigned_to` de la orden se actualiza. Solo las órdenes con ese valor de `assigned_to` aparecen en la vista del transportista — debe coincidir con el `username` real (ver [Usuarios de prueba](Inicio-Rapido.md#usuarios-de-prueba)).
 
 ---
 

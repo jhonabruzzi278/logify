@@ -197,7 +197,7 @@ Estados válidos: `CREATED`, `EN_PREPARACION`, `EN_REPARTO`, `ENTREGADO`, `CANCE
 ### Asignar transportista
 
 ```
-PUT /api/orders/:id/assign?transporter=transportista1
+PUT /api/orders/:id/assign?transporter=transportista
 ```
 
 ---
