@@ -148,6 +148,137 @@ app.get('/api/shipments/:id/qr', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed', err); }
 });
 
+// ═══ EXTERNAL API ENDPOINTS ═══════════════════════════════════════════════════
+
+function weatherDescription(code) {
+  if (code === 0) return 'Despejado';
+  if (code <= 3) return 'Parcialmente nublado';
+  if (code <= 49) return 'Neblina';
+  if (code <= 67) return 'Lluvia';
+  if (code <= 77) return 'Nieve';
+  if (code <= 82) return 'Chubascos';
+  if (code <= 99) return 'Tormenta eléctrica';
+  return 'Desconocido';
+}
+
+app.get('/api/shipments/:id/qr-image', authMiddleware, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM shipments WHERE id=$1', [req.params.id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Envío no encontrado' });
+    const shipment = r.rows[0];
+    const text = `SMARTLOGIX-${shipment.tracking_number}`;
+    const size = req.query.size || '250x250';
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent(text)}&format=png&margin=10`;
+    const qrRes = await fetch(qrUrl);
+    if (!qrRes.ok) throw new Error('QR service error');
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(Buffer.from(await qrRes.arrayBuffer()));
+  } catch (err) { sendError(res, 500, 'QR image failed', err); }
+});
+
+app.get('/api/shipments/:id/weather', authMiddleware, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM shipments WHERE id=$1', [req.params.id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Envío no encontrado' });
+    const shipment = r.rows[0];
+
+    let lat = parseFloat(req.query.lat) || -33.4489;
+    let lon = parseFloat(req.query.lon) || -70.6693;
+
+    if (!req.query.lat && shipment.customer_id && shipment.customer_id > 0) {
+      try {
+        const custRes = await req.forwardedFetch(`${ORDERS_URL}/api/customers/${shipment.customer_id}`);
+        const customer = await custRes.json();
+        if (customer.address) {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(customer.address + ', Chile')}&format=json&limit=1&countrycodes=cl`,
+            { headers: { 'User-Agent': 'SmartLogix/1.0' } }
+          );
+          const geoData = await geoRes.json();
+          if (geoData.length) { lat = parseFloat(geoData[0].lat); lon = parseFloat(geoData[0].lon); }
+        }
+      } catch (e) { log.warn('Could not geocode for weather', { message: e.message }); }
+    }
+
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&wind_speed_unit=kmh&timezone=America%2FSantiago`;
+    const weatherRes = await fetch(weatherUrl);
+    if (!weatherRes.ok) throw new Error('Open-Meteo error');
+    const data = await weatherRes.json();
+    const current = data.current;
+    const isAdverse = current.weather_code >= 51;
+
+    res.json({
+      shipmentId: shipment.id,
+      trackingNumber: shipment.tracking_number,
+      location: { lat, lon },
+      weather: {
+        temperature: current.temperature_2m,
+        humidity: current.relative_humidity_2m,
+        precipitation: current.precipitation,
+        windSpeed: current.wind_speed_10m,
+        condition: weatherDescription(current.weather_code),
+        weatherCode: current.weather_code
+      },
+      deliveryRisk: isAdverse ? 'ALTO' : 'BAJO',
+      recommendation: isAdverse
+        ? 'Condiciones adversas — considerar notificar al cliente sobre posible demora'
+        : 'Condiciones normales para la entrega'
+    });
+  } catch (err) { sendError(res, 500, 'Weather failed', err); }
+});
+
+app.get('/api/shipments/:id/route', authMiddleware, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM shipments WHERE id=$1', [req.params.id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Envío no encontrado' });
+    const shipment = r.rows[0];
+
+    const originLat = parseFloat(req.query.origin_lat) || -33.4489;
+    const originLon = parseFloat(req.query.origin_lon) || -70.6693;
+    let destLat = req.query.dest_lat ? parseFloat(req.query.dest_lat) : null;
+    let destLon = req.query.dest_lon ? parseFloat(req.query.dest_lon) : null;
+
+    if (!destLat && shipment.customer_id && shipment.customer_id > 0) {
+      try {
+        const custRes = await req.forwardedFetch(`${ORDERS_URL}/api/customers/${shipment.customer_id}`);
+        const customer = await custRes.json();
+        if (customer.address) {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(customer.address + ', Chile')}&format=json&limit=1&countrycodes=cl`,
+            { headers: { 'User-Agent': 'SmartLogix/1.0' } }
+          );
+          const geoData = await geoRes.json();
+          if (geoData.length) { destLat = parseFloat(geoData[0].lat); destLon = parseFloat(geoData[0].lon); }
+        }
+      } catch (e) { log.warn('Could not geocode customer for route', { message: e.message }); }
+    }
+
+    if (!destLat || !destLon) {
+      return res.status(400).json({ error: 'No se pudo determinar el destino. Pasa ?dest_lat=&dest_lon= o asegúrate que el cliente tiene dirección registrada.' });
+    }
+
+    const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${originLon},${originLat};${destLon},${destLat}?overview=full&geometries=geojson`;
+    const osrmRes = await fetch(osrmUrl);
+    if (!osrmRes.ok) throw new Error('OSRM error');
+    const osrmData = await osrmRes.json();
+    if (osrmData.code !== 'Ok') return res.status(400).json({ error: 'No se encontró ruta entre los puntos indicados' });
+
+    const route = osrmData.routes[0];
+    res.json({
+      shipmentId: shipment.id,
+      trackingNumber: shipment.tracking_number,
+      distanceKm: parseFloat((route.distance / 1000).toFixed(2)),
+      durationMin: parseInt((route.duration / 60).toFixed(0)),
+      origin: { lat: originLat, lon: originLon, label: 'Bodega SmartLogix' },
+      destination: { lat: destLat, lon: destLon },
+      geometry: route.geometry
+    });
+  } catch (err) { sendError(res, 500, 'Route failed', err); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+
 if (require.main === module) {
   (async () => { await ensureTables(); start(); })();
 }

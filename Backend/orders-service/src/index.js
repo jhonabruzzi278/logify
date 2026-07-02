@@ -322,6 +322,105 @@ app.delete('/api/orders/:id', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to delete order', err); }
 });
 
+// ═══ EXTERNAL API ENDPOINTS ═══════════════════════════════════════════════════
+
+function validateRutChileno(rut) {
+  const clean = String(rut).replace(/[.\-\s]/g, '').toUpperCase();
+  if (!/^\d{7,8}[0-9K]$/.test(clean)) return { valid: false, error: 'Formato inválido. Ejemplo: 12345678-9' };
+  const digits = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  let sum = 0, mul = 2;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    sum += parseInt(digits[i]) * mul;
+    mul = mul === 7 ? 2 : mul + 1;
+  }
+  const remainder = 11 - (sum % 11);
+  const expectedDv = remainder === 11 ? '0' : remainder === 10 ? 'K' : String(remainder);
+  const formatted = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + expectedDv;
+  return { valid: dv === expectedDv, formatted, digitoVerificador: expectedDv };
+}
+
+app.get('/api/customers/validate-rut', async (req, res) => {
+  const { rut } = req.query;
+  if (!rut) return res.status(400).json({ error: 'rut es requerido. Ej: ?rut=12345678-9' });
+  res.json(validateRutChileno(rut));
+});
+
+app.get('/api/customers/address-suggest', authMiddleware, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 3) return res.status(400).json({ error: 'q debe tener al menos 3 caracteres' });
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Chile')}&format=json&addressdetails=1&limit=5&countrycodes=cl`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'SmartLogix/1.0 (logistica@smartlogix.cl)', 'Accept-Language': 'es' } });
+    if (!response.ok) throw new Error(`Nominatim error ${response.status}`);
+    const data = await response.json();
+    res.json(data.map(item => ({
+      displayName: item.display_name,
+      lat: parseFloat(item.lat),
+      lon: parseFloat(item.lon),
+      address: {
+        road: item.address?.road,
+        houseNumber: item.address?.house_number,
+        city: item.address?.city || item.address?.town || item.address?.village || item.address?.municipality,
+        state: item.address?.state,
+        postcode: item.address?.postcode
+      }
+    })));
+  } catch (err) { sendError(res, 500, 'Address suggest failed', err); }
+});
+
+app.get('/api/orders/:id/pdf', authMiddleware, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT o.*, c.name AS customer_name, c.email AS customer_email,
+              c.address AS customer_address, c.phone AS customer_phone, c.rut AS customer_rut
+       FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id=$1`,
+      [req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
+    const order = r.rows[0];
+
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=orden-${order.id}.pdf`);
+    doc.pipe(res);
+
+    doc.fontSize(22).fillColor('#0f172a').text('SmartLogix', { align: 'center' });
+    doc.fontSize(13).fillColor('#475569').text('Comprobante de Pedido', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
+    doc.moveDown(0.5);
+
+    doc.fontSize(11).fillColor('#0f172a');
+    doc.text(`Pedido #${order.id}`, { continued: true }).text(`  Estado: ${order.status}`, { align: 'right' });
+    doc.text(`Fecha: ${new Date(order.created_at).toLocaleDateString('es-CL')}`, { continued: true });
+    if (order.client_code) doc.text(`  Código: ${order.client_code}`, { align: 'right' });
+    doc.moveDown();
+
+    doc.fontSize(12).fillColor('#334155').text('Detalle del Pedido', { underline: true });
+    doc.fontSize(11).fillColor('#0f172a');
+    doc.text(`SKU: ${order.sku}`);
+    doc.text(`Cantidad: ${order.quantity}`);
+    if (order.assigned_to) doc.text(`Asignado a: ${order.assigned_to}`);
+    doc.moveDown();
+
+    doc.fontSize(12).fillColor('#334155').text('Cliente', { underline: true });
+    doc.fontSize(11).fillColor('#0f172a');
+    doc.text(`Nombre: ${order.customer_name || 'Sin asignar'}`);
+    if (order.customer_rut) doc.text(`RUT: ${order.customer_rut}`);
+    if (order.customer_email) doc.text(`Email: ${order.customer_email}`);
+    if (order.customer_phone) doc.text(`Teléfono: ${order.customer_phone}`);
+    if (order.customer_address) doc.text(`Dirección: ${order.customer_address}`);
+    doc.moveDown(2);
+
+    doc.fontSize(9).fillColor('#94a3b8').text('Documento generado por SmartLogix — ' + new Date().toLocaleString('es-CL'), { align: 'center' });
+    doc.end();
+  } catch (err) { sendError(res, 500, 'PDF generation failed', err); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+
 app.get('/api/customers', authMiddleware, async (_req, res) => {
   try { res.json((await pool.query('SELECT * FROM customers ORDER BY name')).rows); }
   catch (err) { sendError(res, 500, 'Failed to list customers', err); }

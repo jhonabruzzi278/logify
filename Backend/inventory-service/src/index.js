@@ -70,6 +70,93 @@ app.get('/api/inventory/report', authMiddleware, async (_req, res) => {
   catch (err) { sendError(res, 500, 'Failed to get inventory report', err); }
 });
 
+// ═══ EXTERNAL API ENDPOINTS ═══════════════════════════════════════════════════
+
+app.get('/api/inventory/report/pdf', authMiddleware, async (_req, res) => {
+  try {
+    const [items, report] = await Promise.all([
+      pool.query('SELECT * FROM inventory ORDER BY id'),
+      pool.query('SELECT * FROM fn_get_inventory_report()')
+    ]);
+    const levelMap = Object.fromEntries(report.rows.map(r => [r.sku, r.stock_level]));
+
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=inventario.pdf');
+    doc.pipe(res);
+
+    doc.fontSize(22).fillColor('#0f172a').text('SmartLogix', { align: 'center' });
+    doc.fontSize(13).fillColor('#475569').text('Reporte de Inventario', { align: 'center' });
+    doc.fontSize(9).fillColor('#94a3b8').text(`Generado: ${new Date().toLocaleString('es-CL')}`, { align: 'center' });
+    doc.moveDown(0.5);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
+    doc.moveDown(0.5);
+
+    const rows = items.rows;
+    const sinStock = rows.filter(r => (levelMap[r.sku] || '') === 'SIN_STOCK').length;
+    const critico = rows.filter(r => (levelMap[r.sku] || '') === 'CRITICO').length;
+    const bajo = rows.filter(r => (levelMap[r.sku] || '') === 'BAJO').length;
+    doc.fontSize(11).fillColor('#0f172a');
+    doc.text(`Total SKUs: ${rows.length}   Sin stock: ${sinStock}   Crítico: ${critico}   Bajo: ${bajo}`);
+    doc.moveDown();
+
+    const colX = [50, 130, 260, 340, 400, 460];
+    doc.fontSize(9).fillColor('#334155').font('Helvetica-Bold');
+    doc.text('SKU', colX[0], doc.y, { width: 75 });
+    doc.text('Nombre', colX[1], doc.y - doc.currentLineHeight(), { width: 125 });
+    doc.text('Stock', colX[2], doc.y - doc.currentLineHeight(), { width: 75 });
+    doc.text('Precio', colX[3], doc.y - doc.currentLineHeight(), { width: 55 });
+    doc.text('Categoría', colX[4], doc.y - doc.currentLineHeight(), { width: 75 });
+    doc.text('Nivel', colX[5], doc.y - doc.currentLineHeight(), { width: 60 });
+    doc.moveDown(0.3);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#cbd5e1');
+    doc.moveDown(0.3);
+
+    doc.font('Helvetica').fillColor('#0f172a');
+    for (const item of rows) {
+      const level = levelMap[item.sku] || 'NORMAL';
+      const color = level === 'SIN_STOCK' ? '#ef4444' : level === 'CRITICO' ? '#f97316' : level === 'BAJO' ? '#eab308' : '#22c55e';
+      const y = doc.y;
+      doc.fontSize(8);
+      doc.text(item.sku, colX[0], y, { width: 75 });
+      doc.text(item.name || '-', colX[1], y, { width: 125 });
+      doc.text(String(item.stock), colX[2], y, { width: 75 });
+      doc.text(`$${item.price}`, colX[3], y, { width: 55 });
+      doc.text(item.category || '-', colX[4], y, { width: 75 });
+      doc.fillColor(color).text(level, colX[5], y, { width: 60 });
+      doc.fillColor('#0f172a');
+      doc.moveDown(0.5);
+    }
+
+    doc.end();
+  } catch (err) { sendError(res, 500, 'PDF failed', err); }
+});
+
+app.get('/api/inventory/geocode', authMiddleware, async (req, res) => {
+  try {
+    const address = (req.query.address || '').trim();
+    if (address.length < 3) return res.status(400).json({ error: 'address es requerido (mínimo 3 caracteres)' });
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address + ', Chile')}&format=json&addressdetails=1&limit=5&countrycodes=cl`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'SmartLogix/1.0 (logistica@smartlogix.cl)', 'Accept-Language': 'es' } });
+    if (!response.ok) throw new Error(`Nominatim error ${response.status}`);
+    const data = await response.json();
+    res.json(data.map(r => ({
+      displayName: r.display_name,
+      lat: parseFloat(r.lat),
+      lon: parseFloat(r.lon),
+      address: {
+        road: r.address?.road,
+        city: r.address?.city || r.address?.town || r.address?.village,
+        state: r.address?.state,
+        postcode: r.address?.postcode
+      }
+    })));
+  } catch (err) { sendError(res, 500, 'Geocode failed', err); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+
 app.get('/api/inventory/:sku', authMiddleware, async (req, res) => {
   try {
     const r = await pool.query('SELECT * FROM inventory WHERE sku=$1', [req.params.sku]);
@@ -107,6 +194,21 @@ app.delete('/api/inventory/:sku', authMiddleware, async (req, res) => {
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
     res.json({ deleted: true, sku: req.params.sku });
   } catch (err) { sendError(res, 500, 'Failed to delete', err); }
+});
+
+app.get('/api/inventory/:sku/qr', authMiddleware, async (req, res) => {
+  try {
+    const { sku } = req.params;
+    if (!(await pool.query('SELECT 1 FROM inventory WHERE sku=$1', [sku])).rows.length)
+      return res.status(404).json({ error: 'SKU no encontrado' });
+    const size = req.query.size || '200x200';
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent('SMARTLOGIX-SKU:' + sku)}&format=png&margin=10`;
+    const qrRes = await fetch(qrUrl);
+    if (!qrRes.ok) throw new Error('QR service error');
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(await qrRes.arrayBuffer()));
+  } catch (err) { sendError(res, 500, 'QR failed', err); }
 });
 
 app.post('/api/inventory/:sku/adjust', authMiddleware, async (req, res) => {

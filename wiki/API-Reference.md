@@ -14,6 +14,53 @@ Todos los endpoints expuestos por el API Gateway en `http://localhost:8080`.
 
 ---
 
+## Auth
+
+Sistema de autenticación JWT propio (sin proveedores externos). Manejado por `orders-service`.
+
+### Login
+
+```
+POST /api/auth/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "..." }
+```
+
+Valida contra la tabla `users` (contraseñas con `bcrypt`) y devuelve un JWT firmado con `JWT_SECRET`.
+
+**Respuesta 200:**
+```json
+{ "token": "eyJ...", "role": "owner", "name": "Admin", "username": "admin" }
+```
+
+---
+
+### Registrar usuario
+
+```
+POST /api/auth/register
+Content-Type: application/json
+
+{ "username": "nuevo", "password": "...", "name": "Nuevo Usuario", "role": "ops" }
+```
+
+Requiere rol `owner`/`admin`. Roles válidos: `owner`, `ops`, `warehouse`, `shipper`, `vendor`, `support`, `customer`.
+
+---
+
+### Listar / editar / eliminar usuarios
+
+```
+GET /api/auth/users
+PUT /api/auth/users/:id
+DELETE /api/auth/users/:id
+```
+
+Requiere rol `owner`/`admin`.
+
+---
+
 ## Orders
 
 ### Tracking público (sin autenticación)
@@ -163,6 +210,16 @@ DELETE /api/orders/:id
 
 ---
 
+### Comprobante de pedido en PDF
+
+```
+GET /api/orders/:id/pdf
+```
+
+Genera un PDF (vía `pdfkit`) con el detalle del pedido y los datos del cliente asociado. Descarga como `orden-<id>.pdf`.
+
+---
+
 ## Customers
 
 ### Listar clientes
@@ -220,6 +277,31 @@ Content-Type: application/json
 ```
 DELETE /api/customers/:id
 ```
+
+---
+
+### Validar RUT chileno
+
+```
+GET /api/customers/validate-rut?rut=12345678-9
+```
+
+Sin autenticación. Calcula el dígito verificador módulo 11 y valida el formato.
+
+**Respuesta 200:**
+```json
+{ "valid": true, "formatted": "12.345.678-5", "digitoVerificador": "5" }
+```
+
+---
+
+### Autocompletar dirección
+
+```
+GET /api/customers/address-suggest?q=Av. Principal 123
+```
+
+Sugerencias de direcciones vía [Nominatim (OpenStreetMap)](https://nominatim.org/), acotado a Chile (`q` mínimo 3 caracteres). Devuelve hasta 5 resultados con `displayName`, `lat`, `lon` y detalle de dirección.
 
 ---
 
@@ -289,6 +371,36 @@ POST /api/inventory/:sku/adjust?delta=+5
 ```
 
 `delta` puede ser positivo (ingreso) o negativo (egreso). La función valida que el stock no quede en negativo.
+
+---
+
+### Reporte de inventario en PDF
+
+```
+GET /api/inventory/report/pdf
+```
+
+Genera un PDF (vía `pdfkit`) con el listado de productos, totales por nivel de stock (sin stock, crítico, bajo) y detalle tabular. Descarga como `inventario.pdf`.
+
+---
+
+### QR de un producto
+
+```
+GET /api/inventory/:sku/qr?size=200x200
+```
+
+Devuelve una imagen PNG con el código QR del SKU (contenido `SMARTLOGIX-SKU:<sku>`), generada vía [QR Server API](https://goqr.me/api/).
+
+---
+
+### Geocodificar una dirección
+
+```
+GET /api/inventory/geocode?address=Av. Principal 123
+```
+
+Resuelve una dirección a coordenadas usando [Nominatim (OpenStreetMap)](https://nominatim.org/), acotado a Chile. Devuelve hasta 5 resultados con `displayName`, `lat`, `lon` y detalle de dirección.
 
 ---
 
@@ -392,6 +504,63 @@ Devuelve la imagen QR en formato PNG base64.
 
 ---
 
+### QR del envío (imagen binaria)
+
+```
+GET /api/shipments/:id/qr-image?size=250x250
+```
+
+Igual que `/qr`, pero devuelve el PNG directamente (`Content-Type: image/png`) en vez de base64, generado vía [QR Server API](https://goqr.me/api/).
+
+---
+
+### Clima en destino del envío
+
+```
+GET /api/shipments/:id/weather?lat=&lon=
+```
+
+Consulta el clima actual vía [Open-Meteo](https://open-meteo.com/) para evaluar riesgo de entrega. Si no se pasan `lat`/`lon`, geocodifica la dirección del cliente asociado (Nominatim); si tampoco hay dirección, usa Santiago como fallback.
+
+**Respuesta 200:**
+```json
+{
+  "shipmentId": 1,
+  "trackingNumber": "TRACK-A1B2C3D4",
+  "location": { "lat": -33.4489, "lon": -70.6693 },
+  "weather": { "temperature": 18.2, "humidity": 60, "precipitation": 0, "windSpeed": 12, "condition": "Despejado", "weatherCode": 0 },
+  "deliveryRisk": "BAJO",
+  "recommendation": "Condiciones normales para la entrega"
+}
+```
+
+`deliveryRisk` es `ALTO` cuando `weatherCode >= 51` (lluvia, nieve o tormenta).
+
+---
+
+### Ruta al destino del envío
+
+```
+GET /api/shipments/:id/route?origin_lat=&origin_lon=&dest_lat=&dest_lon=
+```
+
+Calcula distancia, duración y geometría de la ruta vía [OSRM](http://project-osrm.org/) (`router.project-osrm.org`). El origen por defecto es la bodega en Santiago; si no se pasa destino, geocodifica la dirección del cliente asociado. Responde `400` si no se puede determinar un destino.
+
+**Respuesta 200:**
+```json
+{
+  "shipmentId": 1,
+  "trackingNumber": "TRACK-A1B2C3D4",
+  "distanceKm": 12.4,
+  "durationMin": 22,
+  "origin": { "lat": -33.4489, "lon": -70.6693, "label": "Bodega SmartLogix" },
+  "destination": { "lat": -33.45, "lon": -70.66 },
+  "geometry": { "type": "LineString", "coordinates": [ ] }
+}
+```
+
+---
+
 ## Notifications
 
 ### Registrar evento
@@ -427,6 +596,62 @@ GET /api/notifications/audience/:audience
 ```
 
 Audiencias: `customer`, `ops`, `shipper`, `system`
+
+---
+
+### Alerta climática
+
+```
+GET /api/notifications/weather-alert?lat=&lon=
+```
+
+Consulta el clima actual vía [Open-Meteo](https://open-meteo.com/) (fallback: Santiago). Si las condiciones son adversas (`weatherCode >= 51`), registra automáticamente un evento `WEATHER_ALERT` en `notification_records` con audiencia `OPERATOR`.
+
+**Respuesta 200:**
+```json
+{
+  "alert": true,
+  "condition": "Lluvia",
+  "message": "Alerta climática: Lluvia — viento 24 km/h, precipitación 3.2 mm",
+  "weather": { "temperature": 14.1, "windSpeed": 24, "precipitation": 3.2, "weatherCode": 61 },
+  "location": { "lat": -33.4489, "lon": -70.6693 },
+  "eventId": "weather-1735689600000"
+}
+```
+
+---
+
+### Historial de notificaciones en PDF
+
+```
+GET /api/notifications/report/pdf
+```
+
+Genera un PDF (vía `pdfkit`) con las últimas 200 notificaciones registradas. Descarga como `notificaciones.pdf`.
+
+---
+
+### QR genérico
+
+```
+GET /api/notifications/qr?text=SMARTLOGIX-TRACK123&size=200x200
+```
+
+Genera un código QR PNG a partir de cualquier texto, vía [QR Server API](https://goqr.me/api/).
+
+---
+
+## Integraciones externas
+
+| Servicio | Uso | Microservicios |
+|----------|-----|-----------------|
+| [Nominatim (OpenStreetMap)](https://nominatim.org/) | Geocodificación de direcciones (acotado a Chile) | orders, inventory, shipping |
+| [Open-Meteo](https://open-meteo.com/) | Clima actual para alertas y evaluación de riesgo de entrega | notifications, shipping |
+| [OSRM](http://project-osrm.org/) | Cálculo de rutas y distancias | shipping |
+| [QR Server](https://goqr.me/api/) | Generación de códigos QR (PNG) | inventory, notifications, shipping |
+| [pdfkit](https://pdfkit.org/) | Generación local de reportes PDF (sin dependencia externa en runtime) | inventory, orders, notifications |
+
+Estas integraciones son llamadas server-side; no requieren API keys, pero sí conectividad saliente a internet desde los contenedores de cada microservicio.
 
 ---
 

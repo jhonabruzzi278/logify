@@ -62,6 +62,8 @@ services:
       - DB_URL=postgresql://postgres:admin123@postgres-db:5432/inventory_db
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - PORT=8082
+      - JWT_SECRET=${JWT_SECRET:-smartlogix-jwt-secret-change-me}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8082:8082"
     depends_on:
@@ -107,6 +109,8 @@ services:
       - DB_URL=postgresql://postgres:admin123@postgres-db:5432/notification_db
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - PORT=8085
+      - JWT_SECRET=${JWT_SECRET:-smartlogix-jwt-secret-change-me}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8085:8085"
     depends_on:

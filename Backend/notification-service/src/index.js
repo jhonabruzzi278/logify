@@ -68,6 +68,94 @@ app.post('/api/notifications/alert', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed', err); }
 });
 
+// ═══ EXTERNAL API ENDPOINTS ═══════════════════════════════════════════════════
+
+function weatherDesc(code) {
+  if (code === 0) return 'Despejado';
+  if (code <= 3) return 'Nublado';
+  if (code <= 49) return 'Neblina';
+  if (code <= 67) return 'Lluvia';
+  if (code <= 77) return 'Nieve';
+  if (code <= 82) return 'Chubascos';
+  if (code <= 99) return 'Tormenta eléctrica';
+  return 'Desconocido';
+}
+
+app.get('/api/notifications/weather-alert', authMiddleware, async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat) || -33.4489;
+    const lon = parseFloat(req.query.lon) || -70.6693;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,wind_speed_10m,weather_code&wind_speed_unit=kmh&timezone=America%2FSantiago`;
+    const weatherRes = await fetch(weatherUrl);
+    if (!weatherRes.ok) throw new Error('Open-Meteo error');
+    const data = await weatherRes.json();
+    const current = data.current;
+    const isAdverse = current.weather_code >= 51;
+    const condition = weatherDesc(current.weather_code);
+
+    if (isAdverse) {
+      const eventId = `weather-${Date.now()}`;
+      const message = `Alerta climática: ${condition} — viento ${current.wind_speed_10m} km/h, precipitación ${current.precipitation} mm`;
+      await pool.query(
+        `INSERT INTO notification_records (event_id, order_id, stage, status, message, target_audience, source_service, occurred_at, received_at)
+         VALUES ($1, 0, 'WEATHER_ALERT', 'NOTIFIED', $2, 'OPERATOR', 'open-meteo', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [eventId, message]
+      );
+      res.json({ alert: true, condition, message, weather: { temperature: current.temperature_2m, windSpeed: current.wind_speed_10m, precipitation: current.precipitation, weatherCode: current.weather_code }, location: { lat, lon }, eventId });
+    } else {
+      res.json({ alert: false, condition, message: 'Sin alertas climáticas activas', weather: { temperature: current.temperature_2m, windSpeed: current.wind_speed_10m, precipitation: current.precipitation, weatherCode: current.weather_code }, location: { lat, lon } });
+    }
+  } catch (err) { sendError(res, 500, 'Weather alert failed', err); }
+});
+
+app.get('/api/notifications/report/pdf', authMiddleware, async (_req, res) => {
+  try {
+    const rows = (await pool.query('SELECT * FROM notification_records ORDER BY occurred_at DESC LIMIT 200')).rows;
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=notificaciones.pdf');
+    doc.pipe(res);
+
+    doc.fontSize(22).fillColor('#0f172a').text('SmartLogix', { align: 'center' });
+    doc.fontSize(13).fillColor('#475569').text('Historial de Notificaciones', { align: 'center' });
+    doc.fontSize(9).fillColor('#94a3b8').text(`Generado: ${new Date().toLocaleString('es-CL')} — Total: ${rows.length}`, { align: 'center' });
+    doc.moveDown(0.5);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
+    doc.moveDown(0.5);
+
+    doc.fontSize(9).fillColor('#0f172a');
+    for (const n of rows) {
+      const fecha = new Date(n.occurred_at).toLocaleString('es-CL');
+      const audience = n.target_audience === 'OPERATOR' ? 'OPS' : n.target_audience === 'CLIENT' ? 'CLI' : 'AMB';
+      doc.fillColor('#64748b').text(`${fecha}  [${audience}]  `, { continued: true });
+      doc.fillColor('#0f172a').text(`${n.stage}`, { continued: true });
+      if (n.order_id) doc.fillColor('#3b82f6').text(` #${n.order_id}`, { continued: true });
+      doc.fillColor('#374151').text(`  ${n.message}`);
+      doc.moveDown(0.2);
+    }
+
+    doc.end();
+  } catch (err) { sendError(res, 500, 'PDF failed', err); }
+});
+
+app.get('/api/notifications/qr', authMiddleware, async (req, res) => {
+  try {
+    const text = (req.query.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'text es requerido. Ej: ?text=SMARTLOGIX-TRACK123' });
+    const size = req.query.size || '200x200';
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent(text)}&format=png&margin=10`;
+    const qrRes = await fetch(qrUrl);
+    if (!qrRes.ok) throw new Error('QR service error');
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(Buffer.from(await qrRes.arrayBuffer()));
+  } catch (err) { sendError(res, 500, 'QR failed', err); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+
 app.delete('/api/notifications', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query('DELETE FROM notification_records');
