@@ -150,13 +150,14 @@ const { role, can } = usePermissions();
 
 ### Servidor — JWT y RLS
 
-El `orders-service` extrae el rol del token JWT en cada request y aplica restricciones:
+El `orders-service` extrae el rol del token JWT (emitido localmente, sin proveedor externo) en cada request y aplica restricciones:
 
 ```javascript
 const RESTRICTED_ROLES = new Set(['shipper', 'customer', 'vendor']);
 
 function extractRoleFromRequest(req) {
-  // decodifica JWT → lee cognito:groups[0]
+  // req.user ya fue verificado por authMiddleware (jwt.verify)
+  return (req.user.role || '').toLowerCase();
 }
 
 // En GET /api/orders:

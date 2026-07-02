@@ -80,7 +80,7 @@ Al crear una orden, el servicio genera automáticamente un código único con fo
 
 ## Row-Level Security (RLS)
 
-El servicio extrae el rol del JWT en cada request (claim `cognito:groups[0]`):
+El servicio extrae el rol del JWT en cada request (claim `role`, emitido por `POST /api/auth/login`):
 
 ```
 RESTRICTED_ROLES = ['shipper', 'customer', 'vendor']

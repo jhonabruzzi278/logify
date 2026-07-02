@@ -26,16 +26,22 @@ Capa 3 — Frontend (secundaria / defensa en profundidad)
 
 ### Extracción del rol desde JWT
 
-El `orders-service` decodifica el token JWT en cada request sin verificar la firma (confía en que el API Gateway filtra requests inválidos):
+Cada microservicio verifica la firma del JWT con `authMiddleware` (`jwt.verify` contra `JWT_SECRET`, compartido vía variables de entorno) antes de procesar el request. Con la firma ya validada, el rol se lee directamente del claim `role`:
 
 ```javascript
+// Backend/shared/auth.js
+function authMiddleware(req, res, next) {
+  const token = (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
+  try {
+    req.user = verifyToken(token); // jwt.verify — lanza si la firma o expiración son inválidas
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: err.name === 'TokenExpiredError' ? 'Token expirado' : 'Token invalido' });
+  }
+}
+
 function extractRoleFromRequest(req) {
-  const auth = req.headers['authorization'] || '';
-  const token = auth.replace(/^Bearer\s+/i, '');
-  const parts = token.split('.');
-  const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-  const groups = payload['cognito:groups'];
-  return Array.isArray(groups) && groups.length ? groups[0].toLowerCase() : null;
+  return (req.user?.role || '').toLowerCase();
 }
 ```
 
@@ -135,15 +141,15 @@ El endpoint de tracking valida que el código exista y devuelve solo los campos 
 
 ---
 
-## Flujo de autenticación (modo demo)
+## Flujo de autenticación (JWT local)
 
-En el entorno de demostración, el login asigna roles por nombre de usuario. En un entorno de producción con AWS Cognito:
+El sistema usa autenticación JWT propia — no depende de AWS Cognito ni de ningún proveedor externo:
 
-1. El usuario se autentica con Cognito
-2. Cognito devuelve un JWT con los grupos del usuario en `cognito:groups`
-3. El frontend incluye el JWT en el header `Authorization: Bearer <token>`
-4. Cada microservicio decodifica el payload para conocer el rol
-5. El API Gateway puede verificar la firma del token antes de hacer forward
+1. El usuario se autentica con `POST /api/auth/login` (manejado por `orders-service`), que valida `username`/`password` contra la tabla `users` (contraseñas con `bcrypt`)
+2. El servicio firma un JWT con `JWT_SECRET` (variable de entorno compartida por todos los microservicios) conteniendo `sub`, `name` y `role`
+3. El frontend guarda el token y lo incluye en cada request con el header `Authorization: Bearer <token>`
+4. Cada microservicio verifica la firma con `authMiddleware` (`jwt.verify`) y lee el rol desde `req.user.role`
+5. La gestión de usuarios (`/api/auth/users`, `/api/auth/register`) está restringida a los roles `owner`/`admin`
 
 ---
 

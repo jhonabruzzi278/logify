@@ -37,10 +37,10 @@
 |------|-----------|
 | Frontend | React 18, TypeScript 5.7, Vite 6, Tailwind CSS, shadcn/ui, PWA |
 | BFF | Nginx Alpine (reverse proxy, puerto 8080) |
-| Microservicios | Node.js 22, Express 4, pg (PostgreSQL driver) |
+| Microservicios | Node.js 22, Express 4, pg (PostgreSQL driver), pdfkit (reportes PDF) |
 | Base de datos | PostgreSQL 15 Alpine, 1 DB por servicio |
 | Infraestructura | Docker Desktop, Docker Compose |
-| Auth | JWT (Cognito / modo demo local) |
+| Auth | JWT local (usuarios y contraseñas con bcrypt, tabla `users` en orders-service) |
 
 ---
 
@@ -145,6 +145,8 @@ El sistema tiene 7 roles con rutas y permisos diferenciados. Cada usuario solo v
 | POST | `/api/customers` | Crear cliente `{name, phone, address, email, rut}` |
 | PUT | `/api/customers/:id` | Actualizar cliente (incluyendo RUT) |
 | DELETE | `/api/customers/:id` | Eliminar cliente |
+| GET | `/api/customers/validate-rut?rut=X` | Validar RUT chileno (sin auth) |
+| GET | `/api/customers/address-suggest?q=X` | Autocompletar dirección (Nominatim) |
 
 ### Inventory
 
@@ -157,6 +159,9 @@ El sistema tiene 7 roles con rutas y permisos diferenciados. Cada usuario solo v
 | PUT | `/api/inventory/:sku` | Actualizar stock `{stock}` |
 | DELETE | `/api/inventory/:sku` | Eliminar producto |
 | POST | `/api/inventory/:sku/adjust?delta=N` | Ajustar stock (SP) |
+| GET | `/api/inventory/report/pdf` | Reporte de inventario en PDF |
+| GET | `/api/inventory/:sku/qr` | Código QR del producto (PNG) |
+| GET | `/api/inventory/geocode?address=X` | Geocodificar dirección (Nominatim) |
 | GET | `/api/sales` | Listar ventas |
 | POST | `/api/sales` | Registrar venta `{sku, quantity}` |
 
@@ -168,7 +173,10 @@ El sistema tiene 7 roles con rutas y permisos diferenciados. Cada usuario solo v
 | GET | `/api/shipments/:orderId` | Envío por ID de orden |
 | POST | `/api/shipments` | Crear envío + número TRACK-XXXXXXXX |
 | PUT | `/api/shipments/:id/stage?stage=X` | Cambiar etapa |
-| GET | `/api/shipments/:id/qr` | Código QR del envío |
+| GET | `/api/shipments/:id/qr` | Código QR del envío (base64) |
+| GET | `/api/shipments/:id/qr-image` | Código QR del envío (PNG binario) |
+| GET | `/api/shipments/:id/weather` | Clima en destino + riesgo de entrega (Open-Meteo) |
+| GET | `/api/shipments/:id/route` | Distancia/duración/ruta al destino (OSRM) |
 
 Al marcar `ENTREGADO`, se valida:
 - `customerCode` debe coincidir con `orders.client_code`
@@ -181,6 +189,21 @@ Al marcar `ENTREGADO`, se valida:
 | POST | `/api/notifications` | Persistir evento |
 | GET | `/api/notifications/order/:id` | Trazabilidad de orden |
 | GET | `/api/notifications/audience/:aud` | Por audiencia |
+| GET | `/api/notifications/weather-alert?lat=&lon=` | Alerta climática (Open-Meteo), registra evento si es adversa |
+| GET | `/api/notifications/report/pdf` | Historial de notificaciones en PDF |
+| GET | `/api/notifications/qr?text=X` | Código QR genérico (PNG) |
+
+### Integraciones externas
+
+| Servicio | Uso |
+|----------|-----|
+| [Nominatim (OpenStreetMap)](https://nominatim.org/) | Geocodificación de direcciones |
+| [Open-Meteo](https://open-meteo.com/) | Clima actual para alertas y riesgo de entrega |
+| [OSRM](http://project-osrm.org/) | Cálculo de rutas y distancias |
+| [QR Server](https://goqr.me/api/) | Generación de códigos QR |
+| [pdfkit](https://pdfkit.org/) | Generación local de reportes PDF |
+
+Ver [wiki/API-Reference.md](wiki/API-Reference.md) para el detalle completo de cada endpoint.
 
 ---
 
@@ -228,7 +251,7 @@ curl http://localhost:8080/api/notifications/order/1
 
 ## Seguridad y RLS
 
-- **JWT role-based:** El orders-service extrae el rol del claim `cognito:groups` del JWT en cada request.
+- **JWT role-based:** cada microservicio extrae el rol del claim `role` del JWT (emitido localmente por `POST /api/auth/login`, firmado con `JWT_SECRET`) en cada request.
 - **Column-level stripping:** `client_code` se elimina del response para los roles `shipper`, `customer` y `vendor`.
 - **Tracking público:** El endpoint `/api/orders/track/:clientCode` devuelve solo campos seguros (sin email ni teléfono del cliente).
 - **Validación de entrega:** El shipping-service cruza el código del cliente y el RUT del receptor contra la BD antes de marcar como ENTREGADO.
