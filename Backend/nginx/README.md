@@ -10,6 +10,7 @@ Reverse proxy que enruta las peticiones HTTP entrantes al microservicio correspo
 
 | Path | Microservicio destino | Puerto |
 |------|-----------------------|--------|
+| `/api/auth` | orders-service | 8081 |
 | `/api/orders` | orders-service | 8081 |
 | `/api/customers` | orders-service | 8081 |
 | `/api/inventory` | inventory-service | 8082 |
@@ -49,11 +50,11 @@ http {
 
 ## Ejecucion
 
-El BFF se levanta automaticamente como parte del `docker-compose.node.yml` o `docker-compose.vm.yml`. No requiere configuracion adicional.
+El BFF se levanta automaticamente como parte del `docker-compose.yml` (contenedor `smartlogix-api-gateway`, puerto 8080 del host → 80 del contenedor). No requiere configuracion adicional.
 
 ## Verificar
 
 ```bash
-curl http://localhost:80/healthz
+curl http://localhost:8080/healthz
 # Respuesta: {"status":"UP","service":"smartlogix-api-gateway"}
 ```

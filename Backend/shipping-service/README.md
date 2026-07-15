@@ -29,14 +29,18 @@ Microservicio de envíos y tracking. Node.js 22 + Express 4 + PostgreSQL.
 
 ## Endpoints
 
+Todos requieren JWT (`Authorization: Bearer <token>`).
+
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/api/shipments/test` | Health check |
 | GET | `/api/shipments` | Listar todos los envíos |
 | GET | `/api/shipments/:orderId` | Buscar envío por ID de orden |
 | POST | `/api/shipments` | Crear envío `{orderId, customerId, sku, quantity}` → `TRACK-XXXXXXXX` |
 | PUT | `/api/shipments/:id/stage?stage=X` | Cambiar etapa (ver validación ENTREGADO abajo) |
 | GET | `/api/shipments/:id/qr` | Código QR del envío (PNG base64) |
+| GET | `/api/shipments/:id/qr-image?size=WxH` | Código QR del envío (PNG binario) |
+| GET | `/api/shipments/:id/weather` | Clima en destino + riesgo de entrega (Open-Meteo) |
+| GET | `/api/shipments/:id/route` | Distancia/duración/ruta al destino (OSRM) |
 
 ---
 
@@ -94,7 +98,8 @@ POST /api/notifications {orderId, stage, timestamp, audience}
 | Variable | Default | Descripción |
 |----------|---------|-------------|
 | `PORT` | 8084 | Puerto HTTP |
-| `DATABASE_URL` | `postgresql://postgres:postgres@postgres-db:5432/shipping_db` | Conexión BD |
+| `DB_URL` | `postgresql://postgres:postgres@postgres-db:5432/shipping_db` | Conexión BD |
+| `JWT_SECRET` | — | Secreto compartido para verificar JWT |
 | `NOTIFICATION_SERVICE_URL` | `http://notification-service:8085` | URL notification-service |
 | `ORDERS_SERVICE_URL` | `http://orders-service:8081` | URL orders-service (para validar entrega) |
 
@@ -104,6 +109,5 @@ POST /api/notifications {orderId, stage, timestamp, audience}
 
 ```bash
 cd Backend/shipping-service
-npm test
-npm test -- --coverage   # Reporte en coverage/index.html
+npm test   # jest --coverage — 28 pruebas, reporte en coverage/index.html
 ```

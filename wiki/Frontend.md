@@ -24,8 +24,8 @@ SPA React 18 + TypeScript 5.7 + Vite 6. PWA instalable con soporte offline.
 Frontend/src/
 ├── app/
 │   ├── access.ts          RBAC: perfiles de rol, rutas, permisos
-│   ├── auth.tsx           AuthProvider, useAuth, login demo
-│   └── router.tsx         React Router + guards de acceso por rol
+│   ├── auth.tsx           AuthProvider, useAuth, guard de acceso por rol
+│   └── router.tsx         Definición de rutas (React Router)
 │
 ├── components/
 │   ├── common/            MetricCard, PageHeader, StatusBadge, EmptyState
@@ -37,13 +37,20 @@ Frontend/src/
 │   ├── use-operational-workspace.ts  Confirmar, cancelar, eliminar, ajustar
 │   ├── use-customer-scope.ts      Filtra al cliente logueado por email
 │   ├── use-permissions.ts         role + can(permission)
-│   └── use-auth.ts                session (username, email, role)
+│   ├── use-auth.ts                session (username, email, role)
+│   ├── use-debounce.ts            Valor con retardo (búsquedas, validación RUT)
+│   ├── use-indicadores.ts         UF/dólar/UTM desde /api/inventory/indicadores
+│   └── use-auth-image.ts          Carga imágenes protegidas (QR) como blob con JWT
 │
 ├── lib/
-│   ├── api-adapters.ts    Convierte snake_case → camelCase del backend
-│   ├── api-client.ts      fetch wrapper con headers
-│   ├── utils.ts           cn(), formatDate(), formatCurrency()
-│   └── export-csv.ts      Exportar tablas a CSV
+│   ├── api-adapters.ts       Convierte snake_case → camelCase del backend
+│   ├── api-client.ts         ApiClient: JWT, refresh deduplicado, fetchBlob (PDF/QR)
+│   ├── api-blob.ts           Descarga de binarios autenticados
+│   ├── push-notifications.ts Suscripción Web Push (VAPID + service worker)
+│   ├── utils.ts              cn(), formatDate(), formatCurrency()
+│   └── export-csv.ts         Exportar tablas a CSV
+│
+├── sw.ts                  Service worker propio: precache + handlers push/notificationclick
 │
 ├── pages/
 │   ├── dashboard-page.tsx
@@ -161,14 +168,14 @@ Sidebar lateral siempre visible con todas las rutas del rol.
 
 ---
 
-## PWA
+## PWA y notificaciones push
 
-La app es instalable en cualquier dispositivo con soporte offline básico.
+La app es instalable en cualquier dispositivo con soporte offline básico y recibe notificaciones push del navegador.
 
-- Configurada con `vite-plugin-pwa`
-- Service worker con estrategia `NetworkFirst`
-- Iconos en múltiples tamaños en `/public/`
-- Manifiesto en `public/manifest.json`
+- Configurada con `vite-plugin-pwa` en modo `injectManifest`: el service worker es código propio (`src/sw.ts`)
+- El SW precachea la aplicación (workbox-precaching) y maneja los eventos `push` y `notificationclick`
+- El manifiesto se genera desde `vite.config.ts` (no hay `manifest.json` en `public/`); iconos SVG en `/public/`
+- La suscripción push se activa desde el perfil del usuario (`push-notifications.ts` + claves VAPID del backend)
 
 Para instalar en móvil: abrir la app en el navegador → "Agregar a pantalla de inicio".
 

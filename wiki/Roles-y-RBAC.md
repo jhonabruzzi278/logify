@@ -129,7 +129,7 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
 
 ### Frontend — Router guard
 
-En `app/router.tsx`, antes de renderizar cualquier página se verifica si el rol del usuario tiene acceso a la ruta actual:
+En `app/auth.tsx` (con la lógica de rutas en `app/access.ts`), antes de renderizar cualquier página se verifica si el rol del usuario tiene acceso a la ruta actual:
 
 ```typescript
 if (!isPathAllowedForRole(role, pathname)) {

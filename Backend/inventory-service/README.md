@@ -17,13 +17,23 @@ Gestiona el catalogo de productos, el stock y el registro de ventas. Proporciona
 
 ## Endpoints
 
+Todos requieren JWT (`Authorization: Bearer <token>`).
+
 | Metodo | Ruta | Descripcion |
 |--------|------|-------------|
 | GET | /api/inventory | Listar todos los productos |
 | GET | /api/inventory/:sku | Consultar un producto por SKU |
-| POST | /api/inventory | Agregar producto `{sku, name, stock, price, cost, category}` |
+| POST | /api/inventory | Agregar producto `{sku, name, stock, price, cost, category, imageUrl}` |
+| PUT | /api/inventory/:sku | Actualizar stock |
 | DELETE | /api/inventory/:sku | Eliminar producto |
 | POST | /api/inventory/:sku/adjust?delta=N | Ajuste atomico de stock (+/-). Si delta < 0, registra venta |
+| PUT | /api/inventory/:sku/image | Asignar imagen al producto `{imageUrl}` |
+| GET | /api/inventory/:sku/qr | Codigo QR del SKU (PNG) |
+| GET | /api/inventory/report | Reporte clasificado por nivel de stock (stored procedure) |
+| GET | /api/inventory/report/pdf | Reporte de inventario en PDF (pdfkit) |
+| GET | /api/inventory/indicadores | UF, dolar y UTM del dia (mindicador.cl, cache 1h) |
+| GET | /api/inventory/image-search?q=X | Buscar imagenes de producto (Openverse) |
+| GET | /api/inventory/geocode?address=X | Geocodificar direccion (Nominatim) |
 | GET | /api/sales | Listar historial de ventas |
 | POST | /api/sales | Registrar venta directa `{items, total, paymentMethod, vendorId, vendorName}` |
 
@@ -31,15 +41,14 @@ Gestiona el catalogo de productos, el stock y el registro de ventas. Proporciona
 
 - El ajuste de stock es atomico: no permite stock negativo (`stock + delta >= 0`)
 - Los ajustes negativos registran automaticamente una venta en la tabla `sales`
-- Cada producto tiene: sku, name, stock, price, cost, category
+- Cada producto tiene: sku, name, stock, price, cost, category, image_url
 
 ## Categorias de producto
 
 - `bebidas` - Bebidas
-- `snacks` - Snacks y golosinas
-- `lacteos` - Lacteos
-- `limpieza` - Articulos de limpieza
-- `varios` - Otros productos
+- `galletas` - Galletas
+- `dulces` - Dulces
+- `otros` - Otros productos (default)
 
 ## Ejecucion
 
@@ -47,7 +56,7 @@ Gestiona el catalogo de productos, el stock y el registro de ventas. Proporciona
 
 ```bash
 # Desde la raiz del proyecto
-docker compose -f docker-compose.node.yml up -d --build
+docker compose up -d --build
 ```
 
 ### Sin Docker (desarrollo)
@@ -74,24 +83,8 @@ DB_URL=postgresql://postgres:postgres@localhost:5432/inventory_db node src/index
 npm test
 ```
 
-### Ejecutar con cobertura (genera reporte HTML)
-
-```bash
-npm test -- --coverage
-# Reporte generado en: coverage/index.html
-```
-
-### Ver reporte de cobertura
-
-Abrir `coverage/index.html` en el navegador.
+`npm test` ya genera cobertura (`jest --coverage`); el reporte HTML queda en `coverage/index.html`.
 
 ### Cobertura actual
 
-| Métrica    | Porcentaje |
-|------------|-----------|
-| Statements | ver coverage/index.html |
-| Branches   | ver coverage/index.html |
-| Functions  | ver coverage/index.html |
-| Lines      | ver coverage/index.html |
-
-Umbral mínimo configurado: **60%** en todas las métricas.
+**45 pruebas** en verde (`src/index.test.js`). Cobertura de statements: **36,6 %**. La meta del equipo es 60% (no hay `coverageThreshold` configurado; ver [wiki/Pruebas.md](../../wiki/Pruebas.md)).

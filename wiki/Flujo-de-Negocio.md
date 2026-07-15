@@ -31,11 +31,20 @@ Ciclo de vida completo de un pedido en SmartLogix, desde la creación hasta la e
 
 ## Paso a paso con curl
 
+Casi todos los endpoints requieren JWT. Primero obtener el token:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Admin123!"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+AUTH="Authorization: Bearer $TOKEN"
+```
+
 ### 1. Crear cliente
 
 ```bash
 curl -X POST http://localhost:8080/api/customers \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{
     "name": "María González",
     "phone": "+56912345678",
@@ -61,7 +70,7 @@ Respuesta:
 
 ```bash
 curl -X POST http://localhost:8080/api/inventory \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"sku": "COCA-2L", "stock": 100}'
 ```
 
@@ -71,7 +80,7 @@ curl -X POST http://localhost:8080/api/inventory \
 
 ```bash
 curl -X POST http://localhost:8080/api/orders \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"customerId": 1, "sku": "COCA-2L", "quantity": 3}'
 ```
 
@@ -94,7 +103,7 @@ Respuesta:
 ### 4. Confirmar orden (Saga)
 
 ```bash
-curl -X PUT http://localhost:8080/api/orders/1/confirm
+curl -X PUT -H "$AUTH" http://localhost:8080/api/orders/1/confirm
 ```
 
 En este momento el sistema:
@@ -117,7 +126,7 @@ Respuesta:
 ### 5. Asignar transportista
 
 ```bash
-curl -X PUT "http://localhost:8080/api/orders/1/assign?transporter=transportista"
+curl -X PUT -H "$AUTH" "http://localhost:8080/api/orders/1/assign?transporter=transportista"
 ```
 
 El campo `assigned_to` de la orden se actualiza. Solo las órdenes con ese valor de `assigned_to` aparecen en la vista del transportista — debe coincidir con el `username` real (ver [Usuarios de prueba](Inicio-Rapido.md#usuarios-de-prueba)).
@@ -128,7 +137,7 @@ El campo `assigned_to` de la orden se actualiza. Solo las órdenes con ese valor
 
 ```bash
 # El transportista sale a repartir
-curl -X PUT "http://localhost:8080/api/shipments/1/stage?stage=EN_REPARTO"
+curl -X PUT -H "$AUTH" "http://localhost:8080/api/shipments/1/stage?stage=EN_REPARTO"
 ```
 
 El notification-service registra el evento automáticamente.
@@ -141,7 +150,7 @@ El transportista llega al domicilio, le pide el código al cliente y lo registra
 
 ```bash
 curl -X PUT "http://localhost:8080/api/shipments/1/stage?stage=ENTREGADO" \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{
     "customerCode": "SL-AB12CD",
     "recipientRut": "12.345.678-9",
@@ -181,7 +190,7 @@ Respuesta (sin datos de contacto):
 ### 9. Ver trazabilidad completa
 
 ```bash
-curl http://localhost:8080/api/notifications/order/1
+curl -H "$AUTH" http://localhost:8080/api/notifications/order/1
 ```
 
 Respuesta:
@@ -241,7 +250,7 @@ Al cancelar una orden en `EN_PREPARACION` o `EN_REPARTO`:
 
 ```bash
 curl -X PUT http://localhost:8080/api/orders/1/cancel \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"reason": "Cliente solicitó cancelación antes de la entrega"}'
 ```
 
@@ -253,10 +262,10 @@ El flujo del módulo de punto de venta es independiente del flujo de pedidos:
 
 ```bash
 # 1. Verificar stock disponible
-curl http://localhost:8080/api/inventory/COCA-2L
+curl -H "$AUTH" http://localhost:8080/api/inventory/COCA-2L
 
 # 2. Registrar venta (descuenta stock directamente)
 curl -X POST http://localhost:8080/api/sales \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"sku": "COCA-2L", "quantity": 2}'
 ```

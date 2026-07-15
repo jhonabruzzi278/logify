@@ -119,12 +119,14 @@ docker exec -i smartlogix-db psql -U postgres -d orders_db < Backend/seed.sql
 
 | Variable | Descripción |
 |----------|-------------|
-| `DATABASE_URL` | Cadena de conexión PostgreSQL |
+| `DB_URL` | Cadena de conexión PostgreSQL |
 | `PORT` | Puerto interno del servicio |
+| `JWT_SECRET`, `JWT_EXPIRES_IN` | Firma y expiración de los JWT (compartidos por todos los servicios) |
 | `INVENTORY_SERVICE_URL` | URL del inventory-service |
 | `SHIPPING_SERVICE_URL` | URL del shipping-service |
 | `NOTIFICATION_SERVICE_URL` | URL del notification-service |
 | `ORDERS_SERVICE_URL` | URL del orders-service (usado por shipping) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push (notification-service) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Correo (opcional) |
 
 ---
@@ -132,10 +134,11 @@ docker exec -i smartlogix-db psql -U postgres -d orders_db < Backend/seed.sql
 ## Pruebas
 
 ```bash
-cd Backend/orders-service && npm test -- --coverage
-cd Backend/inventory-service && npm test -- --coverage
-cd Backend/shipping-service && npm test -- --coverage
-cd Backend/notification-service && npm test -- --coverage
+# npm test ya incluye cobertura (jest --coverage)
+cd Backend/orders-service && npm test        # 60 pruebas
+cd Backend/inventory-service && npm test     # 45 pruebas
+cd Backend/shipping-service && npm test      # 28 pruebas
+cd Backend/notification-service && npm test  # 26 pruebas
 ```
 
-Reportes generados en `coverage/index.html` de cada servicio.
+Reportes generados en `coverage/index.html` de cada servicio. Detalle y cobertura actual en [wiki/Pruebas.md](../wiki/Pruebas.md).

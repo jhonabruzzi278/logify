@@ -12,17 +12,33 @@ Persiste eventos de notificacion generados por los otros microservicios, proporc
 
 ## Dependencias
 
-- express, pg, helmet, cors, express-rate-limit
+- express, pg, helmet, cors, express-rate-limit, jsonwebtoken, pdfkit, web-push
 - shared/ (app, db, logger, validate, security, shutdown)
 
 ## Endpoints
 
+Todos requieren JWT (`Authorization: Bearer <token>`).
+
 | Metodo | Ruta | Descripcion |
 |--------|------|-------------|
-| GET | /api/notifications/test | Health check |
-| POST | /api/notifications | Persistir evento de notificacion |
+| POST | /api/notifications | Persistir evento de notificacion (idempotente) |
 | GET | /api/notifications/order/:id | Trazabilidad completa de un pedido |
 | GET | /api/notifications/audience/:aud | Filtrar por audiencia (CLIENT, OPERATOR, BOTH) |
+| POST | /api/notifications/alert | Alerta de stock manual desde el frontend |
+| GET | /api/notifications/weather-alert?lat=&lon= | Alerta climatica (Open-Meteo); registra evento si es adversa |
+| GET | /api/notifications/report/pdf | Historial de notificaciones en PDF (pdfkit) |
+| GET | /api/notifications/qr?text=X | QR generico (PNG) |
+| GET | /api/notifications/push/vapid-public-key | Clave publica VAPID para Web Push |
+| POST | /api/notifications/push/subscribe | Registrar suscripcion push del navegador |
+| DELETE | /api/notifications/push/subscribe | Eliminar suscripcion push |
+| DELETE | /api/notifications | Limpiar historial de notificaciones |
+
+## Notificaciones Web Push
+
+Cada evento persistido dispara `broadcastPush()` hacia todas las suscripciones
+registradas (tabla `push_subscriptions`), firmado con las claves VAPID
+(`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` en variables de entorno). Las
+suscripciones vencidas (HTTP 404/410) se eliminan automaticamente.
 
 ## Estructura de un evento
 
@@ -39,7 +55,7 @@ Persiste eventos de notificacion generados por los otros microservicios, proporc
 
 ## Idempotencia
 
-Los eventos tienen una restriccion de unicidad en `(event_id, target_audience)`. Si se intenta insertar un evento duplicado, se devuelve el evento existente sin error (UPSERT).
+Los eventos tienen una restriccion de unicidad en `(event_id, target_audience)`. Si se intenta insertar un evento duplicado, el servicio responde `409 {"status":"DUPLICATE","eventId":...}` y no vuelve a procesarlo.
 
 ## Audiencias
 
@@ -53,7 +69,7 @@ Los eventos tienen una restriccion de unicidad en `(event_id, target_audience)`.
 
 ```bash
 # Desde la raiz del proyecto
-docker compose -f docker-compose.node.yml up -d --build
+docker compose up -d --build
 ```
 
 ### Sin Docker (desarrollo)
@@ -80,24 +96,8 @@ DB_URL=postgresql://postgres:postgres@localhost:5432/notification_db node src/in
 npm test
 ```
 
-### Ejecutar con cobertura (genera reporte HTML)
-
-```bash
-npm test -- --coverage
-# Reporte generado en: coverage/index.html
-```
-
-### Ver reporte de cobertura
-
-Abrir `coverage/index.html` en el navegador.
+`npm test` ya genera cobertura (`jest --coverage`); el reporte HTML queda en `coverage/index.html`.
 
 ### Cobertura actual
 
-| Métrica    | Porcentaje |
-|------------|-----------|
-| Statements | ver coverage/index.html |
-| Branches   | ver coverage/index.html |
-| Functions  | ver coverage/index.html |
-| Lines      | ver coverage/index.html |
-
-Umbral mínimo configurado: **60%** en todas las métricas.
+**26 pruebas** en verde (`src/index.test.js`). Cobertura de statements: **29,9 %**. La meta del equipo es 60% (no hay `coverageThreshold` configurado; ver [wiki/Pruebas.md](../../wiki/Pruebas.md)).

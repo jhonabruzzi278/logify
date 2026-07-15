@@ -123,6 +123,16 @@ Sembrados automáticamente en el primer arranque (`seedUsers()` en `Backend/orde
 
 ## Endpoints API (vía BFF :8080)
 
+Salvo login, tracking público, `/api/orders/test` y `validate-rut`, todos los endpoints requieren `Authorization: Bearer <token>`.
+
+### Auth (JWT propio, manejado por orders-service)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/auth/login` | `{username, password}` → JWT firmado con `JWT_SECRET` |
+| POST | `/api/auth/register` | Crear usuario (solo owner/admin) |
+| GET/PUT/DELETE | `/api/auth/users[/:id]` | Gestión de usuarios (solo owner/admin) |
+
 ### Orders
 
 | Método | Ruta | Descripción |
@@ -158,13 +168,16 @@ Sembrados automáticamente en el primer arranque (`seedUsers()` en `Backend/orde
 | GET | `/api/inventory` | Listar productos |
 | GET | `/api/inventory/report` | Reporte clasificado por nivel de stock (SP) |
 | GET | `/api/inventory/:sku` | Consultar SKU |
-| POST | `/api/inventory` | Agregar producto `{sku, stock}` |
+| POST | `/api/inventory` | Agregar producto `{sku, name, stock, price, cost, category, imageUrl}` |
 | PUT | `/api/inventory/:sku` | Actualizar stock `{stock}` |
 | DELETE | `/api/inventory/:sku` | Eliminar producto |
 | POST | `/api/inventory/:sku/adjust?delta=N` | Ajustar stock (SP) |
+| PUT | `/api/inventory/:sku/image` | Asignar imagen `{imageUrl}` |
 | GET | `/api/inventory/report/pdf` | Reporte de inventario en PDF |
 | GET | `/api/inventory/:sku/qr` | Código QR del producto (PNG) |
 | GET | `/api/inventory/geocode?address=X` | Geocodificar dirección (Nominatim) |
+| GET | `/api/inventory/indicadores` | UF/dólar/UTM del día (mindicador.cl, caché 1h) |
+| GET | `/api/inventory/image-search?q=X` | Buscar imágenes de producto (Openverse) |
 | GET | `/api/sales` | Listar ventas |
 | POST | `/api/sales` | Registrar venta `{sku, quantity}` |
 
@@ -189,12 +202,16 @@ Al marcar `ENTREGADO`, se valida:
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/api/notifications` | Persistir evento |
+| POST | `/api/notifications` | Persistir evento (idempotente: 409 DUPLICATE si se repite) |
 | GET | `/api/notifications/order/:id` | Trazabilidad de orden |
 | GET | `/api/notifications/audience/:aud` | Por audiencia |
+| POST | `/api/notifications/alert` | Alerta de stock manual (dispara push) |
 | GET | `/api/notifications/weather-alert?lat=&lon=` | Alerta climática (Open-Meteo), registra evento si es adversa |
 | GET | `/api/notifications/report/pdf` | Historial de notificaciones en PDF |
 | GET | `/api/notifications/qr?text=X` | Código QR genérico (PNG) |
+| GET | `/api/notifications/push/vapid-public-key` | Clave pública VAPID (Web Push) |
+| POST/DELETE | `/api/notifications/push/subscribe` | Alta/baja de suscripción push del navegador |
+| DELETE | `/api/notifications` | Limpiar historial |
 
 ### Integraciones externas
 
@@ -204,6 +221,9 @@ Al marcar `ENTREGADO`, se valida:
 | [Open-Meteo](https://open-meteo.com/) | Clima actual para alertas y riesgo de entrega |
 | [OSRM](http://project-osrm.org/) | Cálculo de rutas y distancias |
 | [QR Server](https://goqr.me/api/) | Generación de códigos QR |
+| [mindicador.cl](https://mindicador.cl/) | Indicadores económicos UF/dólar/UTM |
+| [Openverse](https://openverse.org/) | Búsqueda de imágenes de producto (licencia abierta) |
+| [web-push (VAPID)](https://github.com/web-push-libs/web-push) | Notificaciones push del navegador |
 | [pdfkit](https://pdfkit.org/) | Generación local de reportes PDF |
 
 Ver [wiki/API-Reference.md](wiki/API-Reference.md) para el detalle completo de cada endpoint.
@@ -213,41 +233,47 @@ Ver [wiki/API-Reference.md](wiki/API-Reference.md) para el detalle completo de c
 ## Flujo de negocio completo
 
 ```bash
+# 0. Login → obtener el token JWT (requerido por casi todos los endpoints)
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Admin123!"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+AUTH="Authorization: Bearer $TOKEN"
+
 # 1. Crear cliente con RUT
 curl -X POST http://localhost:8080/api/customers \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"name":"Juan Perez","phone":"+56912345678","email":"juan@mail.cl","rut":"12.345.678-9"}'
 
 # 2. Agregar producto al inventario
 curl -X POST http://localhost:8080/api/inventory \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"sku":"COCA-2L","stock":100}'
 
 # 3. Crear orden → respuesta incluye customerCode (SL-XXXXXX)
 curl -X POST http://localhost:8080/api/orders \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"customerId":1,"sku":"COCA-2L","quantity":3}'
 # → {"customerCode": "SL-AB12CD", ...}
 
 # 4. Confirmar orden (descuenta stock + crea envío TRACK-XXXXXXXX)
-curl -X PUT http://localhost:8080/api/orders/1/confirm
+curl -X PUT -H "$AUTH" http://localhost:8080/api/orders/1/confirm
 
 # 5. Asignar transportista
-curl -X PUT "http://localhost:8080/api/orders/1/assign?transporter=transportista"
+curl -X PUT -H "$AUTH" "http://localhost:8080/api/orders/1/assign?transporter=transportista"
 
 # 6. Avanzar etapas del envío
-curl -X PUT "http://localhost:8080/api/shipments/1/stage?stage=EN_REPARTO"
+curl -X PUT -H "$AUTH" "http://localhost:8080/api/shipments/1/stage?stage=EN_REPARTO"
 
 # 7. Confirmar entrega (valida código + RUT)
 curl -X PUT "http://localhost:8080/api/shipments/1/stage?stage=ENTREGADO" \
-  -H "Content-Type: application/json" \
+  -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"customerCode":"SL-AB12CD","recipientRut":"12.345.678-9","proofOfDeliveryImage":"data:image/..."}'
 
 # 8. El cliente consulta su pedido (endpoint público, sin auth)
 curl http://localhost:8080/api/orders/track/SL-AB12CD
 
 # 9. Ver trazabilidad completa
-curl http://localhost:8080/api/notifications/order/1
+curl -H "$AUTH" http://localhost:8080/api/notifications/order/1
 ```
 
 ---
@@ -285,15 +311,17 @@ docker compose up -d --build orders-service
 
 ## Pruebas
 
+**212 pruebas** en total (backend 159 con Jest + Supertest, frontend 53 con Vitest + RTL). Ver detalle y cobertura en [wiki/Pruebas.md](wiki/Pruebas.md).
+
 ```bash
-# Backend — cada microservicio
-cd Backend/orders-service && npm test -- --coverage
-cd Backend/inventory-service && npm test -- --coverage
-cd Backend/shipping-service && npm test -- --coverage
-cd Backend/notification-service && npm test -- --coverage
+# Backend — npm test ya incluye cobertura (jest --coverage)
+cd Backend/orders-service && npm test        # 60 pruebas
+cd Backend/inventory-service && npm test     # 45 pruebas
+cd Backend/shipping-service && npm test      # 28 pruebas
+cd Backend/notification-service && npm test  # 26 pruebas
 
 # Frontend
-cd Frontend && npm test
+cd Frontend && npm test                      # 53 pruebas
 npm run test:coverage   # Reporte en Frontend/coverage/index.html
 ```
 
@@ -303,20 +331,25 @@ npm run test:coverage   # Reporte en Frontend/coverage/index.html
 
 ```
 SmartLogix/
-├── Frontend/                   # React 18 SPA + PWA (Vite 6)
+├── Frontend/                   # React 18 SPA + PWA (Vite 6) + Web Push
 │   └── src/
 │       ├── app/                # Auth, router, RBAC (access.ts)
 │       ├── hooks/              # useApiQuery, useCustomerScope, usePermissions...
 │       ├── pages/              # 20+ páginas por rol
+│       ├── sw.ts               # Service worker propio (precache + push)
 │       └── types/              # api.ts, domain.ts
 ├── Backend/
-│   ├── orders-service/         # Node.js :8081 — pedidos + clientes + RLS
-│   ├── inventory-service/      # Node.js :8082 — stock + ventas
-│   ├── shipping-service/       # Node.js :8084 — envíos + tracking + entrega
-│   ├── notification-service/   # Node.js :8085 — trazabilidad
+│   ├── orders-service/         # Node.js :8081 — pedidos + clientes + auth JWT + RLS
+│   ├── inventory-service/      # Node.js :8082 — stock + ventas + indicadores + imágenes
+│   ├── shipping-service/       # Node.js :8084 — envíos + tracking + entrega + clima/rutas
+│   ├── notification-service/   # Node.js :8085 — trazabilidad + alertas + Web Push
 │   ├── nginx/                  # Config API Gateway :8080
 │   ├── shared/                 # app, db, logger, validate, security, email
 │   └── seed.sql                # Datos de prueba
+├── Landing/                    # Landing pública (Next.js, deploy en Vercel)
+├── infra/                      # Terraform: VPC, ECS, S3, IAM, SSM (AWS)
+├── .github/workflows/          # CI/CD: infra-deploy, app-deploy, frontend-deploy
+├── wiki/                       # Documentación técnica del proyecto
 ├── ENTREGABLE/                 # Colección Postman + reporte Newman
-└── docker-compose.yml          # Orquestación completa
+└── docker-compose.yml          # Orquestación completa local
 ```

@@ -63,7 +63,10 @@ El frontend aplica control de acceso por rol en dos niveles:
 | `useOperationalWorkspace` | Orquestador de estado: confirmar, cancelar, asignar pedidos, ajustar inventario |
 | `useCustomerScope` | Filtra órdenes/envíos al cliente logueado por email |
 | `usePermissions` | Expone `role` y `can(permission)` del usuario actual |
-| `useAuth` | Session JWT: username, email, grupos/rol |
+| `useAuth` | Session JWT: username, email, rol |
+| `useDebounce` | Valor con retardo — búsqueda de imágenes, validación de RUT, direcciones |
+| `useIndicadores` | UF/dólar/UTM del día desde el backend |
+| `useAuthImage` | Carga imágenes protegidas (QR) como blob con el JWT |
 
 ---
 

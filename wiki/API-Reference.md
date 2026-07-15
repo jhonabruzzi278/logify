@@ -8,9 +8,8 @@ Todos los endpoints expuestos por el API Gateway en `http://localhost:8080`.
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/healthz` | Estado del sistema |
+| GET | `/healthz` | Estado del sistema (gateway) |
 | GET | `/api/orders/test` | Health check orders-service |
-| GET | `/api/shipments/test` | Health check shipping-service |
 
 ---
 
@@ -404,6 +403,48 @@ Resuelve una dirección a coordenadas usando [Nominatim (OpenStreetMap)](https:/
 
 ---
 
+### Indicadores económicos
+
+```
+GET /api/inventory/indicadores
+```
+
+Devuelve UF, dólar y UTM del día vía [mindicador.cl](https://mindicador.cl/), con caché en memoria de 1 hora para no golpear la API externa en cada request.
+
+**Respuesta 200:**
+```json
+{
+  "uf": { "valor": 38541.12, "fecha": "..." },
+  "dolar": { "valor": 943.55, "fecha": "..." },
+  "utm": { "valor": 68923, "fecha": "..." }
+}
+```
+
+---
+
+### Buscar imágenes de producto
+
+```
+GET /api/inventory/image-search?q=laptop
+```
+
+Busca imágenes con licencia abierta vía [Openverse](https://openverse.org/) (`q` mínimo 2 caracteres). Devuelve hasta 8 resultados con `id`, `title`, `thumbnail`, `url`, `creator` y `license`.
+
+---
+
+### Asignar imagen a un producto
+
+```
+PUT /api/inventory/:sku/image
+Content-Type: application/json
+
+{ "imageUrl": "https://..." }
+```
+
+Guarda la URL en la columna `inventory.image_url`. Responde 404 si el SKU no existe.
+
+---
+
 ## Sales
 
 ### Listar ventas
@@ -641,6 +682,41 @@ Genera un código QR PNG a partir de cualquier texto, vía [QR Server API](https
 
 ---
 
+### Alerta de stock manual
+
+```
+POST /api/notifications/alert
+Content-Type: application/json
+
+{ "message": "Stock crítico en COCA-2L" }
+```
+
+Registra un evento `STOCK_ALERT` con audiencia `OPERATOR` y dispara una notificación push a los navegadores suscritos.
+
+---
+
+### Notificaciones Web Push
+
+```
+GET  /api/notifications/push/vapid-public-key
+POST /api/notifications/push/subscribe      { endpoint, keys: { p256dh, auth } }
+DELETE /api/notifications/push/subscribe    { endpoint }
+```
+
+El frontend obtiene la clave pública VAPID, se suscribe con el service worker (`PushManager.subscribe`) y registra la suscripción. Cada evento persistido dispara `broadcastPush()` a todas las suscripciones; las vencidas (404/410) se eliminan automáticamente. Requiere `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` en el entorno (generar con `npx web-push generate-vapid-keys`).
+
+---
+
+### Limpiar historial
+
+```
+DELETE /api/notifications
+```
+
+Elimina todos los registros de notificaciones (uso administrativo).
+
+---
+
 ## Integraciones externas
 
 | Servicio | Uso | Microservicios |
@@ -649,6 +725,9 @@ Genera un código QR PNG a partir de cualquier texto, vía [QR Server API](https
 | [Open-Meteo](https://open-meteo.com/) | Clima actual para alertas y evaluación de riesgo de entrega | notifications, shipping |
 | [OSRM](http://project-osrm.org/) | Cálculo de rutas y distancias | shipping |
 | [QR Server](https://goqr.me/api/) | Generación de códigos QR (PNG) | inventory, notifications, shipping |
+| [mindicador.cl](https://mindicador.cl/) | Indicadores económicos UF/dólar/UTM (caché 1h) | inventory |
+| [Openverse](https://openverse.org/) | Búsqueda de imágenes de producto con licencia abierta | inventory |
+| [web-push (VAPID)](https://github.com/web-push-libs/web-push) | Notificaciones push del navegador | notifications |
 | [pdfkit](https://pdfkit.org/) | Generación local de reportes PDF (sin dependencia externa en runtime) | inventory, orders, notifications |
 
 Estas integraciones son llamadas server-side; no requieren API keys, pero sí conectividad saliente a internet desde los contenedores de cada microservicio.
@@ -662,5 +741,9 @@ Estas integraciones son llamadas server-side; no requieren API keys, pero sí co
 | 200 | OK |
 | 201 | Creado correctamente |
 | 400 | Datos inválidos o validación fallida |
+| 401 | Token JWT ausente, inválido o expirado |
 | 404 | Recurso no encontrado |
+| 409 | Duplicado (SKU existente, evento ya procesado) |
 | 500 | Error interno del servidor |
+
+> Salvo `/healthz`, `/api/auth/login`, `/api/orders/test`, `/api/orders/track/:clientCode` y `/api/customers/validate-rut`, **todos los endpoints requieren** el header `Authorization: Bearer <token>`.

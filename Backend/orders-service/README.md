@@ -52,6 +52,24 @@ Microservicio de gestión de pedidos y clientes. Node.js 22 + Express 4 + Postgr
 | POST | `/api/customers` | Crear cliente `{name, phone, address, email, rut}` |
 | PUT | `/api/customers/:id` | Actualizar cliente (incluyendo RUT) |
 | DELETE | `/api/customers/:id` | Eliminar cliente |
+| GET | `/api/customers/validate-rut?rut=X` | Validar RUT chileno (módulo 11) — **sin auth** |
+| GET | `/api/customers/address-suggest?q=X` | Autocompletar dirección (Nominatim, Chile) |
+
+## Endpoints — Auth (JWT propio)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/auth/login` | Login `{username, password}` → JWT firmado con `JWT_SECRET` — **sin auth** |
+| POST | `/api/auth/register` | Crear usuario (requiere rol owner/admin) |
+| GET | `/api/auth/users` | Listar usuarios (owner/admin) |
+| PUT | `/api/auth/users/:id` | Editar usuario (owner/admin) |
+| DELETE | `/api/auth/users/:id` | Eliminar usuario (owner/admin) |
+
+## Endpoints — PDF
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/orders/:id/pdf` | Comprobante del pedido en PDF (pdfkit) |
 
 ---
 
@@ -125,10 +143,11 @@ Al cancelar una orden `EN_PREPARACION` o `EN_REPARTO`:
 | Variable | Default | Descripción |
 |----------|---------|-------------|
 | `PORT` | 8081 | Puerto HTTP |
-| `DATABASE_URL` | `postgresql://postgres:postgres@postgres-db:5432/orders_db` | Conexión BD |
+| `DB_URL` | `postgresql://postgres:postgres@postgres-db:5432/orders_db` | Conexión BD |
+| `JWT_SECRET` / `JWT_EXPIRES_IN` | — / `8h` | Firma y expiración del JWT |
 | `INVENTORY_SERVICE_URL` | `http://inventory-service:8082` | URL inventory-service |
 | `SHIPPING_SERVICE_URL` | `http://shipping-service:8084` | URL shipping-service |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | — | Configuración correo |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | — | Configuración correo (opcional) |
 
 ---
 
@@ -136,6 +155,5 @@ Al cancelar una orden `EN_PREPARACION` o `EN_REPARTO`:
 
 ```bash
 cd Backend/orders-service
-npm test
-npm test -- --coverage   # Reporte en coverage/index.html
+npm test   # jest --coverage — 60 pruebas, reporte en coverage/index.html
 ```

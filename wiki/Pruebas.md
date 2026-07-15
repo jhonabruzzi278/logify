@@ -1,12 +1,12 @@
 # Pruebas
 
-SmartLogix incluye pruebas unitarias en cada microservicio y en el frontend.
+SmartLogix incluye pruebas unitarias en cada microservicio y en el frontend. Estado actual: **212 pruebas, todas en verde**.
 
 ---
 
 ## Backend — microservicios
 
-Cada servicio usa **Jest** como framework de pruebas y **Supertest** para pruebas de endpoints HTTP.
+Cada servicio usa **Jest** como framework de pruebas y **Supertest** para pruebas de endpoints HTTP. La configuración de Jest vive en el `package.json` de cada servicio.
 
 ### Ejecutar pruebas
 
@@ -17,20 +17,18 @@ cd Backend/inventory-service && npm test
 cd Backend/shipping-service && npm test
 cd Backend/notification-service && npm test
 
-# Con reporte de cobertura (genera coverage/index.html)
-npm test -- --coverage
+# npm test ya incluye cobertura (jest --coverage); genera coverage/index.html
 ```
 
 ### Estructura de las pruebas
 
+Cada servicio tiene una suite única junto a su código:
+
 ```
-orders-service/
-└── src/
-    └── __tests__/
-        ├── orders.test.js      CRUD de órdenes
-        ├── customers.test.js   CRUD de clientes
-        ├── tracking.test.js    Endpoint público de tracking
-        └── rls.test.js         Row-Level Security por rol
+orders-service/src/index.test.js         60 pruebas
+inventory-service/src/index.test.js      45 pruebas
+shipping-service/src/index.test.js       28 pruebas
+notification-service/src/index.test.js   26 pruebas
 ```
 
 ### Qué se prueba
@@ -43,7 +41,7 @@ orders-service/
 | RLS | `client_code` ausente para shipper/customer/vendor, presente para owner/ops |
 | Inventario | CRUD, ajuste de stock, stock negativo |
 | Envíos | Crear, cambiar etapa, validación ENTREGADO |
-| Notificaciones | Persistir evento, consultar por orden, consultar por audiencia |
+| Notificaciones | Persistir evento, idempotencia (409 DUPLICATE), consultar por orden y audiencia |
 
 ### Ejemplo de prueba con Supertest
 
@@ -73,13 +71,14 @@ describe('RLS — client_code', () => {
 
 ## Frontend
 
-Usa **Vitest** como runner y **React Testing Library** para pruebas de componentes.
+Usa **Vitest** como runner y **React Testing Library** para pruebas de componentes. La configuración vive en `vite.config.ts` (bloque `test`).
 
 ### Ejecutar pruebas
 
 ```bash
 cd Frontend
-npm test                 # Modo watch
+npm test                 # Una pasada (vitest run)
+npm run test:watch       # Modo watch
 npm run test:coverage    # Reporte de cobertura en coverage/index.html
 ```
 
@@ -95,20 +94,41 @@ npm run test:coverage    # Reporte de cobertura en coverage/index.html
 
 ---
 
+## Resultados actuales
+
+Última ejecución completa (todas las suites en verde):
+
+| Componente | Pruebas | Cobertura (statements) |
+|-----------|--------:|----------------------:|
+| orders-service | 60 | 46,4 % |
+| inventory-service | 45 | 36,6 % |
+| shipping-service | 28 | 46,3 % |
+| notification-service | 26 | 29,9 % |
+| Frontend | 53 | 77,4 % |
+| **Total** | **212** | — |
+
+> La meta del equipo es 60% en backend. La brecha actual se concentra en las
+> integraciones externas agregadas al final (push, indicadores, QR/PDF), que se
+> verificaron end-to-end pero aún no tienen pruebas unitarias dedicadas. No hay
+> `coverageThreshold` configurado en Jest; convertir la meta en un gate de CI es
+> parte de las mejoras propuestas.
+
+---
+
 ## Colección Postman
 
 En la carpeta `ENTREGABLE/` se incluye la colección Postman con todos los endpoints:
 
 ```
 ENTREGABLE/
-├── SmartLogix.postman_collection.json
-└── SmartLogix_Newman_Report.html
+├── SmartLogix-Postman-Collection.json
+└── newman-report/
 ```
 
 ### Importar en Postman
 
 1. Abrir Postman
-2. `Import` → seleccionar `SmartLogix.postman_collection.json`
+2. `Import` → seleccionar `SmartLogix-Postman-Collection.json`
 3. Configurar la variable de entorno `baseUrl = http://localhost:8080`
 4. Ejecutar los requests en orden
 
@@ -116,48 +136,39 @@ ENTREGABLE/
 
 ```bash
 npm install -g newman
-newman run ENTREGABLE/SmartLogix.postman_collection.json \
+newman run ENTREGABLE/SmartLogix-Postman-Collection.json \
   --env-var "baseUrl=http://localhost:8080" \
   --reporters cli,html \
-  --reporter-html-export ENTREGABLE/SmartLogix_Newman_Report.html
+  --reporter-html-export ENTREGABLE/newman-report/report.html
 ```
-
----
-
-## Cobertura mínima
-
-| Servicio | Umbral configurado |
-|----------|-------------------|
-| orders-service | 60% en todas las métricas |
-| inventory-service | 60% en todas las métricas |
-| shipping-service | 60% en todas las métricas |
-| notification-service | 60% en todas las métricas |
-| Frontend | 60% en todas las métricas |
-
-La configuración está en el `jest.config.js` de cada servicio y en `vitest.config.ts` del frontend.
 
 ---
 
 ## Verificación manual rápida
 
-Para verificar que el sistema completo funciona después de levantar Docker:
+Para verificar que el sistema completo funciona después de levantar Docker. Casi todos los endpoints requieren JWT, así que primero hay que autenticarse:
 
 ```bash
-# 1. Health check
+# 1. Health check (sin auth)
 curl http://localhost:8080/healthz
 
-# 2. Crear cliente y orden
-curl -X POST http://localhost:8080/api/customers \
+# 2. Login → guardar el token
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Admin123!"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+# 3. Crear cliente y orden
+curl -X POST http://localhost:8080/api/customers \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"name":"Test","email":"test@test.cl","rut":"11.111.111-1"}'
 
 curl -X POST http://localhost:8080/api/orders \
-  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"customerId":1,"sku":"TEST-SKU","quantity":1}'
 
-# 3. Confirmar la orden
-curl -X PUT http://localhost:8080/api/orders/1/confirm
+# 4. Confirmar la orden
+curl -X PUT -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/orders/1/confirm
 
-# 4. Verificar tracking (usa el customerCode del paso 2)
+# 5. Verificar tracking (público, usa el customerCode del paso 3)
 curl http://localhost:8080/api/orders/track/SL-XXXXXX
 ```
