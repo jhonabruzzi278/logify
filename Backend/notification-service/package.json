@@ -15,7 +15,8 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.3",
     "pdfkit": "^0.15.2",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "jest": "^29.7.0",

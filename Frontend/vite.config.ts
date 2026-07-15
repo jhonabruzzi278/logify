@@ -19,6 +19,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       includeAssets: ["favicon.svg", "icon-app.svg", "mask-icon.svg"],
       manifest: {
         name: "SmartLogix",
@@ -45,13 +48,12 @@ export default defineConfig({
           }
         ]
       },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
-        cleanupOutdatedCaches: true,
-        navigateFallback: "index.html"
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,svg,png,ico}"]
       },
       devOptions: {
-        enabled: true
+        enabled: true,
+        type: "module"
       }
     })
   ],

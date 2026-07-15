@@ -10,25 +10,15 @@ import "@/styles/index.css";
 
 const isLocalEnvironment = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 
-if (isLocalEnvironment) {
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      void navigator.serviceWorker.getRegistrations().then((registrations) => {
-        registrations.forEach((registration) => {
-          void registration.unregister();
-        });
-      });
-    });
-  }
-
-  if ("caches" in window) {
-    window.addEventListener("load", () => {
-      void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
-    });
-  }
-} else {
-  registerSW({ immediate: true });
+if (isLocalEnvironment && "caches" in window) {
+  // Limpia caches de builds anteriores; el SW de dev (devOptions.enabled) no
+  // precachea, así que no hay riesgo de servir JS obsoleto durante HMR.
+  window.addEventListener("load", () => {
+    void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
+  });
 }
+
+registerSW({ immediate: true });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

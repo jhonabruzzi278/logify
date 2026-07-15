@@ -1,14 +1,49 @@
-﻿import { Boxes, Clock, MapPin, Package, Truck } from "lucide-react";
+﻿import { useEffect, useState } from "react";
+import { Bell, BellOff, Boxes, Clock, MapPin, Package, Truck } from "lucide-react";
 import { useAuth } from "@/app/auth";
 import { getRoleProfile } from "@/app/access";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
+import { getPushSubscription, isPushSupported, subscribeToPush, unsubscribeFromPush } from "@/lib/push-notifications";
+import { cn } from "@/lib/utils";
 import type { ApiOrder, ApiShipment } from "@/types/api";
 import type { Order, Shipment } from "@/types/domain";
+
+type PushStatus = "checking" | "unsupported" | "subscribed" | "unsubscribed";
 
 export function ProfilePage() {
   const { session } = useAuth();
   const profile = session ? getRoleProfile(session.role) : null;
+  const [pushStatus, setPushStatus] = useState<PushStatus>("checking");
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isPushSupported()) { setPushStatus("unsupported"); return; }
+    let cancelled = false;
+    getPushSubscription()
+      .then((sub) => { if (!cancelled) setPushStatus(sub ? "subscribed" : "unsubscribed"); })
+      .catch(() => { if (!cancelled) setPushStatus("unsubscribed"); });
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleTogglePush() {
+    setPushError(null);
+    setPushBusy(true);
+    try {
+      if (pushStatus === "subscribed") {
+        await unsubscribeFromPush();
+        setPushStatus("unsubscribed");
+      } else {
+        await subscribeToPush();
+        setPushStatus("subscribed");
+      }
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : "No se pudo actualizar la suscripción");
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   const { data: orders } = useApiQuery<ApiOrder[], Order[]>({
     path: "/api/orders",
@@ -101,6 +136,33 @@ export function ProfilePage() {
               <span className="text-[#6B7280]">Envíos</span>
               <span className="font-bold text-[#112b4a]">{shipments?.length ?? 0}</span>
             </div>
+          </div>
+
+          {/* Push notifications */}
+          <div className="mt-5 rounded border border-[#DCE0E2] bg-white p-3">
+            <div className="flex items-center gap-2">
+              {pushStatus === "subscribed" ? <Bell className="h-4 w-4 text-[#4B98CF]" /> : <BellOff className="h-4 w-4 text-[#6B7280]" />}
+              <p className="text-xs font-bold text-[#112b4a]">Notificaciones push</p>
+            </div>
+            <p className="mt-1 text-[11px] text-[#6B7280]">
+              {pushStatus === "unsupported" && "No soportado en este navegador."}
+              {pushStatus === "checking" && "Comprobando estado..."}
+              {pushStatus === "subscribed" && "Recibirás alertas aunque la app esté cerrada."}
+              {pushStatus === "unsubscribed" && "Activa para recibir alertas de stock y clima."}
+            </p>
+            {pushStatus !== "unsupported" && pushStatus !== "checking" && (
+              <button
+                onClick={handleTogglePush}
+                disabled={pushBusy}
+                className={cn(
+                  "mt-2 flex w-full items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-50",
+                  pushStatus === "subscribed" ? "border border-red-200 text-red-600 hover:bg-red-50" : "bg-[#4B98CF] text-white hover:bg-[#346384]"
+                )}
+              >
+                {pushBusy ? "Procesando..." : pushStatus === "subscribed" ? "Desactivar" : "Activar"}
+              </button>
+            )}
+            {pushError && <p className="mt-1.5 text-[10px] text-red-500">{pushError}</p>}
           </div>
         </aside>
 

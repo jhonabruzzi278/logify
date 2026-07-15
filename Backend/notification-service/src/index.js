@@ -1,9 +1,16 @@
+const webpush = require('web-push');
 const { createApp } = require('../shared/app');
 const { validateNotificationBody } = require('../shared/validate');
 const { authMiddleware } = require('../shared/auth');
 const log = require('../shared/logger');
 
 const { app, pool, sendError, start } = createApp('notification_db', process.env.PORT || 8085);
+
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:logistica@smartlogix.cl', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
 
 async function ensureTables() {
   await pool.query(`CREATE TABLE IF NOT EXISTS notification_records (
@@ -18,6 +25,28 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE notification_records ALTER COLUMN status DROP NOT NULL`).catch(() => {});
   await pool.query(`ALTER TABLE notification_records ALTER COLUMN source_service DROP NOT NULL`).catch(() => {});
   await pool.query(`ALTER TABLE notification_records ALTER COLUMN occurred_at DROP NOT NULL`).catch(() => {});
+  await pool.query(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id SERIAL PRIMARY KEY, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+    username VARCHAR(100), created_at TIMESTAMP DEFAULT NOW())`);
+}
+
+async function broadcastPush(payload) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  const subs = (await pool.query('SELECT * FROM push_subscriptions')).rows;
+  await Promise.all(subs.map(async (sub) => {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        JSON.stringify(payload)
+      );
+    } catch (err) {
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        await pool.query('DELETE FROM push_subscriptions WHERE endpoint=$1', [sub.endpoint]).catch(() => {});
+      } else {
+        log.warn('Push send failed', { message: err.message });
+      }
+    }
+  }));
 }
 
 app.post('/api/notifications', authMiddleware, async (req, res) => {
@@ -29,6 +58,7 @@ app.post('/api/notifications', authMiddleware, async (req, res) => {
       return res.status(409).json({ status: 'DUPLICATE', eventId: e.eventId });
     await pool.query(`INSERT INTO notification_records (event_id,order_id,customer_id,stage,status,message,target_audience,source_service,occurred_at,received_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
       [e.eventId, e.orderId, e.customerId || 0, e.stage, e.status || 'NOTIFIED', e.message, audience, e.sourceService || 'external', e.occurredAt || new Date()]);
+    broadcastPush({ title: e.stage.replace(/_/g, ' '), body: e.message, url: e.orderId ? `/orders/${e.orderId}` : '/notifications' }).catch(() => {});
     res.status(201).json({ status: 'ACCEPTED', eventId: e.eventId });
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ status: 'DUPLICATE', eventId: req.body.eventId });
@@ -64,6 +94,7 @@ app.post('/api/notifications/alert', authMiddleware, async (req, res) => {
       `INSERT INTO notification_records (event_id,order_id,stage,status,message,target_audience,source_service,occurred_at,received_at) VALUES ($1,0,'STOCK_ALERT','NOTIFIED',$2,'OPERATOR','frontend-alert',NOW(),NOW())`,
       [eventId, message]
     );
+    broadcastPush({ title: 'Alerta de stock', body: message, url: '/inventory' }).catch(() => {});
     res.status(201).json({ status: 'ALERT_SENT', eventId, message });
   } catch (err) { sendError(res, 500, 'Failed', err); }
 });
@@ -102,6 +133,7 @@ app.get('/api/notifications/weather-alert', authMiddleware, async (req, res) => 
          ON CONFLICT DO NOTHING`,
         [eventId, message]
       );
+      broadcastPush({ title: 'Alerta climática', body: message, url: '/notifications' }).catch(() => {});
       res.json({ alert: true, condition, message, weather: { temperature: current.temperature_2m, windSpeed: current.wind_speed_10m, precipitation: current.precipitation, weatherCode: current.weather_code }, location: { lat, lon }, eventId });
     } else {
       res.json({ alert: false, condition, message: 'Sin alertas climáticas activas', weather: { temperature: current.temperature_2m, windSpeed: current.wind_speed_10m, precipitation: current.precipitation, weatherCode: current.weather_code }, location: { lat, lon } });
@@ -152,6 +184,32 @@ app.get('/api/notifications/qr', authMiddleware, async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.send(Buffer.from(await qrRes.arrayBuffer()));
   } catch (err) { sendError(res, 500, 'QR failed', err); }
+});
+
+app.get('/api/notifications/push/vapid-public-key', authMiddleware, (_req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY || null });
+});
+
+app.post('/api/notifications/push/subscribe', authMiddleware, async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) return res.status(400).json({ error: 'endpoint y keys son requeridos' });
+    await pool.query(
+      `INSERT INTO push_subscriptions (endpoint, p256dh, auth, username) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (endpoint) DO UPDATE SET p256dh=$2, auth=$3, username=$4`,
+      [endpoint, keys.p256dh, keys.auth, req.user?.sub || null]
+    );
+    res.status(201).json({ subscribed: true });
+  } catch (err) { sendError(res, 500, 'Failed to subscribe', err); }
+});
+
+app.delete('/api/notifications/push/subscribe', authMiddleware, async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (!endpoint) return res.status(400).json({ error: 'endpoint es requerido' });
+    await pool.query('DELETE FROM push_subscriptions WHERE endpoint=$1', [endpoint]);
+    res.json({ unsubscribed: true });
+  } catch (err) { sendError(res, 500, 'Failed to unsubscribe', err); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

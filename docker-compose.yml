@@ -111,6 +111,9 @@ services:
       - PORT=8085
       - JWT_SECRET=${JWT_SECRET:-smartlogix-jwt-secret-change-me}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:logistica@smartlogix.cl}
     ports:
       - "8085:8085"
     depends_on:
