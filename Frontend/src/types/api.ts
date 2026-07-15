@@ -51,6 +51,7 @@ export interface ApiInventory {
   price: number;
   cost: number;
   category: string;
+  image_url?: string | null;
 }
 
 export interface ApiShipment {

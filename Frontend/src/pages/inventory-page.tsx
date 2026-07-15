@@ -1,14 +1,25 @@
-﻿import { useMemo, useState } from "react";
-import { Download, Minus, PackagePlus, Plus, Search, Trash2, X } from "lucide-react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Check, Download, FileText, ImageOff, Minus, PackagePlus, Plus, Search, Trash2, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
+import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
 import { adaptInventory } from "@/lib/api-adapters";
 import { apiFetch } from "@/lib/api-client";
+import { downloadFile } from "@/lib/api-blob";
 import { exportInventoryCSV } from "@/lib/export-csv";
+
+interface ImageResult {
+  id: string;
+  title: string;
+  thumbnail: string;
+  url: string;
+  creator: string;
+}
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -22,10 +33,28 @@ export function InventoryPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "critical" | "warning" | "healthy">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0 });
+  const [form, setForm] = useState({ sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0, imageUrl: "" });
   const [formError, setFormError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{ sku: string; name: string } | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [imageResults, setImageResults] = useState<ImageResult[]>([]);
+  const [imageSearching, setImageSearching] = useState(false);
   const { can, role } = usePermissions();
+  const { uf, dolar } = useIndicadores();
+
+  const debouncedProductName = useDebounce(form.name, 500);
+
+  useEffect(() => {
+    const q = debouncedProductName.trim();
+    if (q.length < 3) { setImageResults([]); return; }
+    let cancelled = false;
+    setImageSearching(true);
+    apiFetch<ImageResult[]>(`/api/inventory/image-search?q=${encodeURIComponent(q)}`)
+      .then((r) => { if (!cancelled) setImageResults(r); })
+      .catch(() => { if (!cancelled) setImageResults([]); })
+      .finally(() => { if (!cancelled) setImageSearching(false); });
+    return () => { cancelled = true; };
+  }, [debouncedProductName]);
   const { session } = useAuth();
   const canAdjust = can("inventory.adjust");
   const isOwner = role === "owner";
@@ -53,6 +82,17 @@ export function InventoryPage() {
     await deleteProduct(sku);
     setDeleteConfirm(null);
     refresh();
+  }
+
+  async function handleDownloadPdf() {
+    setPdfLoading(true);
+    try {
+      await downloadFile("/api/inventory/report/pdf", `inventario-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      alert("No se pudo generar el PDF de inventario");
+    } finally {
+      setPdfLoading(false);
+    }
   }
 
   const filtered = useMemo(() => {
@@ -103,7 +143,14 @@ export function InventoryPage() {
           >
             <Download className="h-3.5 w-3.5" /> Exportar
           </button>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); } }}>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={pdfLoading}
+            className="flex items-center gap-1 rounded border border-border bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] disabled:opacity-50"
+          >
+            <FileText className="h-3.5 w-3.5" /> {pdfLoading ? "Generando..." : "PDF"}
+          </button>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setImageResults([]); } }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><PackagePlus className="h-3.5 w-3.5" />Agregar producto</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
@@ -114,8 +161,9 @@ export function InventoryPage() {
                 setFormError("");
                 if (!form.sku.trim() || !form.name.trim()) { setFormError("SKU y Nombre son obligatorios"); return; }
                 if (form.stock < 0 || form.price < 0 || form.cost < 0) { setFormError("Stock, Precio y Costo no pueden ser negativos"); return; }
-                await handleAdd({ sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost });
-                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0 });
+                await handleAdd({ sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost, imageUrl: form.imageUrl });
+                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, imageUrl: "" });
+                setImageResults([]);
                 setDialogOpen(false);
               }} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -140,6 +188,51 @@ export function InventoryPage() {
                   <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre</label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Coca-Cola 2L" className="h-9 text-sm" />
                 </div>
+
+                {(imageSearching || imageResults.length > 0 || form.imageUrl) && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Imagen del producto</label>
+                    <div className="flex gap-2 overflow-x-auto scroll-x pb-1">
+                      {imageSearching && (
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-[#DCE0E2]">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />
+                        </div>
+                      )}
+                      {!imageSearching && form.imageUrl && !imageResults.some((r) => r.url === form.imageUrl) && (
+                        <button
+                          type="button"
+                          className="relative h-14 w-14 shrink-0 overflow-hidden rounded border-2 border-[#4B98CF]"
+                        >
+                          <img src={form.imageUrl} alt="Seleccionada" className="h-full w-full object-cover" />
+                          <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#4B98CF]"><Check className="h-2.5 w-2.5 text-white" /></span>
+                        </button>
+                      )}
+                      {!imageSearching && imageResults.map((img) => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => setForm({ ...form, imageUrl: img.url })}
+                          title={img.title}
+                          className={cn(
+                            "relative h-14 w-14 shrink-0 overflow-hidden rounded border-2 transition-colors",
+                            form.imageUrl === img.url ? "border-[#4B98CF]" : "border-transparent hover:border-[#DCE0E2]"
+                          )}
+                        >
+                          <img src={img.thumbnail} alt={img.title} className="h-full w-full object-cover" />
+                          {form.imageUrl === img.url && (
+                            <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#4B98CF]"><Check className="h-2.5 w-2.5 text-white" /></span>
+                          )}
+                        </button>
+                      ))}
+                      {!imageSearching && imageResults.length === 0 && !form.imageUrl && (
+                        <div className="flex h-14 items-center gap-1.5 px-2 text-[10px] text-muted-foreground">
+                          <ImageOff className="h-3.5 w-3.5" /> Sin resultados para "{form.name}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Stock</label>
@@ -158,6 +251,11 @@ export function InventoryPage() {
                       }}
                       className="h-9 text-sm"
                     />
+                    {form.price > 0 && (formatUF(form.price, uf) || formatUSD(form.price, dolar)) && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {[formatUF(form.price, uf), formatUSD(form.price, dolar)].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio compra $</label>
@@ -250,7 +348,16 @@ export function InventoryPage() {
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3 font-bold text-[#4B98CF] hover:underline"><Link to={`/inventory/${product.sku}`} onClick={(e) => e.stopPropagation()}>{product.sku}</Link></td>
+                <td className="px-4 py-3 font-bold text-[#4B98CF] hover:underline">
+                  <Link to={`/inventory/${product.sku}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+                    ) : (
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[#F5F7F9]"><ImageOff className="h-3 w-3 text-[#DCE0E2]" /></span>
+                    )}
+                    {product.sku}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell text-xs">{product.name}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">

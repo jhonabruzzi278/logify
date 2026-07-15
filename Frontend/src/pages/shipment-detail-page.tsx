@@ -1,13 +1,26 @@
-﻿import { useMemo } from "react";
+﻿import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Camera, Check, Clock, Package, Truck, User, QrCode } from "lucide-react";
+import { ArrowLeft, Camera, Check, Cloud, CloudRain, Clock, Navigation, Package, Truck, User, QrCode } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useAuthImage } from "@/hooks/use-auth-image";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
+import { apiFetch, ApiRequestError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { ApiOrder, ApiShipment } from "@/types/api";
 import type { Order, Shipment } from "@/types/domain";
+
+interface WeatherResult {
+  weather: { temperature: number; humidity?: number; precipitation: number; windSpeed: number; condition: string };
+  deliveryRisk: "ALTO" | "BAJO";
+  recommendation: string;
+}
+
+interface RouteResult {
+  distanceKm: number;
+  durationMin: number;
+}
 
 const STEP_LABELS = ["Preparación", "En reparto", "Entregado"];
 
@@ -23,6 +36,9 @@ export function ShipmentDetailPage() {
   const { shipmentId } = useParams();
   const id = Number(shipmentId);
   const { role } = usePermissions();
+  const [conditions, setConditions] = useState<{ weather: WeatherResult; route: RouteResult | null } | null>(null);
+  const [conditionsLoading, setConditionsLoading] = useState(false);
+  const [conditionsError, setConditionsError] = useState<string | null>(null);
 
   const { data: shipments, loading } = useApiQuery<ApiShipment[], Shipment[]>({
     path: "/api/shipments", transform: (r) => r.map(adaptShipment)
@@ -51,6 +67,24 @@ export function ShipmentDetailPage() {
   const orderClientCode = shipment ? (clientCodes.get(shipment.orderId) ?? null) : null;
   const step = shipment ? getStepIndex(shipment.stage) : 0;
   const isCancelled = shipment?.stage === "cancelado";
+  const qrImage = useAuthImage(shipment && shipment.stage === "en_preparacion" ? `/api/shipments/${shipment.id}/qr-image` : null);
+
+  async function handleCheckConditions() {
+    if (!shipment) return;
+    setConditionsLoading(true);
+    setConditionsError(null);
+    try {
+      const [weather, route] = await Promise.all([
+        apiFetch<WeatherResult>(`/api/shipments/${shipment.id}/weather`),
+        apiFetch<RouteResult>(`/api/shipments/${shipment.id}/route`).catch(() => null)
+      ]);
+      setConditions({ weather, route });
+    } catch (err) {
+      setConditionsError(err instanceof ApiRequestError ? err.message : "No se pudo consultar el clima");
+    } finally {
+      setConditionsLoading(false);
+    }
+  }
 
   if (!shipment) {
     return (
@@ -129,14 +163,76 @@ export function ShipmentDetailPage() {
           </div>
           <div className="bg-white border-2 border-dashed border-[#4B98CF] rounded-xl p-4 mx-auto w-fit">
             <div className="w-40 h-40 bg-[#F8FBFD] flex items-center justify-center">
-              <p className="text-xs font-mono text-[#4B98CF] break-all text-center">
-                SMARTLOGIX-{shipment.tracking}
-              </p>
+              {qrImage.loading && <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />}
+              {qrImage.error && <p className="text-[10px] text-red-500 text-center px-2">{qrImage.error}</p>}
+              {qrImage.url && <img src={qrImage.url} alt={`QR de ${shipment.tracking}`} className="h-40 w-40" />}
             </div>
           </div>
           <p className="text-xs text-[#6B7280] text-center mt-3">Escanea para confirmar retiro de la tienda</p>
         </div>
       )}
+
+      {/* Weather + route conditions */}
+      <div className="rounded border border-[#DCE0E2] bg-white p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Cloud className="h-4 w-4 text-[#4B98CF]" />
+            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Condiciones de entrega</p>
+          </div>
+          <button
+            onClick={handleCheckConditions}
+            disabled={conditionsLoading}
+            className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10 disabled:opacity-50"
+          >
+            {conditionsLoading ? "Consultando..." : "Consultar clima y ruta"}
+          </button>
+        </div>
+
+        {conditionsError && <p className="text-xs text-red-500">{conditionsError}</p>}
+
+        {conditions && (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className={cn(
+              "rounded px-4 py-3 flex items-center gap-3",
+              conditions.weather.deliveryRisk === "ALTO" ? "bg-red-50" : "bg-[#F8FAFB]"
+            )}>
+              {conditions.weather.deliveryRisk === "ALTO"
+                ? <CloudRain className="h-5 w-5 text-red-500 shrink-0" />
+                : <Cloud className="h-5 w-5 text-[#4EB4A5] shrink-0" />}
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Clima</p>
+                <p className="text-sm font-semibold text-[#112b4a]">{conditions.weather.weather.condition} · {conditions.weather.weather.temperature}°C</p>
+              </div>
+            </div>
+            <div className="rounded bg-[#F8FAFB] px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Riesgo de entrega</p>
+              <span className={cn(
+                "mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold",
+                conditions.weather.deliveryRisk === "ALTO" ? "bg-red-100 text-red-600" : "bg-[#4EB4A5]/10 text-[#4EB4A5]"
+              )}>
+                {conditions.weather.deliveryRisk}
+              </span>
+            </div>
+            {conditions.route && (
+              <div className="rounded bg-[#F8FAFB] px-4 py-3 flex items-center gap-3">
+                <Navigation className="h-5 w-5 text-[#4B98CF] shrink-0" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Ruta a destino</p>
+                  <p className="text-sm font-semibold text-[#112b4a]">{conditions.route.distanceKm} km · {conditions.route.durationMin} min</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {conditions && (
+          <p className="mt-3 text-xs text-[#6B7280]">{conditions.weather.recommendation}</p>
+        )}
+
+        {!conditions && !conditionsError && (
+          <p className="text-xs text-[#6B7280]">Consulta el clima en destino y la distancia estimada de entrega en tiempo real.</p>
+        )}
+      </div>
 
       {/* Código del cliente — never shown to shipper (also stripped server-side) */}
       {role !== "shipper" && orderClientCode && (

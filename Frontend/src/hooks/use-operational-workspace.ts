@@ -105,7 +105,7 @@ export function useOperationalWorkspace({
     });
   }
 
-  async function addProduct(data: { sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory }) {
+  async function addProduct(data: { sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory; imageUrl?: string }) {
     const response = await apiFetch("/api/inventory", {
       method: "POST",
       body: JSON.stringify({
@@ -115,6 +115,7 @@ export function useOperationalWorkspace({
         price: data.price,
         cost: data.cost,
         category: data.category,
+        imageUrl: data.imageUrl || null,
       }),
     });
     return response;

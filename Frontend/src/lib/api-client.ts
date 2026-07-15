@@ -63,6 +63,30 @@ export class ApiClient {
   }
 
   async fetch<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await this.request(path, init);
+    return this.handleResponse<T>(response);
+  }
+
+  /** Para respuestas binarias (PDF, PNG) que no deben parsearse como JSON. */
+  async fetchBlob(path: string, init?: RequestInit): Promise<Blob> {
+    const response = await this.request(path, init);
+    if (!response.ok) {
+      let message = `Error ${response.status}`;
+      try {
+        const payload = (await response.json()) as ApiErrorResponse;
+        message = payload?.error ?? message;
+      } catch {
+        /* cuerpo no JSON */
+      }
+      if (response.status === 401 || response.status === 403) {
+        this.onAuthError?.(response.status);
+      }
+      throw new ApiRequestError(message, response.status);
+    }
+    return response.blob();
+  }
+
+  private async request(path: string, init?: RequestInit): Promise<Response> {
     const url = `${this.baseUrl}${path}`;
     let response = await this.executeWithTimeout(url, init);
 
@@ -74,7 +98,7 @@ export class ApiClient {
       }
     }
 
-    return this.handleResponse<T>(response);
+    return response;
   }
 
   private async dedupeRefresh(): Promise<string | null> {
@@ -164,6 +188,10 @@ export const apiClient = new ApiClient();
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return apiClient.fetch<T>(path, init);
+}
+
+export async function apiFetchBlob(path: string, init?: RequestInit): Promise<Blob> {
+  return apiClient.fetchBlob(path, init);
 }
 
 export function setApiAuthErrorListener(listener: ((status: number) => void) | null) {

@@ -193,7 +193,8 @@ export function adaptInventory(apiInventory: ApiInventory): Product {
     cost,
     category: cat,
     status: calculateHealthFromStock(inv.stock),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    imageUrl: (inv.image_url as string) || null
   };
 }
 

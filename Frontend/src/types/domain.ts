@@ -18,6 +18,7 @@ export interface Product {
   category: ProductCategory;
   status: HealthState;
   updatedAt: string;
+  imageUrl?: string | null;
 }
 
 export interface OrderItem {

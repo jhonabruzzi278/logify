@@ -1,8 +1,9 @@
-﻿import { useMemo, useState } from "react";
-import { Download, Pencil, Plus, Search, Trash2, User, UserPlus } from "lucide-react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Download, MapPin, Pencil, Plus, Search, Trash2, User, UserPlus, XCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
+import { useDebounce } from "@/hooks/use-debounce";
 import { adaptCustomer } from "@/lib/api-adapters";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,6 +12,18 @@ import { Input } from "@/components/ui/input";
 import type { ApiCustomer } from "@/types/api";
 import type { Customer } from "@/types/domain";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
+
+interface RutValidation {
+  valid: boolean;
+  formatted?: string;
+  error?: string;
+}
+
+interface AddressSuggestion {
+  displayName: string;
+  lat: number;
+  lon: number;
+}
 
 function formatRut(value: string) {
   const clean = value.replace(/[^0-9kK]/g, "");
@@ -29,10 +42,39 @@ export function CustomersPage() {
   const [form, setForm] = useState({ name: "", phone: "", address: "", email: "", rut: "" });
   const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [rutStatus, setRutStatus] = useState<RutValidation | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressFocused, setAddressFocused] = useState(false);
+  const [addressLoading, setAddressLoading] = useState(false);
+
+  const debouncedRut = useDebounce(form.rut, 400);
+  const debouncedAddress = useDebounce(form.address, 400);
 
   const { data: customers, loading, refresh } = useApiQuery<ApiCustomer[], Customer[]>({
     path: "/api/customers", transform: (r) => r.map(adaptCustomer)
   });
+
+  useEffect(() => {
+    const clean = debouncedRut.trim();
+    if (!clean) { setRutStatus(null); return; }
+    let cancelled = false;
+    apiFetch<RutValidation>(`/api/customers/validate-rut?rut=${encodeURIComponent(clean)}`)
+      .then((r) => { if (!cancelled) setRutStatus(r); })
+      .catch(() => { if (!cancelled) setRutStatus(null); });
+    return () => { cancelled = true; };
+  }, [debouncedRut]);
+
+  useEffect(() => {
+    const q = debouncedAddress.trim();
+    if (q.length < 3) { setAddressSuggestions([]); return; }
+    let cancelled = false;
+    setAddressLoading(true);
+    apiFetch<AddressSuggestion[]>(`/api/customers/address-suggest?q=${encodeURIComponent(q)}`)
+      .then((r) => { if (!cancelled) setAddressSuggestions(r); })
+      .catch(() => { if (!cancelled) setAddressSuggestions([]); })
+      .finally(() => { if (!cancelled) setAddressLoading(false); });
+    return () => { cancelled = true; };
+  }, [debouncedAddress]);
 
   useAutoRefresh(() => { if (!loading) refresh(); }, 15000);
 
@@ -95,7 +137,7 @@ export function CustomersPage() {
           <h1 className="text-xl font-bold text-[#112b4a]">Gestión de clientes</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "" }); } }}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "", rut: "" }); setRutStatus(null); setAddressSuggestions([]); } }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><UserPlus className="h-3.5 w-3.5" />Nuevo cliente</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
@@ -110,6 +152,12 @@ export function CustomersPage() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT *</label>
                     <Input value={form.rut} onChange={(e) => setForm({ ...form, rut: formatRut(e.target.value) })} placeholder="12.345.678-9" className="h-9 text-sm" maxLength={12} />
+                    {rutStatus && (
+                      <p className={cn("flex items-center gap-1 text-[10px] font-semibold", rutStatus.valid ? "text-[#4EB4A5]" : "text-red-500")}>
+                        {rutStatus.valid ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        {rutStatus.valid ? `RUT válido (${rutStatus.formatted})` : (rutStatus.error ?? "RUT inválido")}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
@@ -121,9 +169,35 @@ export function CustomersPage() {
                     <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email</label>
                     <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contacto@email.cl" className="h-9 text-sm" />
                   </div>
-                  <div className="space-y-1">
+                  <div className="relative space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Dirección</label>
-                    <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Av. Libertador 1234" className="h-9 text-sm" />
+                    <Input
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      onFocus={() => setAddressFocused(true)}
+                      onBlur={() => setTimeout(() => setAddressFocused(false), 150)}
+                      placeholder="Av. Libertador 1234"
+                      className="h-9 text-sm"
+                      autoComplete="off"
+                    />
+                    {addressFocused && (addressLoading || addressSuggestions.length > 0) && (
+                      <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded border border-[#DCE0E2] bg-white shadow-lg">
+                        {addressLoading && (
+                          <p className="px-3 py-2 text-xs text-[#6B7280]">Buscando direcciones...</p>
+                        )}
+                        {!addressLoading && addressSuggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); setForm({ ...form, address: s.displayName }); setAddressSuggestions([]); }}
+                            className="flex w-full items-start gap-1.5 border-b border-[#F5F7F9] px-3 py-2 text-left text-xs text-[#112b4a] last:border-b-0 hover:bg-[#F5F7F9]"
+                          >
+                            <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-[#4B98CF]" />
+                            <span className="line-clamp-2">{s.displayName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {formError && <p className="text-xs text-red-500">{formError}</p>}

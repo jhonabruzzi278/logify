@@ -1,15 +1,27 @@
 ﻿import { useEffect, useState, useMemo } from "react";
-import { Clock, FileText, Inbox, Package, Search, Trash2, Truck, User, X } from "lucide-react";
+import { Clock, Cloud, CloudRain, Download, FileText, Inbox, Package, QrCode, Search, Trash2, Truck, User, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { managedUsers } from "@/app/user-directory";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useAuthImage } from "@/hooks/use-auth-image";
+import { usePermissions } from "@/hooks/use-permissions";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, ApiRequestError } from "@/lib/api-client";
+import { downloadFile } from "@/lib/api-blob";
 import { clearHistory } from "@/lib/order-history";
 import { cn } from "@/lib/utils";
 import type { ApiOrder, ApiShipment } from "@/types/api";
 import type { Order, Shipment } from "@/types/domain";
+
+interface WeatherAlertResult {
+  alert: boolean;
+  condition: string;
+  message: string;
+  weather: { temperature: number; windSpeed: number; precipitation: number };
+}
 
 type NotifType = "all" | "order" | "shipment" | "inventory" | "system";
 
@@ -39,6 +51,39 @@ export function NotificationsPage() {
   const [search, setSearch] = useState("");
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [clearedIds, setClearedIds] = useState<Set<string>>(new Set());
+  const [weatherAlert, setWeatherAlert] = useState<WeatherAlertResult | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [qrText, setQrText] = useState("");
+  const [qrGenerated, setQrGenerated] = useState<string | null>(null);
+  const { can } = usePermissions();
+  const canViewAlerts = can("alerts.view");
+
+  const qrImage = useAuthImage(qrGenerated ? `/api/notifications/qr?text=${encodeURIComponent(qrGenerated)}` : null);
+
+  async function checkWeatherAlert() {
+    setWeatherLoading(true);
+    try {
+      const result = await apiFetch<WeatherAlertResult>("/api/notifications/weather-alert");
+      setWeatherAlert(result);
+    } catch {
+      setWeatherAlert(null);
+    } finally {
+      setWeatherLoading(false);
+    }
+  }
+
+  async function handleDownloadPdf() {
+    setPdfLoading(true);
+    try {
+      await downloadFile("/api/notifications/report/pdf", `notificaciones-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (err) {
+      alert(err instanceof ApiRequestError ? err.message : "No se pudo generar el PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   const { data: orders } = useApiQuery<ApiOrder[], Order[]>({
     path: "/api/orders",
@@ -203,7 +248,54 @@ export function NotificationsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {canViewAlerts && (
+            <>
+              <button
+                onClick={checkWeatherAlert}
+                disabled={weatherLoading}
+                className="rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10 flex items-center gap-1 disabled:opacity-50"
+              >
+                <Cloud className="h-3 w-3" /> {weatherLoading ? "Consultando..." : "Verificar clima"}
+              </button>
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] flex items-center gap-1 disabled:opacity-50"
+              >
+                <Download className="h-3 w-3" /> {pdfLoading ? "Generando..." : "PDF"}
+              </button>
+              <Dialog open={qrDialogOpen} onOpenChange={(open) => { setQrDialogOpen(open); if (!open) { setQrText(""); setQrGenerated(null); } }}>
+                <DialogTrigger render={
+                  <button className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] flex items-center gap-1">
+                    <QrCode className="h-3 w-3" /> Generar QR
+                  </button>
+                } />
+                <DialogContent showCloseButton={false}>
+                  <DialogHeader>
+                    <DialogTitle>Generador de códigos QR</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Texto a codificar</label>
+                      <Input value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="SMARTLOGIX-TRACK123" className="h-9 text-sm" />
+                    </div>
+                    {qrGenerated && (
+                      <div className="flex flex-col items-center gap-2 py-2">
+                        {qrImage.loading && <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />}
+                        {qrImage.error && <p className="text-xs text-red-500">{qrImage.error}</p>}
+                        {qrImage.url && <img src={qrImage.url} alt={`QR de ${qrGenerated}`} className="h-40 w-40 rounded border border-[#DCE0E2]" />}
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setQrDialogOpen(false)}>Cerrar</Button>
+                      <Button type="button" size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" disabled={!qrText.trim()} onClick={() => setQrGenerated(qrText.trim())}>Generar</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
           <button
             onClick={clearDatabase}
             className="rounded border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 flex items-center gap-1"
@@ -224,6 +316,29 @@ export function NotificationsPage() {
           </button>
         </div>
       </div>
+
+      {weatherAlert && (
+        <div className={cn(
+          "flex items-start gap-3 rounded border px-4 py-3",
+          weatherAlert.alert ? "border-red-200 bg-red-50" : "border-[#4EB4A5]/30 bg-[#4EB4A5]/5"
+        )}>
+          {weatherAlert.alert
+            ? <CloudRain className="h-5 w-5 text-red-500 shrink-0" />
+            : <Cloud className="h-5 w-5 text-[#4EB4A5] shrink-0" />}
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-sm font-bold", weatherAlert.alert ? "text-red-600" : "text-[#4EB4A5]")}>
+              {weatherAlert.alert ? "Alerta climática activa" : "Sin alertas climáticas"}
+            </p>
+            <p className="text-xs text-[#6B7280] mt-0.5">{weatherAlert.message}</p>
+            <p className="text-[10px] text-[#6B7280]/70 mt-1">
+              {weatherAlert.weather.temperature}°C · viento {weatherAlert.weather.windSpeed} km/h · precipitación {weatherAlert.weather.precipitation} mm
+            </p>
+          </div>
+          <button onClick={() => setWeatherAlert(null)} className="shrink-0 rounded p-1 text-[#6B7280] hover:bg-black/5">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

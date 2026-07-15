@@ -1,11 +1,12 @@
 ﻿import { useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Box, Check, Clock, History, Package, Trash2, Truck, X, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Box, Check, Clock, Download, History, Package, Trash2, Truck, X, AlertTriangle } from "lucide-react";
 import { managedUsers } from "@/app/user-directory";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
+import { downloadFile } from "@/lib/api-blob";
 import { buildOrderTimeline } from "@/lib/operational-insights";
 import { getOrderHistory } from "@/lib/order-history";
 import { useCustomerScope } from "@/hooks/use-customer-scope";
@@ -21,6 +22,7 @@ export function OrderDetailPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const customerScope = useCustomerScope();
 
   const { data: orders } = useApiQuery<ApiOrder[], Order[]>({
@@ -50,6 +52,18 @@ export function OrderDetailPage() {
     if (!order) return;
     await deleteOrder(order.id);
     navigate("/orders");
+  }
+
+  async function handleDownloadPdf() {
+    if (!order) return;
+    setPdfLoading(true);
+    try {
+      await downloadFile(`/api/orders/${order.id}/pdf`, `orden-${order.id}.pdf`);
+    } catch {
+      alert("No se pudo generar el comprobante del pedido");
+    } finally {
+      setPdfLoading(false);
+    }
   }
 
   if (!order) {
@@ -116,18 +130,28 @@ export function OrderDetailPage() {
             </p>
           )}
         </div>
-        <span className={cn("self-start rounded-full px-3 py-1 text-xs font-bold", badgeClass())}>
-          {badgeLabel()}
-        </span>
-        {isCancelled && (
+        <div className="flex items-center gap-2 self-start">
+          <span className={cn("rounded-full px-3 py-1 text-xs font-bold", badgeClass())}>
+            {badgeLabel()}
+          </span>
           <button
-            onClick={() => setShowDeleteModal(true)}
-            title="Eliminar pedido"
-            className="inline-flex items-center justify-center rounded-lg border border-red-200 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors"
+            onClick={handleDownloadPdf}
+            disabled={pdfLoading}
+            title="Descargar comprobante PDF"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border min-h-[36px] px-3 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] hover:bg-[#F5F7F9] active:scale-[0.98] transition-colors disabled:opacity-50"
           >
-            <Trash2 className="h-4 w-4" />
+            <Download className="h-3.5 w-3.5" /> {pdfLoading ? "Generando..." : "Comprobante"}
           </button>
-        )}
+          {isCancelled && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              title="Eliminar pedido"
+              className="inline-flex items-center justify-center rounded-lg border border-red-200 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Pipeline */}

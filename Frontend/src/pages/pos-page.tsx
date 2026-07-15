@@ -4,6 +4,7 @@ import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { usePosCart } from "@/hooks/use-pos-cart";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
+import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
 import { adaptInventory } from "@/lib/api-adapters";
 import { ApiErrorBanner } from "@/components/common/api-error-banner";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -40,6 +41,7 @@ export function PosPage() {
   const { operationalInventory, recordSale } = useOperationalWorkspace({ inventory });
 
   const { items, addToCart, removeFromCart, updateQuantity, clearCart, total, itemCount, saleItems } = usePosCart();
+  const { uf, dolar } = useIndicadores();
 
   const filteredProducts = useMemo(() => {
     let list = operationalInventory;
@@ -174,7 +176,14 @@ export function PosPage() {
           <div className="border-t border-border px-4 py-3 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Subtotal</span>
-              <span className="text-sm text-foreground">{formatCurrency(total)}</span>
+              <div className="text-right">
+                <span className="text-sm text-foreground">{formatCurrency(total)}</span>
+                {(formatUF(total, uf) || formatUSD(total, dolar)) && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {[formatUF(total, uf), formatUSD(total, dolar)].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
@@ -331,6 +340,9 @@ export function PosPage() {
                     (product.stock <= 0 || atLimit) && "opacity-40 pointer-events-none"
                   )}
                 >
+                  {product.imageUrl && (
+                    <img src={product.imageUrl} alt="" className="mb-2 h-16 w-full rounded object-cover" />
+                  )}
                   <span className="text-xs font-bold uppercase tracking-[0.5px] text-muted-foreground">
                     {CATEGORY_LABELS[product.category]}
                   </span>

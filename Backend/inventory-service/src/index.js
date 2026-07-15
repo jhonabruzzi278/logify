@@ -17,6 +17,7 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS price INTEGER DEFAULT 0`).catch(() => {});
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS cost INTEGER DEFAULT 0`).catch(() => {});
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS category VARCHAR(30) DEFAULT 'otros'`).catch(() => {});
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_url TEXT`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS sale_group VARCHAR(50)`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20)`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS vendor_id VARCHAR(100)`).catch(() => {});
@@ -133,6 +134,28 @@ app.get('/api/inventory/report/pdf', authMiddleware, async (_req, res) => {
   } catch (err) { sendError(res, 500, 'PDF failed', err); }
 });
 
+let indicadoresCache = { data: null, fetchedAt: 0 };
+const INDICADORES_TTL_MS = 60 * 60 * 1000;
+
+app.get('/api/inventory/indicadores', authMiddleware, async (_req, res) => {
+  try {
+    const now = Date.now();
+    if (indicadoresCache.data && (now - indicadoresCache.fetchedAt) < INDICADORES_TTL_MS) {
+      return res.json(indicadoresCache.data);
+    }
+    const response = await fetch('https://mindicador.cl/api');
+    if (!response.ok) throw new Error(`mindicador.cl error ${response.status}`);
+    const data = await response.json();
+    const result = {
+      uf: { valor: data.uf?.valor ?? null, fecha: data.uf?.fecha ?? null },
+      dolar: { valor: data.dolar?.valor ?? null, fecha: data.dolar?.fecha ?? null },
+      utm: { valor: data.utm?.valor ?? null, fecha: data.utm?.fecha ?? null }
+    };
+    indicadoresCache = { data: result, fetchedAt: now };
+    res.json(result);
+  } catch (err) { sendError(res, 500, 'Indicadores failed', err); }
+});
+
 app.get('/api/inventory/geocode', authMiddleware, async (req, res) => {
   try {
     const address = (req.query.address || '').trim();
@@ -155,6 +178,35 @@ app.get('/api/inventory/geocode', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Geocode failed', err); }
 });
 
+app.get('/api/inventory/image-search', authMiddleware, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.status(400).json({ error: 'q debe tener al menos 2 caracteres' });
+    const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=8&license_type=all`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'SmartLogix/1.0 (logistica@smartlogix.cl)' } });
+    if (!response.ok) throw new Error(`Openverse error ${response.status}`);
+    const data = await response.json();
+    res.json((data.results || []).map(r => ({
+      id: r.id,
+      title: r.title,
+      thumbnail: r.thumbnail,
+      url: r.url,
+      creator: r.creator,
+      license: r.license
+    })));
+  } catch (err) { sendError(res, 500, 'Image search failed', err); }
+});
+
+app.put('/api/inventory/:sku/image', authMiddleware, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ error: 'imageUrl es requerido' });
+    const r = await pool.query('UPDATE inventory SET image_url=$1 WHERE sku=$2 RETURNING *', [imageUrl, req.params.sku]);
+    if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
+    res.json(r.rows[0]);
+  } catch (err) { sendError(res, 500, 'Failed to update image', err); }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 
 app.get('/api/inventory/:sku', authMiddleware, async (req, res) => {
@@ -172,8 +224,8 @@ app.post('/api/inventory', authMiddleware, async (req, res) => {
     if ((await pool.query('SELECT 1 FROM inventory WHERE sku=$1', [req.body.sku])).rows.length)
       return res.status(409).json({ error: 'SKU ya existe' });
     const result = await pool.query(
-      'INSERT INTO inventory (sku, stock, name, price, cost, category) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [req.body.sku, req.body.stock || 0, req.body.name || null, req.body.price || 0, req.body.cost || 0, req.body.category || 'otros']);
+      'INSERT INTO inventory (sku, stock, name, price, cost, category, image_url) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [req.body.sku, req.body.stock || 0, req.body.name || null, req.body.price || 0, req.body.cost || 0, req.body.category || 'otros', req.body.imageUrl || null]);
     res.status(201).json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to create inventory', err); }
 });
