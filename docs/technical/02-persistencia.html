@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>SmartLogix - Persistencia de Datos</title>
+<title>Logify - Persistencia de Datos</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; background: #fff; padding: 32px; }
@@ -45,11 +45,11 @@
 </head>
 <body>
 
-<h1>SmartLogix — Persistencia de Datos</h1>
-<p class="subtitle">Evaluación Parcial N°3 &nbsp;|&nbsp; Estrategia: PostgreSQL + Stored Procedures (plpgsql)</p>
+<h1>Logify — Persistencia de Datos</h1>
+<p class="subtitle">Estrategia: PostgreSQL + Stored Procedures (plpgsql)</p>
 
 <h2>1. Estrategia de Persistencia</h2>
-<p>SmartLogix utiliza <strong>PostgreSQL 15</strong> como motor de base de datos relacional. La capa de persistencia combina dos enfoques:</p>
+<p>Logify utiliza <strong>PostgreSQL 15</strong> como motor de base de datos relacional. La capa de persistencia combina dos enfoques:</p>
 <ul>
   <li><strong>Acceso directo vía SQL parametrizado</strong>: queries con <code>$1, $2, ...</code> usando el driver <code>pg</code> de Node.js (protección contra SQL injection).</li>
   <li><strong>Stored Procedures (funciones plpgsql)</strong>: lógica de negocio compleja delegada a la base de datos para operaciones atómicas y reportes con JOIN.</li>
@@ -108,7 +108,7 @@
 
 <h2>3. Stored Procedures (Funciones plpgsql)</h2>
 
-<p>SmartLogix implementa 4 stored procedures en PostgreSQL, creadas automáticamente al iniciar cada microservicio mediante la función <code>ensureProcedures()</code>. Usan la extensión <span class="badge badge-sp">plpgsql</span> de PostgreSQL.</p>
+<p>Logify implementa 4 stored procedures en PostgreSQL, creadas automáticamente al iniciar cada microservicio mediante la función <code>ensureProcedures()</code>. Usan la extensión <span class="badge badge-sp">plpgsql</span> de PostgreSQL.</p>
 
 <h3>3.1 fn_adjust_stock — inventory_db</h3>
 <p><strong>Propósito:</strong> Ajustar el stock de un SKU de forma atómica. Retorna un resultado estructurado indicando éxito o tipo de error (SKU no encontrado vs. stock insuficiente).</p>
@@ -273,6 +273,6 @@
 
 module.exports = { createPool };</pre>
 
-<footer>SmartLogix — Persistencia de Datos &nbsp;|&nbsp; Evaluación Parcial N°3 &nbsp;|&nbsp; 2026</footer>
+<footer>Logify — Persistencia de Datos</footer>
 </body>
 </html>

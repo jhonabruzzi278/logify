@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>SmartLogix - Arquitectura de Microservicios</title>
+<title>Logify - Arquitectura de Microservicios</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; background: #fff; padding: 32px; }
@@ -37,8 +37,8 @@
 </head>
 <body>
 
-<h1>SmartLogix — Arquitectura de Microservicios</h1>
-<p class="subtitle">Evaluación Parcial N°3 &nbsp;|&nbsp; Fecha: Junio 2026 &nbsp;|&nbsp; Plataforma logística distribuida</p>
+<h1>Logify — Arquitectura de Microservicios</h1>
+<p class="subtitle">Documentación técnica &nbsp;|&nbsp; Plataforma logística distribuida</p>
 
 <h2>1. Diagrama de Arquitectura</h2>
 <div class="diagram-wrap">
@@ -49,7 +49,7 @@
   <!-- Title band -->
   <rect x="0" y="0" width="780" height="40" fill="#0f3460" rx="12"/>
   <rect x="0" y="30" width="780" height="10" fill="#0f3460"/>
-  <text x="390" y="26" text-anchor="middle" fill="white" font-size="15" font-weight="700">SMARTLOGIX — ARQUITECTURA DE MICROSERVICIOS</text>
+  <text x="390" y="26" text-anchor="middle" fill="white" font-size="15" font-weight="700">LOGIFY — ARQUITECTURA DE MICROSERVICIOS</text>
 
   <!-- Internet/Client -->
   <rect x="30" y="68" width="130" height="70" rx="8" fill="#16213e" stroke="#e94560" stroke-width="2"/>
@@ -241,6 +241,6 @@
 <div class="flow-step"><div class="step-num">5</div><p><strong>shipping-service → notification-service</strong>: <code>POST /api/notifications</code> con el evento <code>SHIPMENT_CREATED</code>.</p></div>
 <div class="flow-step"><div class="step-num">6</div><p><strong>orders-service</strong> actualiza el status del pedido a <code>EN_PREPARACION</code> y responde al frontend.</p></div>
 
-<footer>SmartLogix — Arquitectura de Microservicios &nbsp;|&nbsp; Evaluación Parcial N°3 &nbsp;|&nbsp; 2026</footer>
+<footer>Logify — Arquitectura de Microservicios</footer>
 </body>
 </html>

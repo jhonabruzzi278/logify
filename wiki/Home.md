@@ -1,6 +1,6 @@
-# SmartLogix — Wiki
+# Logify — Wiki
 
-Plataforma de gestión logística basada en microservicios. Proyecto académico Evaluación 2.
+Plataforma de gestión logística basada en microservicios.
 
 ---
 
@@ -22,7 +22,7 @@ Plataforma de gestión logística basada en microservicios. Proyecto académico 
 
 ## Resumen del sistema
 
-**SmartLogix** permite gestionar el ciclo completo de una operación logística:
+**Logify** permite gestionar el ciclo completo de una operación logística:
 
 ```
 Cliente crea pedido → Bodega confirma stock → Transportista entrega →
@@ -41,5 +41,5 @@ Cliente verifica su pedido con código SL-XXXXXX
 
 ### Repositorio
 
-- **GitHub:** https://github.com/jhonabruzzi278/smartlogix-eva
-- **Frontend (Vercel):** https://smartlogix-five.vercel.app
+- **GitHub:** https://github.com/jhonabruzzi278/logify
+- **Dominio:** logify.cl (en configuración)
