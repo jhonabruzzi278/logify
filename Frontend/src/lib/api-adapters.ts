@@ -60,6 +60,8 @@ type SnakeOrder = Record<string, unknown> & {
   id: number;
   customer_id?: number;
   customerId?: number;
+  customer_name?: string | null;
+  customerName?: string | null;
   sku: string;
   quantity: number;
   status: string;
@@ -76,6 +78,7 @@ type SnakeOrder = Record<string, unknown> & {
 function readOrderField(order: SnakeOrder): {
   id: number;
   customerId: number;
+  customerName: string | null;
   sku: string;
   quantity: number;
   status: string;
@@ -87,6 +90,7 @@ function readOrderField(order: SnakeOrder): {
   return {
     id: order.id,
     customerId: (order.customerId ?? order.customer_id ?? 0) as number,
+    customerName: (order.customerName ?? order.customer_name ?? null) as string | null,
     sku: order.sku,
     quantity: order.quantity,
     status: order.status,
@@ -101,7 +105,7 @@ export function adaptOrder(apiOrder: ApiOrder, customerName?: string): Order {
   const f = readOrderField(apiOrder as unknown as SnakeOrder);
   return {
     id: String(f.id),
-    customer: customerName ?? `Cliente #${f.customerId}`,
+    customer: customerName ?? f.customerName ?? `Cliente #${f.customerId}`,
     customerId: String(f.customerId),
     source: "Sincronizacion BD",
     stage: normalizeOrderStage(f.status),

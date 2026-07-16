@@ -1,5 +1,5 @@
 import type { Role } from "@/types/domain";
-import { getDefaultApiBaseUrl } from "@/lib/api-config";
+import { readApiConfig } from "@/lib/api-config";
 
 export interface LoginCredentials {
   username: string;
@@ -39,7 +39,7 @@ function parseExpiry(token: string): number {
  * solo reemplaza el cuerpo de esta función.
  */
 export async function loginWithBackend(credentials: LoginCredentials): Promise<Session> {
-  const baseUrl = getDefaultApiBaseUrl();
+  const { baseUrl } = readApiConfig();
   const response = await fetch(`${baseUrl}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -165,7 +165,7 @@ export function ShipmentsPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-[#4B98CF] font-mono">{shipment.tracking}</p>
-                    <p className="text-xs text-[#6B7280]">Pedido #{shipment.orderId} � SKU {shipment.sku}</p>
+                    <p className="text-xs text-[#6B7280]">Pedido #{shipment.orderId} · SKU {shipment.sku}</p>
                   </div>
                 </div>
 

@@ -13,7 +13,7 @@ export interface RegisteredUser {
 export const REGISTERED_USERS: RegisteredUser[] = [
   {
     username: "admin@smartlogix.cl",
-    name: "Administrador SmartLogix",
+    name: "Andrés Soto",
     role: "owner",
     groups: ["admin", "owner"],
     team: "Direccion",
@@ -21,7 +21,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
   },
   {
     username: "operaciones@smartlogix.cl",
-    name: "Operaciones SmartLogix",
+    name: "Marcela Fuentes",
     role: "ops",
     groups: ["operador", "ops"],
     team: "Operaciones",
@@ -29,7 +29,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
   },
   {
     username: "bodega@smartlogix.cl",
-    name: "Bodega SmartLogix",
+    name: "Patricio Salazar",
     role: "warehouse",
     groups: ["bodega", "warehouse"],
     team: "Bodega",
@@ -37,7 +37,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
   },
   {
     username: "soporte@smartlogix.cl",
-    name: "Soporte SmartLogix",
+    name: "Camila Torres",
     role: "support",
     groups: ["soporte", "support"],
     team: "Soporte",
@@ -45,7 +45,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
   },
   {
     username: "transportista@smartlogix.cl",
-    name: "Transportista SmartLogix",
+    name: "Luis Carvajal",
     role: "shipper",
     groups: ["transportista", "shipper"],
     team: "Transporte",
@@ -53,7 +53,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
   },
   {
     username: "maria@smartlogix.cl",
-    name: "Maria Gonzalez",
+    name: "María González",
     role: "vendor",
     groups: ["vendedor", "vendor"],
     team: "Ventas",
@@ -69,11 +69,11 @@ export const REGISTERED_USERS: RegisteredUser[] = [
   },
   {
     username: "cliente@smartlogix.cl",
-    name: "Cliente Demo",
+    name: "Rosa Mardones",
     role: "customer",
     groups: ["cliente", "customer"],
     team: "Clientes",
-    summary: "Cliente final. Consulta sus pedidos y rastrea envios."
+    summary: "Dueña del Almacén Doña Rosa (Ñuñoa). Consulta sus pedidos de reposición y rastrea envíos."
   }
 ];
 

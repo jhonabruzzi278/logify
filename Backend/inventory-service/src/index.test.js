@@ -329,14 +329,30 @@ describe('inventory-service', () => {
   // ─── GET /api/sales ─────────────────────────────────────────────────────────
 
   describe('GET /api/sales', () => {
-    it('retorna lista de ventas con sku, quantity y sale_date', async () => {
+    it('retorna ventas agrupadas con items (JSON), total y createdAt', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [mockSale] });
       const res = await request(app).get('/api/sales');
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body[0].sku).toBe('COCA-2L');
-      expect(res.body[0].quantity).toBe(5);
-      expect(typeof res.body[0].sale_date).toBe('string');
+      const sale = res.body[0];
+      expect(typeof sale.items).toBe('string');
+      const items = JSON.parse(sale.items);
+      expect(items[0].sku).toBe('COCA-2L');
+      expect(items[0].quantity).toBe(5);
+      expect(typeof sale.createdAt).toBe('string');
+      expect(typeof sale.total).toBe('number');
+    });
+
+    it('agrupa en una sola venta las filas que comparten sale_group', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [
+        { id: 1, sku: 'COCA-2L', quantity: 2, unit_price: 2500, total: 5000, sale_group: 'POS-1', payment_method: 'cash', vendor_id: 'v1', vendor_name: 'María', sale_date: new Date().toISOString() },
+        { id: 2, sku: 'PAN-500', quantity: 1, unit_price: 1000, total: 1000, sale_group: 'POS-1', payment_method: 'cash', vendor_id: 'v1', vendor_name: 'María', sale_date: new Date().toISOString() },
+      ] });
+      const res = await request(app).get('/api/sales');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(JSON.parse(res.body[0].items)).toHaveLength(2);
+      expect(res.body[0].total).toBe(6000);
     });
 
     it('retorna array vacío si no hay ventas', async () => {

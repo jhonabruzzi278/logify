@@ -3,6 +3,7 @@ import { Camera, CheckCircle, Package, QrCode, Search, Truck, User, X } from "lu
 import { Link } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useAuthImage } from "@/hooks/use-auth-image";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -41,6 +42,8 @@ export function ShipperDeliveryPage() {
   });
 
   const { operationalShipments, updateShipmentStage } = useOperationalWorkspace({ orders, shipments });
+
+  const qrModalImage = useAuthImage(showQrModal ? `/api/shipments/${showQrModal.id}/qr-image` : null);
 
   const customerNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -308,9 +311,15 @@ export function ShipperDeliveryPage() {
             </div>
             <div className="bg-white border-2 border-dashed border-[#4B98CF] rounded-xl p-4 mx-auto w-fit">
               <div className="w-40 h-40 bg-[#F8FBFD] flex items-center justify-center">
-                <p className="text-xs font-mono text-[#4B98CF] break-all text-center">
-                  SMARTLOGIX-{showQrModal.tracking}
-                </p>
+                {qrModalImage.loading && (
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />
+                )}
+                {qrModalImage.error && (
+                  <p className="text-xs text-red-500 px-2 text-center">{qrModalImage.error}</p>
+                )}
+                {qrModalImage.url && (
+                  <img src={qrModalImage.url} alt={`QR de retiro ${showQrModal.tracking}`} className="h-36 w-36" />
+                )}
               </div>
             </div>
             <p className="text-xs text-[#6B7280]">Escanea este código para confirmar el retiro de la tienda</p>

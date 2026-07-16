@@ -279,8 +279,33 @@ app.post('/api/inventory/:sku/adjust', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/sales', authMiddleware, async (_req, res) => {
-  try { res.json((await pool.query('SELECT * FROM sales ORDER BY sale_date DESC')).rows); }
-  catch (err) { sendError(res, 500, 'Failed to list sales', err); }
+  try {
+    const rows = (await pool.query(
+      `SELECT s.*, i.name AS product_name
+       FROM sales s LEFT JOIN inventory i ON i.sku = s.sku
+       ORDER BY s.sale_date DESC`)).rows;
+    // Agrupa las filas por sale_group (una venta POS inserta una fila por item)
+    const groups = new Map();
+    for (const r of rows) {
+      const key = r.sale_group || `sale-${r.id}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          id: r.id,
+          items: [],
+          total: 0,
+          paymentMethod: r.payment_method || 'cash',
+          vendorId: r.vendor_id || '',
+          vendorName: r.vendor_name || '',
+          createdAt: r.sale_date,
+        });
+      }
+      const g = groups.get(key);
+      const subtotal = r.total || (r.unit_price || 0) * r.quantity;
+      g.items.push({ sku: r.sku, name: r.product_name || r.sku, quantity: r.quantity, unitPrice: r.unit_price || 0, subtotal });
+      g.total += subtotal;
+    }
+    res.json(Array.from(groups.values()).map(g => ({ ...g, items: JSON.stringify(g.items) })));
+  } catch (err) { sendError(res, 500, 'Failed to list sales', err); }
 });
 
 app.post('/api/sales', authMiddleware, async (req, res) => {

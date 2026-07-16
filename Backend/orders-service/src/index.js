@@ -2,6 +2,7 @@
 const { validateOrderBody, validateOrderStatus } = require('../shared/validate');
 const { sendEmail, buildOrderConfirmationEmail } = require('../shared/email');
 const { signToken, authMiddleware, requireRole, extractRoleFromRequest } = require('../shared/auth');
+const { registerSecurityModule } = require('./security-module');
 const log = require('../shared/logger');
 
 const { app, pool, sendError, start } = createApp('orders_db', process.env.PORT || 8081);
@@ -25,6 +26,12 @@ async function ensureTables() {
     id SERIAL PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(200) NOT NULL, role VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
+  // Módulo de seguridad: RUT + correo del trabajador y pregunta secreta para
+  // recuperar la clave sin depender de un correo real (SMTP) en el examen.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS rut VARCHAR(20) UNIQUE`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_question VARCHAR(200)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_answer_hash VARCHAR(255)`);
 }
 
 async function seedUsers() {
@@ -33,14 +40,14 @@ async function seedUsers() {
   if (parseInt(existing.rows[0].cnt) > 0) return;
 
   const users = [
-    { username: 'admin',        password: 'Admin123!', name: 'Administrador',     role: 'owner' },
-    { username: 'operaciones',  password: 'Ops123!',   name: 'Operador Logístico', role: 'ops' },
-    { username: 'bodega',       password: 'Bodega123!',name: 'Encargado Bodega',  role: 'warehouse' },
-    { username: 'transportista',password: 'Trans123!',  name: 'Transportista',     role: 'shipper' },
-    { username: 'vendedor1',    password: 'Vend123!',   name: 'María Vendedora',   role: 'vendor' },
-    { username: 'vendedor2',    password: 'Vend123!',   name: 'Carlos Ventas',     role: 'vendor' },
-    { username: 'soporte',      password: 'Sop123!',    name: 'Soporte Técnico',   role: 'support' },
-    { username: 'cliente',      password: 'Cli123!',    name: 'Cliente Demo',       role: 'customer' },
+    { username: 'admin',        password: 'Admin123!', name: 'Andrés Soto',       role: 'owner' },
+    { username: 'operaciones',  password: 'Ops123!',   name: 'Marcela Fuentes',   role: 'ops' },
+    { username: 'bodega',       password: 'Bodega123!',name: 'Patricio Salazar',  role: 'warehouse' },
+    { username: 'transportista',password: 'Trans123!',  name: 'Luis Carvajal',     role: 'shipper' },
+    { username: 'vendedor1',    password: 'Vend123!',   name: 'María González',    role: 'vendor' },
+    { username: 'vendedor2',    password: 'Vend123!',   name: 'Carlos Muñoz',      role: 'vendor' },
+    { username: 'soporte',      password: 'Sop123!',    name: 'Camila Torres',     role: 'support' },
+    { username: 'cliente',      password: 'Cli123!',    name: 'Rosa Mardones',      role: 'customer' },
   ];
 
   for (const u of users) {
@@ -49,6 +56,34 @@ async function seedUsers() {
       [u.username, hash, u.name, u.role]);
   }
   log.info('Demo users seeded');
+}
+
+// Perfil de seguridad de cada usuario demo: RUT (con dígito verificador válido),
+// correo asociado y pregunta secreta para recuperación de clave. Todas las cuentas
+// demo comparten la misma respuesta ("Firulais") para simplificar la demo en vivo.
+const SECURITY_PROFILES = {
+  admin:         { rut: '15.845.679-6', email: 'andres.soto@smartlogix.cl' },
+  operaciones:   { rut: '16.230.987-0', email: 'marcela.fuentes@smartlogix.cl' },
+  bodega:        { rut: '17.384.562-6', email: 'patricio.salazar@smartlogix.cl' },
+  transportista: { rut: '18.923.456-2', email: 'luis.carvajal@smartlogix.cl' },
+  vendedor1:     { rut: '14.567.890-0', email: 'maria.gonzalez@smartlogix.cl' },
+  vendedor2:     { rut: '16.789.012-1', email: 'carlos.munoz@smartlogix.cl' },
+  soporte:       { rut: '13.456.780-5', email: 'camila.torres@smartlogix.cl' },
+  cliente:       { rut: '19.876.543-0', email: 'rosa.mardones@smartlogix.cl' },
+};
+const DEMO_SECRET_QUESTION = '¿Cuál es el nombre de tu primera mascota?';
+const DEMO_SECRET_ANSWER = 'firulais';
+
+async function ensureSecurityProfiles() {
+  bcrypt = require('bcryptjs');
+  const answerHash = await bcrypt.hash(DEMO_SECRET_ANSWER, 10);
+  for (const [username, profile] of Object.entries(SECURITY_PROFILES)) {
+    await pool.query(
+      `UPDATE users SET rut=$1, email=$2, secret_question=$3, secret_answer_hash=$4
+       WHERE username=$5 AND rut IS NULL`,
+      [profile.rut, profile.email, DEMO_SECRET_QUESTION, answerHash, username]
+    );
+  }
 }
 
 async function ensureProcedures() {
@@ -89,6 +124,8 @@ function stripClientCode(rows) {
 
 // ═══ AUTH ENDPOINTS ═══════════════════════════════════════════════════════════════
 
+registerSecurityModule(app, pool, sendError);
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     bcrypt = require('bcryptjs');
@@ -102,14 +139,14 @@ app.post('/api/auth/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Credenciales invalidas' });
     const token = signToken(user);
-    res.json({ token, role: user.role, name: user.name, username: user.username });
+    res.json({ token, role: user.role, name: user.name, username: user.username, rut: user.rut || null, email: user.email || null });
   } catch (err) { sendError(res, 500, 'Login failed', err); }
 });
 
 app.post('/api/auth/register', authMiddleware, requireRole('owner', 'admin'), async (req, res) => {
   try {
     bcrypt = require('bcryptjs');
-    const { username, password, name, role } = req.body;
+    const { username, password, name, role, rut, email, secretQuestion, secretAnswer } = req.body;
     if (!username || !password || !name || !role) {
       return res.status(400).json({ error: 'username, password, name y role son requeridos' });
     }
@@ -120,16 +157,19 @@ app.post('/api/auth/register', authMiddleware, requireRole('owner', 'admin'), as
     const exists = await pool.query('SELECT 1 FROM users WHERE username=$1', [username.trim().toLowerCase()]);
     if (exists.rows.length) return res.status(409).json({ error: 'El usuario ya existe' });
     const hash = await bcrypt.hash(password, 10);
+    const secretAnswerHash = secretAnswer ? await bcrypt.hash(secretAnswer.trim().toLowerCase(), 10) : null;
     const user = (await pool.query(
-      'INSERT INTO users (username, password_hash, name, role) VALUES ($1,$2,$3,$4) RETURNING id, username, name, role, created_at',
-      [username.trim().toLowerCase(), hash, name.trim(), role.toLowerCase()])).rows[0];
+      `INSERT INTO users (username, password_hash, name, role, rut, email, secret_question, secret_answer_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id, username, name, role, rut, email, secret_question, created_at`,
+      [username.trim().toLowerCase(), hash, name.trim(), role.toLowerCase(), rut || null, email || null, secretQuestion || null, secretAnswerHash])).rows[0];
     res.status(201).json(user);
   } catch (err) { sendError(res, 500, 'Register failed', err); }
 });
 
 app.get('/api/auth/users', authMiddleware, requireRole('owner', 'admin'), async (_req, res) => {
   try {
-    const rows = (await pool.query('SELECT id, username, name, role, created_at, updated_at FROM users ORDER BY username')).rows;
+    const rows = (await pool.query('SELECT id, username, name, role, rut, email, secret_question, created_at, updated_at FROM users ORDER BY username')).rows;
     res.json(rows);
   } catch (err) { sendError(res, 500, 'Failed to list users', err); }
 });
@@ -223,7 +263,9 @@ app.get('/api/orders', authMiddleware, async (req, res) => {
     const role = extractRoleFromRequest(req);
     const limit = req.query.limit ? Math.min(500, Math.max(1, parseInt(req.query.limit))) : null;
     const page = req.query.page ? Math.max(1, parseInt(req.query.page)) : null;
-    let query = 'SELECT * FROM orders ORDER BY created_at DESC';
+    let query = `SELECT o.*, c.name AS customer_name
+       FROM orders o LEFT JOIN customers c ON c.id = o.customer_id
+       ORDER BY o.created_at DESC`;
     const params = [];
     if (limit && page) {
       const offset = (page - 1) * limit;
@@ -466,7 +508,7 @@ app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
 });
 
 if (require.main === module) {
-  (async () => { await ensureTables(); await seedUsers(); await ensureProcedures(); start(); })();
+  (async () => { await ensureTables(); await seedUsers(); await ensureSecurityProfiles(); await ensureProcedures(); start(); })();
 }
 
 module.exports = { app };

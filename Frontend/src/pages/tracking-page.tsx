@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { CheckCircle2, Clock, MapPin, Package, Search, Truck, XCircle } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { CheckCircle2, Clock, History, LogOut, MapPin, Package, Search, Truck, XCircle } from "lucide-react";
+import { useAuth } from "@/app/auth";
 import { adaptShipment } from "@/lib/api-adapters";
 import { cn } from "@/lib/utils";
 import type { ApiNotificationRecord, ApiShipment } from "@/types/api";
@@ -58,6 +59,8 @@ function fmtDate(iso: string) {
 
 export function TrackingPage() {
   const { code } = useParams();
+  const navigate = useNavigate();
+  const { session, logout } = useAuth();
   const [input, setInput] = useState(code ?? "");
   const [result, setResult] = useState<TrackResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -121,6 +124,11 @@ export function TrackingPage() {
     doSearch(input);
   }
 
+  async function handleLogout() {
+    await logout();
+    navigate("/login", { replace: true });
+  }
+
   const stage = result ? normalizeStage(result.order.status) : null;
   const isCancelled = stage === "cancelado";
   const stageIdx = stage && stage !== "cancelado" ? STAGE_ORDER.indexOf(stage) : -1;
@@ -155,9 +163,35 @@ export function TrackingPage() {
           </div>
           <span className="text-white font-bold text-lg tracking-tight">SmartLogix</span>
         </div>
-        <Link to="/login" className="text-white/50 text-xs hover:text-white/80 transition-colors">
-          Acceso interno →
-        </Link>
+        {session ? (
+          <div className="flex items-center gap-3">
+            <span className="text-white/60 text-xs hidden sm:inline">Hola, {session.name}</span>
+            <button
+              type="button"
+              disabled
+              title="Disponible próximamente"
+              className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/40 cursor-not-allowed"
+            >
+              <History className="h-3.5 w-3.5" />
+              Historial de pedidos
+              <span className="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/50">
+                Próximamente
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Cerrar sesión
+            </button>
+          </div>
+        ) : (
+          <Link to="/login" className="text-white/50 text-xs hover:text-white/80 transition-colors">
+            Acceso interno →
+          </Link>
+        )}
       </header>
 
       <div className="flex-1 flex flex-col items-center px-4 py-8">

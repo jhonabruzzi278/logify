@@ -442,7 +442,7 @@ export function InventoryPage() {
               <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
             </div>
             <p className="text-sm text-[#6B7280]">
-              �Estas seguro de eliminar <strong>{deleteConfirm.name}</strong> ({deleteConfirm.sku})?
+              ¿Estás seguro de eliminar <strong>{deleteConfirm.name}</strong> ({deleteConfirm.sku})?
             </p>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
