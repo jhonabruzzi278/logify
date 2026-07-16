@@ -24,6 +24,19 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS vendor_name VARCHAR(200)`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS unit_price INTEGER DEFAULT 0`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS total INTEGER DEFAULT 0`).catch(() => {});
+  await ensureTenantColumns();
+}
+
+// Fase 4A del roadmap multi-tenant (ver wiki/Multi-Tenant.md): backfill al
+// tenant id=1 "logify", el mismo id fijo usado en las migraciones de los
+// otros 3 servicios (no hay FK cross-database entre las 4 bases).
+async function ensureTenantColumns() {
+  for (const table of ['inventory', 'sales', 'processed_events']) {
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
+    await pool.query(`UPDATE ${table} SET tenant_id = 1 WHERE tenant_id IS NULL`);
+    await pool.query(`ALTER TABLE ${table} ALTER COLUMN tenant_id SET NOT NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${table}_tenant ON ${table} (tenant_id)`);
+  }
 }
 
 async function ensureProcedures() {

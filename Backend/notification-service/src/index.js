@@ -28,6 +28,21 @@ async function ensureTables() {
   await pool.query(`CREATE TABLE IF NOT EXISTS push_subscriptions (
     id SERIAL PRIMARY KEY, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
     username VARCHAR(100), created_at TIMESTAMP DEFAULT NOW())`);
+  await ensureTenantColumns();
+}
+
+// Fase 4A del roadmap multi-tenant (ver wiki/Multi-Tenant.md): backfill al
+// tenant id=1 "logify", el mismo id fijo usado en las migraciones de los
+// otros 3 servicios (no hay FK cross-database entre las 4 bases). El
+// filtrado real de broadcastPush() por tenant_id llega en la Fase 4C
+// (hoy push_subscriptions no distingue tenant al enviar, ver nota ahi).
+async function ensureTenantColumns() {
+  for (const table of ['notification_records', 'push_subscriptions']) {
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
+    await pool.query(`UPDATE ${table} SET tenant_id = 1 WHERE tenant_id IS NULL`);
+    await pool.query(`ALTER TABLE ${table} ALTER COLUMN tenant_id SET NOT NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${table}_tenant ON ${table} (tenant_id)`);
+  }
 }
 
 async function broadcastPush(payload) {

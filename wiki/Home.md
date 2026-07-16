@@ -17,6 +17,7 @@ Plataforma de gestión logística basada en microservicios.
 | [[Seguridad-y-RLS]] | JWT, RLS, validación de entrega |
 | [[Frontend]] | Páginas, hooks, PWA |
 | [[Pruebas]] | Tests unitarios y cobertura |
+| [[Multi-Tenant]] | Roadmap y modelo de datos SaaS multi-tenant |
 
 ---
 

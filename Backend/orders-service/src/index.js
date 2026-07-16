@@ -32,6 +32,32 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_question VARCHAR(200)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_answer_hash VARCHAR(255)`);
+  await ensureTenants();
+}
+
+// Fase 4A del roadmap multi-tenant (ver wiki/Multi-Tenant.md): agrega la tabla
+// tenants y una columna tenant_id nullable->backfill->NOT NULL en las tablas
+// de este servicio. El tenant id=1 "logify" agrupa todos los datos existentes
+// y es el mismo id fijo que usan las migraciones de los otros 3 servicios,
+// ya que no hay FK entre bases (Postgres no lo permite cross-database).
+async function ensureTenants() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS tenants (
+    id SERIAL PRIMARY KEY, slug VARCHAR(63) NOT NULL UNIQUE, name VARCHAR(200) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'trial', plan VARCHAR(50) NOT NULL DEFAULT 'trial',
+    contact_email VARCHAR(200), settings JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
+  await pool.query(`
+    INSERT INTO tenants (id, slug, name, status, plan)
+    VALUES (1, 'logify', 'Logify', 'active', 'enterprise')
+    ON CONFLICT (id) DO NOTHING`);
+  await pool.query(`SELECT setval('tenants_id_seq', GREATEST((SELECT MAX(id) FROM tenants), 1))`);
+
+  for (const table of ['users', 'customers', 'orders']) {
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
+    await pool.query(`UPDATE ${table} SET tenant_id = 1 WHERE tenant_id IS NULL`);
+    await pool.query(`ALTER TABLE ${table} ALTER COLUMN tenant_id SET NOT NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_${table}_tenant ON ${table} (tenant_id)`);
+  }
 }
 
 async function seedUsers() {
