@@ -58,16 +58,19 @@ forma consistente entre bases separadas).
 - **4A — Fundación de esquema** ✅ Tabla `tenants` + columna `tenant_id`
   (nullable → backfill a 1 → NOT NULL → índice) en las 4 bases. Sin cambiar
   comportamiento de la app: nada lee ni filtra por `tenant_id` todavía.
-- **4B — Middleware de resolución de tenant** (pendiente) `Backend/shared/tenant.js`
+- **4B — Middleware de resolución de tenant** ✅ `Backend/shared/tenant.js`
   con `extractTenantSlug`, reenvío de `X-Tenant-Slug` entre servicios vía
-  `forwardedFetch`, frontend mandando el header. Sin enforcement todavía.
-- **4C — JWT con tenant + enforcement** (pendiente) El cambio de mayor
-  volumen: `signToken` incluye `tenant_id`/`tenant_slug`, nueva `requireTenant`
-  en `Backend/shared/auth.js`, todas las queries y los 4 stored procedures
-  filtran por `tenant_id`, constraints únicos pasan a compuestos por tenant
-  (`users.username`, `users.rut`, `inventory.sku`, PK de `processed_events`).
-  Incluye corregir `broadcastPush` en notification-service, que hoy manda
-  push a **todas** las suscripciones sin filtrar por tenant.
+  `forwardedFetch`, frontend mandando el header derivado del subdominio.
+- **4C — JWT con tenant + enforcement** ✅ `signToken` incluye
+  `tenant_id`/`tenant_slug`, nueva `requireTenant` en `Backend/shared/auth.js`
+  montada en las ~50 rutas protegidas de los 4 servicios. Todas las queries y
+  los 4 stored procedures filtran por `tenant_id`. Constraints únicos pasan a
+  compuestos por tenant (`users.username`, `users.rut`, `inventory.sku`,
+  `notification_records` event+audience, PK de `processed_events`). Corregido
+  el bug de `broadcastPush` en notification-service (mandaba push a todas las
+  suscripciones sin filtrar por tenant). Verificado con un tenant de prueba
+  real (`acme`): aislamiento de datos confirmado y reuso cruzado de token
+  entre tenants rechazado con 403.
 - **4D — Wildcard DNS + dominio propio** (pendiente) `*.logify.cl` en Vercel,
   `api.logify.cl` en Railway, actualizar `ALLOWED_ORIGINS`/`APP_URL`.
 - **4E — Provisioning de tenants** (pendiente) Alta manual/admin-asistida
