@@ -4,8 +4,16 @@ function applySecurity(app) {
 
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,https://logify-five.vercel.app')
     .split(',').map(s => s.trim());
-  // Túneles temporales (ngrok) para probar la demo fuera de la red local.
-  const allowedOriginPatterns = [/^https:\/\/[a-z0-9-]+\.ngrok-free\.app$/, /^https:\/\/[a-z0-9-]+\.ngrok\.io$/];
+  // Túneles temporales (ngrok) para probar la demo fuera de la red local, y
+  // cualquier subdominio de tenant (acme.logify.cl, etc. — ver
+  // wiki/Multi-Tenant.md). ALLOWED_ORIGINS no soporta wildcard por texto
+  // (es comparación exacta), por eso el dominio propio se cubre aquí como
+  // patrón fijo en vez de depender de listar cada tenant.
+  const allowedOriginPatterns = [
+    /^https:\/\/[a-z0-9-]+\.ngrok-free\.app$/,
+    /^https:\/\/[a-z0-9-]+\.ngrok\.io$/,
+    /^https:\/\/([a-z0-9-]+\.)?logify\.cl$/,
+  ];
 
   app.use(helmet());
 
