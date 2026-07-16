@@ -6,9 +6,10 @@ jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt'),
-  verifyToken: jest.fn().mockReturnValue({ sub: 'admin', role: 'owner', 'cognito:groups': ['owner'] }),
-  authMiddleware: (req, _res, next) => { req.user = { sub: 'admin', role: 'owner', 'cognito:groups': ['owner'] }; next(); },
+  verifyToken: jest.fn().mockReturnValue({ sub: 'admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
+  authMiddleware: (req, _res, next) => { req.user = { sub: 'admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }; next(); },
   requireRole: () => (req, _res, next) => next(),
+  requireTenant: (req, _res, next) => { req.tenantId = req.user?.tenant_id ?? 1; next(); },
   extractRoleFromRequest: () => 'owner',
   JWT_SECRET: 'test-secret',
 }));

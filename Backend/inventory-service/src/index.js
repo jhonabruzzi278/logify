@@ -1,6 +1,6 @@
 const { createApp } = require('../shared/app');
 const { validateInventoryBody, validateSaleBody } = require('../shared/validate');
-const { authMiddleware } = require('../shared/auth');
+const { authMiddleware, requireTenant } = require('../shared/auth');
 const log = require('../shared/logger');
 
 const { app, pool, sendError, start } = createApp('inventory_db', process.env.PORT || 8082);
@@ -39,18 +39,32 @@ async function ensureTenantColumns() {
   }
 }
 
+// Fase 4C del roadmap multi-tenant: sku deja de ser unico globalmente y pasa
+// a ser unico por tenant (dos empresas pueden vender ambas el sku "COCA-2L").
+// processed_events (hoy sin uso real, ver wiki/Multi-Tenant.md) tambien
+// incorpora tenant_id a su PK compuesta por consistencia futura.
+async function ensureTenantConstraints() {
+  await pool.query(`DROP INDEX IF EXISTS idx_inventory_sku`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uk_inventory_tenant_sku ON inventory (tenant_id, sku)`);
+  await pool.query(`ALTER TABLE processed_events DROP CONSTRAINT IF EXISTS processed_events_pkey`).catch(() => {});
+  await pool.query(`ALTER TABLE processed_events ADD PRIMARY KEY (tenant_id, event_type, event_key)`).catch(() => {});
+}
+
 async function ensureProcedures() {
+  // Fase 4C: ambos SP reciben p_tenant_id y filtran por el. drop previo
+  // porque cambia la firma, CREATE OR REPLACE no permite eso.
+  await pool.query(`DROP FUNCTION IF EXISTS fn_adjust_stock(TEXT, INT)`).catch(() => {});
   await pool.query(`
-    CREATE OR REPLACE FUNCTION fn_adjust_stock(p_sku TEXT, p_delta INT)
+    CREATE OR REPLACE FUNCTION fn_adjust_stock(p_sku TEXT, p_delta INT, p_tenant_id INT)
     RETURNS TABLE(sku_out TEXT, new_stock INT, delta INT, success BOOLEAN, error_msg TEXT)
     AS $fn$
     DECLARE v_new_stock INT; v_exists BOOLEAN;
     BEGIN
-      SELECT EXISTS(SELECT 1 FROM inventory WHERE sku = p_sku) INTO v_exists;
+      SELECT EXISTS(SELECT 1 FROM inventory WHERE sku = p_sku AND tenant_id = p_tenant_id) INTO v_exists;
       IF NOT v_exists THEN
         RETURN QUERY SELECT p_sku, NULL::INT, p_delta, FALSE, 'SKU no encontrado'::TEXT; RETURN;
       END IF;
-      UPDATE inventory SET stock = stock + p_delta WHERE sku = p_sku AND stock + p_delta >= 0 RETURNING stock INTO v_new_stock;
+      UPDATE inventory SET stock = stock + p_delta WHERE sku = p_sku AND tenant_id = p_tenant_id AND stock + p_delta >= 0 RETURNING stock INTO v_new_stock;
       IF v_new_stock IS NOT NULL THEN
         RETURN QUERY SELECT p_sku, v_new_stock, p_delta, TRUE, NULL::TEXT;
       ELSE
@@ -59,8 +73,9 @@ async function ensureProcedures() {
     END;
     $fn$ LANGUAGE plpgsql;
   `);
+  await pool.query(`DROP FUNCTION IF EXISTS fn_get_inventory_report()`).catch(() => {});
   await pool.query(`
-    CREATE OR REPLACE FUNCTION fn_get_inventory_report()
+    CREATE OR REPLACE FUNCTION fn_get_inventory_report(p_tenant_id INT)
     RETURNS TABLE(sku VARCHAR, stock INT, stock_level TEXT)
     AS $fn$
     BEGIN
@@ -68,29 +83,29 @@ async function ensureProcedures() {
         SELECT i.sku, i.stock,
           CASE WHEN i.stock = 0 THEN 'SIN_STOCK' WHEN i.stock < 10 THEN 'CRITICO'
                WHEN i.stock < 30 THEN 'BAJO' ELSE 'NORMAL' END::TEXT
-        FROM inventory i ORDER BY i.stock ASC;
+        FROM inventory i WHERE i.tenant_id = p_tenant_id ORDER BY i.stock ASC;
     END;
     $fn$ LANGUAGE plpgsql;
   `);
 }
 
-app.get('/api/inventory', authMiddleware, async (_req, res) => {
-  try { res.json((await pool.query('SELECT * FROM inventory ORDER BY id')).rows); }
+app.get('/api/inventory', authMiddleware, requireTenant, async (req, res) => {
+  try { res.json((await pool.query('SELECT * FROM inventory WHERE tenant_id=$1 ORDER BY id', [req.tenantId])).rows); }
   catch (err) { sendError(res, 500, 'Failed to list inventory', err); }
 });
 
-app.get('/api/inventory/report', authMiddleware, async (_req, res) => {
-  try { res.json((await pool.query('SELECT * FROM fn_get_inventory_report()')).rows); }
+app.get('/api/inventory/report', authMiddleware, requireTenant, async (req, res) => {
+  try { res.json((await pool.query('SELECT * FROM fn_get_inventory_report($1)', [req.tenantId])).rows); }
   catch (err) { sendError(res, 500, 'Failed to get inventory report', err); }
 });
 
 // ═══ EXTERNAL API ENDPOINTS ═══════════════════════════════════════════════════
 
-app.get('/api/inventory/report/pdf', authMiddleware, async (_req, res) => {
+app.get('/api/inventory/report/pdf', authMiddleware, requireTenant, async (req, res) => {
   try {
     const [items, report] = await Promise.all([
-      pool.query('SELECT * FROM inventory ORDER BY id'),
-      pool.query('SELECT * FROM fn_get_inventory_report()')
+      pool.query('SELECT * FROM inventory WHERE tenant_id=$1 ORDER BY id', [req.tenantId]),
+      pool.query('SELECT * FROM fn_get_inventory_report($1)', [req.tenantId])
     ]);
     const levelMap = Object.fromEntries(report.rows.map(r => [r.sku, r.stock_level]));
 
@@ -150,7 +165,7 @@ app.get('/api/inventory/report/pdf', authMiddleware, async (_req, res) => {
 let indicadoresCache = { data: null, fetchedAt: 0 };
 const INDICADORES_TTL_MS = 60 * 60 * 1000;
 
-app.get('/api/inventory/indicadores', authMiddleware, async (_req, res) => {
+app.get('/api/inventory/indicadores', authMiddleware, requireTenant, async (_req, res) => {
   try {
     const now = Date.now();
     if (indicadoresCache.data && (now - indicadoresCache.fetchedAt) < INDICADORES_TTL_MS) {
@@ -169,7 +184,7 @@ app.get('/api/inventory/indicadores', authMiddleware, async (_req, res) => {
   } catch (err) { sendError(res, 500, 'Indicadores failed', err); }
 });
 
-app.get('/api/inventory/geocode', authMiddleware, async (req, res) => {
+app.get('/api/inventory/geocode', authMiddleware, requireTenant, async (req, res) => {
   try {
     const address = (req.query.address || '').trim();
     if (address.length < 3) return res.status(400).json({ error: 'address es requerido (mínimo 3 caracteres)' });
@@ -191,7 +206,7 @@ app.get('/api/inventory/geocode', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Geocode failed', err); }
 });
 
-app.get('/api/inventory/image-search', authMiddleware, async (req, res) => {
+app.get('/api/inventory/image-search', authMiddleware, requireTenant, async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     if (q.length < 2) return res.status(400).json({ error: 'q debe tener al menos 2 caracteres' });
@@ -210,11 +225,11 @@ app.get('/api/inventory/image-search', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Image search failed', err); }
 });
 
-app.put('/api/inventory/:sku/image', authMiddleware, async (req, res) => {
+app.put('/api/inventory/:sku/image', authMiddleware, requireTenant, async (req, res) => {
   try {
     const { imageUrl } = req.body;
     if (!imageUrl) return res.status(400).json({ error: 'imageUrl es requerido' });
-    const r = await pool.query('UPDATE inventory SET image_url=$1 WHERE sku=$2 RETURNING *', [imageUrl, req.params.sku]);
+    const r = await pool.query('UPDATE inventory SET image_url=$1 WHERE sku=$2 AND tenant_id=$3 RETURNING *', [imageUrl, req.params.sku, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update image', err); }
@@ -222,49 +237,49 @@ app.put('/api/inventory/:sku/image', authMiddleware, async (req, res) => {
 
 // ══════════════════════════════════════════════════════════════════════════════
 
-app.get('/api/inventory/:sku', authMiddleware, async (req, res) => {
+app.get('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM inventory WHERE sku=$1', [req.params.sku]);
+    const r = await pool.query('SELECT * FROM inventory WHERE sku=$1 AND tenant_id=$2', [req.params.sku, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to get inventory', err); }
 });
 
-app.post('/api/inventory', authMiddleware, async (req, res) => {
+app.post('/api/inventory', authMiddleware, requireTenant, async (req, res) => {
   try {
     const errors = validateInventoryBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
-    if ((await pool.query('SELECT 1 FROM inventory WHERE sku=$1', [req.body.sku])).rows.length)
+    if ((await pool.query('SELECT 1 FROM inventory WHERE sku=$1 AND tenant_id=$2', [req.body.sku, req.tenantId])).rows.length)
       return res.status(409).json({ error: 'SKU ya existe' });
     const result = await pool.query(
-      'INSERT INTO inventory (sku, stock, name, price, cost, category, image_url) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [req.body.sku, req.body.stock || 0, req.body.name || null, req.body.price || 0, req.body.cost || 0, req.body.category || 'otros', req.body.imageUrl || null]);
+      'INSERT INTO inventory (sku, stock, name, price, cost, category, image_url, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+      [req.body.sku, req.body.stock || 0, req.body.name || null, req.body.price || 0, req.body.cost || 0, req.body.category || 'otros', req.body.imageUrl || null, req.tenantId]);
     res.status(201).json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to create inventory', err); }
 });
 
-app.put('/api/inventory/:sku', authMiddleware, async (req, res) => {
+app.put('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) => {
   try {
     if (req.body.stock === undefined || isNaN(Number(req.body.stock)) || Number(req.body.stock) < 0)
       return res.status(400).json({ error: 'stock must be >= 0' });
-    const r = await pool.query('UPDATE inventory SET stock=$1 WHERE sku=$2 RETURNING *', [Number(req.body.stock), req.params.sku]);
+    const r = await pool.query('UPDATE inventory SET stock=$1 WHERE sku=$2 AND tenant_id=$3 RETURNING *', [Number(req.body.stock), req.params.sku, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update inventory', err); }
 });
 
-app.delete('/api/inventory/:sku', authMiddleware, async (req, res) => {
+app.delete('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const r = await pool.query('DELETE FROM inventory WHERE sku=$1 RETURNING *', [req.params.sku]);
+    const r = await pool.query('DELETE FROM inventory WHERE sku=$1 AND tenant_id=$2 RETURNING *', [req.params.sku, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
     res.json({ deleted: true, sku: req.params.sku });
   } catch (err) { sendError(res, 500, 'Failed to delete', err); }
 });
 
-app.get('/api/inventory/:sku/qr', authMiddleware, async (req, res) => {
+app.get('/api/inventory/:sku/qr', authMiddleware, requireTenant, async (req, res) => {
   try {
     const { sku } = req.params;
-    if (!(await pool.query('SELECT 1 FROM inventory WHERE sku=$1', [sku])).rows.length)
+    if (!(await pool.query('SELECT 1 FROM inventory WHERE sku=$1 AND tenant_id=$2', [sku, req.tenantId])).rows.length)
       return res.status(404).json({ error: 'SKU no encontrado' });
     const size = req.query.size || '200x200';
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent('LOGIFY-SKU:' + sku)}&format=png&margin=10`;
@@ -276,27 +291,28 @@ app.get('/api/inventory/:sku/qr', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'QR failed', err); }
 });
 
-app.post('/api/inventory/:sku/adjust', authMiddleware, async (req, res) => {
+app.post('/api/inventory/:sku/adjust', authMiddleware, requireTenant, async (req, res) => {
   try {
     const delta = parseInt(req.query.delta, 10);
     if (isNaN(delta) || delta === 0) return res.status(400).json({ error: 'delta must be non-zero integer' });
-    const r = await pool.query('SELECT * FROM fn_adjust_stock($1,$2)', [req.params.sku, delta]);
+    const r = await pool.query('SELECT * FROM fn_adjust_stock($1,$2,$3)', [req.params.sku, delta, req.tenantId]);
     const result = r.rows[0];
     if (!result.success) {
       const status = result.error_msg === 'SKU no encontrado' ? 404 : 400;
       return res.status(status).json({ error: result.error_msg });
     }
-    if (delta < 0) await pool.query('INSERT INTO sales (sku, quantity) VALUES ($1,$2)', [req.params.sku, Math.abs(delta)]);
+    if (delta < 0) await pool.query('INSERT INTO sales (sku, quantity, tenant_id) VALUES ($1,$2,$3)', [req.params.sku, Math.abs(delta), req.tenantId]);
     res.json({ sku: req.params.sku, stock: result.new_stock, delta });
   } catch (err) { sendError(res, 500, 'Failed to adjust stock', err); }
 });
 
-app.get('/api/sales', authMiddleware, async (_req, res) => {
+app.get('/api/sales', authMiddleware, requireTenant, async (req, res) => {
   try {
     const rows = (await pool.query(
       `SELECT s.*, i.name AS product_name
-       FROM sales s LEFT JOIN inventory i ON i.sku = s.sku
-       ORDER BY s.sale_date DESC`)).rows;
+       FROM sales s LEFT JOIN inventory i ON i.sku = s.sku AND i.tenant_id = s.tenant_id
+       WHERE s.tenant_id = $1
+       ORDER BY s.sale_date DESC`, [req.tenantId])).rows;
     // Agrupa las filas por sale_group (una venta POS inserta una fila por item)
     const groups = new Map();
     for (const r of rows) {
@@ -321,8 +337,9 @@ app.get('/api/sales', authMiddleware, async (_req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to list sales', err); }
 });
 
-app.post('/api/sales', authMiddleware, async (req, res) => {
+app.post('/api/sales', authMiddleware, requireTenant, async (req, res) => {
   const client = await pool.connect();
+  const tenantId = req.tenantId;
   try {
     const errors = validateSaleBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
@@ -348,8 +365,8 @@ app.post('/api/sales', authMiddleware, async (req, res) => {
           continue;
         }
         const r = await client.query(
-          'SELECT stock FROM inventory WHERE sku=$1 FOR UPDATE',
-          [item.sku]
+          'SELECT stock FROM inventory WHERE sku=$1 AND tenant_id=$2 FOR UPDATE',
+          [item.sku, tenantId]
         );
         if (!r.rows.length) {
           insufficient.push(`SKU no encontrado: ${item.sku}`);
@@ -369,12 +386,12 @@ app.post('/api/sales', authMiddleware, async (req, res) => {
 
       for (const item of saleItems) {
         await client.query(
-          'UPDATE inventory SET stock=stock-$1 WHERE sku=$2',
-          [item.quantity, item.sku]
+          'UPDATE inventory SET stock=stock-$1 WHERE sku=$2 AND tenant_id=$3',
+          [item.quantity, item.sku, tenantId]
         );
         const sale = (await client.query(
-          'INSERT INTO sales (sku, quantity, sale_group, payment_method, vendor_id, vendor_name, unit_price, total, sale_date) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *',
-          [item.sku, item.quantity, saleGroup, req.body.paymentMethod || 'cash', req.body.vendorId || 'unknown', req.body.vendorName || '', item.unitPrice || 0, item.subtotal || 0]
+          'INSERT INTO sales (sku, quantity, sale_group, payment_method, vendor_id, vendor_name, unit_price, total, sale_date, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),$9) RETURNING *',
+          [item.sku, item.quantity, saleGroup, req.body.paymentMethod || 'cash', req.body.vendorId || 'unknown', req.body.vendorName || '', item.unitPrice || 0, item.subtotal || 0, tenantId]
         )).rows[0];
         results.push(sale);
       }
@@ -388,15 +405,15 @@ app.post('/api/sales', authMiddleware, async (req, res) => {
 
     // single-item sale
     const r = await client.query(
-      'UPDATE inventory SET stock=stock-$1 WHERE sku=$2 AND stock>=$1 RETURNING *',
-      [req.body.quantity, req.body.sku]
+      'UPDATE inventory SET stock=stock-$1 WHERE sku=$2 AND tenant_id=$3 AND stock>=$1 RETURNING *',
+      [req.body.quantity, req.body.sku, tenantId]
     );
     if (!r.rows.length) {
-      const exists = await client.query('SELECT 1 FROM inventory WHERE sku=$1', [req.body.sku]);
+      const exists = await client.query('SELECT 1 FROM inventory WHERE sku=$1 AND tenant_id=$2', [req.body.sku, tenantId]);
       client.release();
       return res.status(exists.rows.length ? 400 : 404).json({ error: exists.rows.length ? 'Stock insuficiente' : 'SKU no encontrado' });
     }
-    const sale = (await client.query('INSERT INTO sales (sku, quantity) VALUES ($1,$2) RETURNING *', [req.body.sku, req.body.quantity])).rows[0];
+    const sale = (await client.query('INSERT INTO sales (sku, quantity, tenant_id) VALUES ($1,$2,$3) RETURNING *', [req.body.sku, req.body.quantity, tenantId])).rows[0];
     client.release();
     res.status(201).json(sale);
   } catch (err) {
@@ -407,7 +424,7 @@ app.post('/api/sales', authMiddleware, async (req, res) => {
 });
 
 if (require.main === module) {
-  (async () => { await ensureTables(); await ensureProcedures(); start(); })();
+  (async () => { await ensureTables(); await ensureTenantConstraints(); await ensureProcedures(); start(); })();
 }
 
 module.exports = { app };

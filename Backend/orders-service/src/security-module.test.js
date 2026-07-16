@@ -6,9 +6,10 @@ jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt-token'),
-  verifyToken: jest.fn().mockReturnValue({ sub: 'admin', name: 'Admin', role: 'owner', 'cognito:groups': ['owner'] }),
-  authMiddleware: (req, _res, next) => { req.user = { sub: 'admin', name: 'Admin', role: 'owner', 'cognito:groups': ['owner'] }; next(); },
+  verifyToken: jest.fn().mockReturnValue({ sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
+  authMiddleware: (req, _res, next) => { req.user = { sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }; next(); },
   requireRole: () => (req, _res, next) => next(),
+  requireTenant: (req, _res, next) => { req.tenantId = req.user?.tenant_id ?? 1; next(); },
   extractRoleFromRequest: (req) => (req.user && req.user.role) ? req.user.role.toLowerCase() : null,
   JWT_SECRET: 'test-secret',
 }));
@@ -32,10 +33,16 @@ describe('security-module', () => {
     mockQuery.mockResolvedValue({ rows: [] });
   });
 
+  // Fase 4C: registerSecurityModule ahora resuelve el tenant (resolveTenant)
+  // antes de buscar al usuario, asi que cada test que llega hasta la query
+  // de usuario debe encolar primero la fila de tenant.
+  const TENANT_ROW = { id: 1, slug: 'logify', status: 'active' };
+
   // ─── GET /api/security/forgot-password/question ───────────────────────────
 
   describe('GET /api/security/forgot-password/question', () => {
     it('retorna la pregunta secreta del usuario', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] });
       mockQuery.mockResolvedValueOnce({ rows: [{ secret_question: '¿Cuál es el nombre de tu primera mascota?' }] });
       const res = await request(app).get('/api/security/forgot-password/question?username=bodega');
       expect(res.status).toBe(200);
@@ -43,6 +50,7 @@ describe('security-module', () => {
     });
 
     it('retorna una pregunta genérica si el usuario no existe (no revela existencia)', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] });
       mockQuery.mockResolvedValueOnce({ rows: [] });
       const res = await request(app).get('/api/security/forgot-password/question?username=noexiste');
       expect(res.status).toBe(200);
@@ -61,6 +69,7 @@ describe('security-module', () => {
   describe('POST /api/security/forgot-password/verify', () => {
     it('entrega un resetToken cuando la respuesta secreta es correcta', async () => {
       const answerHash = await bcrypt.hash('firulais', 10);
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] });
       mockQuery.mockResolvedValueOnce({ rows: [{ username: 'bodega', secret_answer_hash: answerHash }] });
       const res = await request(app)
         .post('/api/security/forgot-password/verify')
@@ -70,11 +79,13 @@ describe('security-module', () => {
 
       const payload = jwt.verify(res.body.resetToken, JWT_SECRET);
       expect(payload.sub).toBe('bodega');
+      expect(payload.tenant_id).toBe(TENANT_ROW.id);
       expect(payload.purpose).toBe('password-reset');
     });
 
     it('retorna 400 si la respuesta secreta es incorrecta', async () => {
       const answerHash = await bcrypt.hash('firulais', 10);
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] });
       mockQuery.mockResolvedValueOnce({ rows: [{ username: 'bodega', secret_answer_hash: answerHash }] });
       const res = await request(app)
         .post('/api/security/forgot-password/verify')
@@ -83,6 +94,7 @@ describe('security-module', () => {
     });
 
     it('retorna 400 si el usuario no existe (mismo mensaje que respuesta incorrecta)', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] });
       mockQuery.mockResolvedValueOnce({ rows: [] });
       const res = await request(app)
         .post('/api/security/forgot-password/verify')
@@ -99,8 +111,8 @@ describe('security-module', () => {
   // ─── POST /api/security/forgot-password/reset ──────────────────────────────
 
   describe('POST /api/security/forgot-password/reset', () => {
-    function validResetToken(sub = 'bodega') {
-      return jwt.sign({ sub, purpose: 'password-reset' }, JWT_SECRET, { expiresIn: '10m' });
+    function validResetToken(sub = 'bodega', tenant_id = TENANT_ROW.id) {
+      return jwt.sign({ sub, tenant_id, purpose: 'password-reset' }, JWT_SECRET, { expiresIn: '10m' });
     }
 
     it('actualiza la contraseña con un resetToken válido y contraseñas coincidentes', async () => {

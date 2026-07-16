@@ -26,8 +26,9 @@ function forwardedFetch(req) {
     if (auth && !headers['authorization']) {
       headers['authorization'] = auth;
     }
-    if (req.tenantSlug && !headers['x-tenant-slug']) {
-      headers['x-tenant-slug'] = req.tenantSlug;
+    const tenantSlug = req.user?.tenant_slug || req.tenantSlug;
+    if (tenantSlug && !headers['x-tenant-slug']) {
+      headers['x-tenant-slug'] = tenantSlug;
     }
     return interServiceFetch(url, { ...options, headers });
   };

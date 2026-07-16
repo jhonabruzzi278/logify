@@ -1,7 +1,7 @@
 ﻿const { createApp } = require('../shared/app');
 const { validateOrderBody, validateOrderStatus } = require('../shared/validate');
 const { sendEmail, buildOrderConfirmationEmail } = require('../shared/email');
-const { signToken, authMiddleware, requireRole, extractRoleFromRequest } = require('../shared/auth');
+const { signToken, authMiddleware, requireRole, requireTenant, extractRoleFromRequest } = require('../shared/auth');
 const { registerSecurityModule } = require('./security-module');
 const log = require('../shared/logger');
 
@@ -9,8 +9,18 @@ const { app, pool, sendError, start } = createApp('orders_db', process.env.PORT 
 
 const INVENTORY_URL = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:8082';
 const SHIPPING_URL = process.env.SHIPPING_SERVICE_URL || 'http://shipping-service:8084';
+const DEFAULT_TENANT_SLUG = 'logify';
 
 let bcrypt;
+
+// Fase 4C del roadmap multi-tenant (ver wiki/Multi-Tenant.md): resuelve el
+// tenant desde el slug del subdominio, con fallback al tenant por defecto
+// cuando no viene header (desarrollo local, o cualquier cliente que no lo
+// mande). Usado antes de tener JWT (login, forgot-password).
+async function resolveTenant(slug) {
+  const r = await pool.query('SELECT * FROM tenants WHERE slug=$1', [(slug || DEFAULT_TENANT_SLUG).toLowerCase()]);
+  return r.rows[0] || null;
+}
 
 async function ensureTables() {
   await pool.query(`CREATE TABLE IF NOT EXISTS orders (
@@ -58,6 +68,17 @@ async function ensureTenants() {
     await pool.query(`ALTER TABLE ${table} ALTER COLUMN tenant_id SET NOT NULL`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_${table}_tenant ON ${table} (tenant_id)`);
   }
+}
+
+// Fase 4C del roadmap multi-tenant: username y rut dejan de ser unicos
+// globalmente y pasan a ser unicos por tenant (dos empresas pueden tener
+// ambas un usuario "admin"). Se elimina el UNIQUE global original
+// (declarado inline en la columna) y se crea el indice compuesto.
+async function ensureTenantConstraints() {
+  await pool.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_username_key`);
+  await pool.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rut_key`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uk_users_tenant_username ON users (tenant_id, username)`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uk_users_tenant_rut ON users (tenant_id, rut)`);
 }
 
 async function seedUsers() {
@@ -113,8 +134,12 @@ async function ensureSecurityProfiles() {
 }
 
 async function ensureProcedures() {
+  // Fase 4C del roadmap multi-tenant: ambos SP ahora reciben p_tenant_id y
+  // filtran por el, ademas del status/id. drop previo porque cambia la firma
+  // (numero/orden de parametros), CREATE OR REPLACE no permite eso.
+  await pool.query(`DROP FUNCTION IF EXISTS fn_get_orders_with_customer(TEXT)`).catch(() => {});
   await pool.query(`
-    CREATE OR REPLACE FUNCTION fn_get_orders_with_customer(p_status TEXT DEFAULT NULL)
+    CREATE OR REPLACE FUNCTION fn_get_orders_with_customer(p_status TEXT, p_tenant_id INT)
     RETURNS TABLE(order_id INT, customer_name VARCHAR, customer_email VARCHAR,
                   sku VARCHAR, quantity INT, status VARCHAR, created_at TIMESTAMP, assigned_to VARCHAR)
     AS $fn$
@@ -123,18 +148,19 @@ async function ensureProcedures() {
         SELECT o.id, COALESCE(c.name,'Sin cliente'), COALESCE(c.email,''),
                o.sku, o.quantity, o.status, o.created_at, o.assigned_to
         FROM orders o LEFT JOIN customers c ON c.id = o.customer_id
-        WHERE p_status IS NULL OR o.status = p_status
+        WHERE o.tenant_id = p_tenant_id AND (p_status IS NULL OR o.status = p_status)
         ORDER BY o.created_at DESC;
     END;
     $fn$ LANGUAGE plpgsql;
   `);
+  await pool.query(`DROP FUNCTION IF EXISTS fn_cancel_order(INT, TEXT)`).catch(() => {});
   await pool.query(`
-    CREATE OR REPLACE FUNCTION fn_cancel_order(p_order_id INT, p_reason TEXT DEFAULT '')
+    CREATE OR REPLACE FUNCTION fn_cancel_order(p_order_id INT, p_reason TEXT, p_tenant_id INT)
     RETURNS SETOF orders AS $fn$
     BEGIN
       UPDATE orders SET status = 'CANCELADO', cancel_reason = p_reason
-      WHERE id = p_order_id AND status <> 'CANCELADO';
-      RETURN QUERY SELECT * FROM orders WHERE id = p_order_id;
+      WHERE id = p_order_id AND tenant_id = p_tenant_id AND status <> 'CANCELADO';
+      RETURN QUERY SELECT * FROM orders WHERE id = p_order_id AND tenant_id = p_tenant_id;
     END;
     $fn$ LANGUAGE plpgsql;
   `);
@@ -150,7 +176,7 @@ function stripClientCode(rows) {
 
 // ═══ AUTH ENDPOINTS ═══════════════════════════════════════════════════════════════
 
-registerSecurityModule(app, pool, sendError);
+registerSecurityModule(app, pool, sendError, resolveTenant);
 
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -159,17 +185,20 @@ app.post('/api/auth/login', async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
     }
-    const r = await pool.query('SELECT * FROM users WHERE username=$1', [username.trim().toLowerCase()]);
+    const tenant = await resolveTenant(req.tenantSlug);
+    if (!tenant) return res.status(401).json({ error: 'Credenciales invalidas' });
+    if (tenant.status !== 'active') return res.status(403).json({ error: 'La cuenta de tu empresa no está activa' });
+    const r = await pool.query('SELECT * FROM users WHERE username=$1 AND tenant_id=$2', [username.trim().toLowerCase(), tenant.id]);
     if (!r.rows.length) return res.status(401).json({ error: 'Credenciales invalidas' });
     const user = r.rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Credenciales invalidas' });
-    const token = signToken(user);
+    const token = signToken({ ...user, tenant_slug: tenant.slug });
     res.json({ token, role: user.role, name: user.name, username: user.username, rut: user.rut || null, email: user.email || null });
   } catch (err) { sendError(res, 500, 'Login failed', err); }
 });
 
-app.post('/api/auth/register', authMiddleware, requireRole('owner', 'admin'), async (req, res) => {
+app.post('/api/auth/register', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
   try {
     bcrypt = require('bcryptjs');
     const { username, password, name, role, rut, email, secretQuestion, secretAnswer } = req.body;
@@ -180,45 +209,45 @@ app.post('/api/auth/register', authMiddleware, requireRole('owner', 'admin'), as
     if (!validRoles.includes(role.toLowerCase())) {
       return res.status(400).json({ error: 'Rol invalido. Validos: ' + validRoles.join(', ') });
     }
-    const exists = await pool.query('SELECT 1 FROM users WHERE username=$1', [username.trim().toLowerCase()]);
+    const exists = await pool.query('SELECT 1 FROM users WHERE username=$1 AND tenant_id=$2', [username.trim().toLowerCase(), req.tenantId]);
     if (exists.rows.length) return res.status(409).json({ error: 'El usuario ya existe' });
     const hash = await bcrypt.hash(password, 10);
     const secretAnswerHash = secretAnswer ? await bcrypt.hash(secretAnswer.trim().toLowerCase(), 10) : null;
     const user = (await pool.query(
-      `INSERT INTO users (username, password_hash, name, role, rut, email, secret_question, secret_answer_hash)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO users (username, password_hash, name, role, rut, email, secret_question, secret_answer_hash, tenant_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, username, name, role, rut, email, secret_question, created_at`,
-      [username.trim().toLowerCase(), hash, name.trim(), role.toLowerCase(), rut || null, email || null, secretQuestion || null, secretAnswerHash])).rows[0];
+      [username.trim().toLowerCase(), hash, name.trim(), role.toLowerCase(), rut || null, email || null, secretQuestion || null, secretAnswerHash, req.tenantId])).rows[0];
     res.status(201).json(user);
   } catch (err) { sendError(res, 500, 'Register failed', err); }
 });
 
-app.get('/api/auth/users', authMiddleware, requireRole('owner', 'admin'), async (_req, res) => {
+app.get('/api/auth/users', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const rows = (await pool.query('SELECT id, username, name, role, rut, email, secret_question, created_at, updated_at FROM users ORDER BY username')).rows;
+    const rows = (await pool.query('SELECT id, username, name, role, rut, email, secret_question, created_at, updated_at FROM users WHERE tenant_id=$1 ORDER BY username', [req.tenantId])).rows;
     res.json(rows);
   } catch (err) { sendError(res, 500, 'Failed to list users', err); }
 });
 
-app.put('/api/auth/users/:id', authMiddleware, requireRole('owner', 'admin'), async (req, res) => {
+app.put('/api/auth/users/:id', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
   try {
     bcrypt = require('bcryptjs');
     const { name, role, password } = req.body;
-    const existing = (await pool.query('SELECT * FROM users WHERE id=$1', [req.params.id])).rows[0];
+    const existing = (await pool.query('SELECT * FROM users WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Usuario no encontrado' });
     const newName = name || existing.name;
     const newRole = role || existing.role;
     const hash = password ? await bcrypt.hash(password, 10) : existing.password_hash;
     const updated = (await pool.query(
-      'UPDATE users SET name=$1, role=$2, password_hash=$3, updated_at=NOW() WHERE id=$4 RETURNING id, username, name, role, created_at, updated_at',
-      [newName, newRole.toLowerCase(), hash, req.params.id])).rows[0];
+      'UPDATE users SET name=$1, role=$2, password_hash=$3, updated_at=NOW() WHERE id=$4 AND tenant_id=$5 RETURNING id, username, name, role, created_at, updated_at',
+      [newName, newRole.toLowerCase(), hash, req.params.id, req.tenantId])).rows[0];
     res.json(updated);
   } catch (err) { sendError(res, 500, 'Failed to update user', err); }
 });
 
-app.delete('/api/auth/users/:id', authMiddleware, requireRole('owner', 'admin'), async (req, res) => {
+app.delete('/api/auth/users/:id', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const r = await pool.query('DELETE FROM users WHERE id=$1 RETURNING id, username', [req.params.id]);
+    const r = await pool.query('DELETE FROM users WHERE id=$1 AND tenant_id=$2 RETURNING id, username', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json({ message: 'Usuario eliminado', user: r.rows[0] });
   } catch (err) { sendError(res, 500, 'Failed to delete user', err); }
@@ -228,40 +257,43 @@ app.delete('/api/auth/users/:id', authMiddleware, requireRole('owner', 'admin'),
 
 app.get('/api/orders/test', (_req, res) => res.send('orders-service UP'));
 
-// Public tracking — only safe fields, no contact data
+// Public tracking — only safe fields, no contact data. req.tenantSlug cae al
+// tenant por defecto si no viene header (ver resolveTenant).
 app.get('/api/orders/track/:clientCode', async (req, res) => {
   try {
+    const tenant = await resolveTenant(req.tenantSlug);
+    if (!tenant) return res.status(404).json({ error: 'Código de cliente no encontrado' });
     const r = await pool.query(
       `SELECT o.id, o.sku, o.quantity, o.status, o.created_at, o.client_code, o.cancel_reason,
               c.name as customer_name
        FROM orders o LEFT JOIN customers c ON c.id = o.customer_id
-       WHERE o.client_code = $1`,
-      [req.params.clientCode.toUpperCase()]
+       WHERE o.client_code = $1 AND o.tenant_id = $2`,
+      [req.params.clientCode.toUpperCase(), tenant.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Código de cliente no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to track order', err); }
 });
 
-app.get('/api/orders/report', authMiddleware, async (req, res) => {
+app.get('/api/orders/report', authMiddleware, requireTenant, async (req, res) => {
   try {
     const status = req.query.status ? req.query.status.toUpperCase() : null;
-    const r = await pool.query('SELECT * FROM fn_get_orders_with_customer($1)', [status]);
+    const r = await pool.query('SELECT * FROM fn_get_orders_with_customer($1, $2)', [status, req.tenantId]);
     res.json(r.rows);
   } catch (err) { sendError(res, 500, 'Failed to get orders report', err); }
 });
 
-app.post('/api/orders', authMiddleware, async (req, res) => {
+app.post('/api/orders', authMiddleware, requireTenant, async (req, res) => {
   try {
     const errors = validateOrderBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
     const { customerId, sku, quantity } = req.body;
     const clientCode = 'SL-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     const order = (await pool.query(
-      "INSERT INTO orders (customer_id, sku, quantity, status, created_at, client_code) VALUES ($1,$2,$3,'CREATED',NOW(),$4) RETURNING *",
-      [customerId, sku, quantity, clientCode])).rows[0];
+      "INSERT INTO orders (customer_id, sku, quantity, status, created_at, client_code, tenant_id) VALUES ($1,$2,$3,'CREATED',NOW(),$4,$5) RETURNING *",
+      [customerId, sku, quantity, clientCode, req.tenantId])).rows[0];
 
-    const customer = (await pool.query('SELECT * FROM customers WHERE id=$1', [customerId])).rows[0];
+    const customer = (await pool.query('SELECT * FROM customers WHERE id=$1 AND tenant_id=$2', [customerId, req.tenantId])).rows[0];
     const customerCode = order.client_code;
 
     if (customer && customer.email) {
@@ -284,18 +316,19 @@ app.post('/api/orders', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to create order', err); }
 });
 
-app.get('/api/orders', authMiddleware, async (req, res) => {
+app.get('/api/orders', authMiddleware, requireTenant, async (req, res) => {
   try {
     const role = extractRoleFromRequest(req);
     const limit = req.query.limit ? Math.min(500, Math.max(1, parseInt(req.query.limit))) : null;
     const page = req.query.page ? Math.max(1, parseInt(req.query.page)) : null;
     let query = `SELECT o.*, c.name AS customer_name
        FROM orders o LEFT JOIN customers c ON c.id = o.customer_id
+       WHERE o.tenant_id = $1
        ORDER BY o.created_at DESC`;
-    const params = [];
+    const params = [req.tenantId];
     if (limit && page) {
       const offset = (page - 1) * limit;
-      query += ' LIMIT $1 OFFSET $2';
+      query += ' LIMIT $2 OFFSET $3';
       params.push(limit, offset);
     }
     const rows = (await pool.query(query, params)).rows;
@@ -305,10 +338,10 @@ app.get('/api/orders', authMiddleware, async (req, res) => {
   catch (err) { sendError(res, 500, 'Failed to list orders', err); }
 });
 
-app.get('/api/orders/:id', authMiddleware, async (req, res) => {
+app.get('/api/orders/:id', authMiddleware, requireTenant, async (req, res) => {
   try {
     const role = extractRoleFromRequest(req);
-    const r = await pool.query('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+    const r = await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     const row = r.rows[0];
     if (RESTRICTED_ROLES.has(role)) delete row.client_code;
@@ -316,20 +349,20 @@ app.get('/api/orders/:id', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to get order', err); }
 });
 
-app.put('/api/orders/:id/status', authMiddleware, async (req, res) => {
+app.put('/api/orders/:id/status', authMiddleware, requireTenant, async (req, res) => {
   try {
     const statusErr = validateOrderStatus(req.query.status?.toUpperCase() || '');
     if (statusErr.length) return res.status(400).json({ error: statusErr.join(', ') });
-    const result = await pool.query('UPDATE orders SET status=$1 WHERE id=$2 RETURNING *', [req.query.status.toUpperCase(), req.params.id]);
+    const result = await pool.query('UPDATE orders SET status=$1 WHERE id=$2 AND tenant_id=$3 RETURNING *', [req.query.status.toUpperCase(), req.params.id, req.tenantId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     res.json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update status', err); }
 });
 
-app.put('/api/orders/:id/confirm', authMiddleware, async (req, res) => {
+app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, async (req, res) => {
   const orderId = req.params.id;
   try {
-    const order = (await pool.query('SELECT * FROM orders WHERE id=$1', [orderId])).rows[0];
+    const order = (await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
     if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
     const errors = [];
 
@@ -339,16 +372,16 @@ app.put('/api/orders/:id/confirm', authMiddleware, async (req, res) => {
     try { await req.forwardedFetch(`${SHIPPING_URL}/api/shipments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: parseInt(orderId), customerId: order.customer_id, sku: order.sku, quantity: order.quantity }) }); }
     catch (e) { log.error('Shipment creation failed', { orderId, message: e.message }); errors.push(`Envío: ${e.message}`); }
 
-    await pool.query("UPDATE orders SET status='EN_PREPARACION' WHERE id=$1", [orderId]);
-    const updated = (await pool.query('SELECT * FROM orders WHERE id=$1', [orderId])).rows[0];
+    await pool.query("UPDATE orders SET status='EN_PREPARACION' WHERE id=$1 AND tenant_id=$2", [orderId, req.tenantId]);
+    const updated = (await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
     log.info('Order confirmed', { orderId, hasErrors: errors.length > 0 });
     res.json({ ...updated, warnings: errors.length ? errors : undefined });
   } catch (err) { sendError(res, 500, 'Failed to confirm order', err); }
 });
 
-app.put('/api/orders/:id/cancel', authMiddleware, async (req, res) => {
+app.put('/api/orders/:id/cancel', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const order = (await pool.query('SELECT * FROM orders WHERE id=$1', [req.params.id])).rows[0];
+    const order = (await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
     if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
     const reason = (req.body.reason || '').substring(0, 255);
 
@@ -366,24 +399,24 @@ app.put('/api/orders/:id/cancel', authMiddleware, async (req, res) => {
       } catch (e) { log.warn('Shipment cancel failed', { orderId: req.params.id, message: e.message }); }
     }
 
-    const cancelled = (await pool.query('SELECT * FROM fn_cancel_order($1,$2)', [req.params.id, reason])).rows[0];
+    const cancelled = (await pool.query('SELECT * FROM fn_cancel_order($1,$2,$3)', [req.params.id, reason, req.tenantId])).rows[0];
     res.json(cancelled);
   } catch (err) { sendError(res, 500, 'Failed to cancel order', err); }
 });
 
-app.put('/api/orders/:id/assign', authMiddleware, async (req, res) => {
+app.put('/api/orders/:id/assign', authMiddleware, requireTenant, async (req, res) => {
   try {
     const transporter = (req.query.transporter || '').substring(0, 100);
     if (!transporter) return res.status(400).json({ error: 'transporter es requerido' });
-    const result = await pool.query('UPDATE orders SET assigned_to=$1 WHERE id=$2 RETURNING *', [transporter, req.params.id]);
+    const result = await pool.query('UPDATE orders SET assigned_to=$1 WHERE id=$2 AND tenant_id=$3 RETURNING *', [transporter, req.params.id, req.tenantId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     res.json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to assign', err); }
 });
 
-app.delete('/api/orders/:id', authMiddleware, async (req, res) => {
+app.delete('/api/orders/:id', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM orders WHERE id=$1 RETURNING *', [req.params.id]);
+    const result = await pool.query('DELETE FROM orders WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     log.info('Order deleted', { orderId: req.params.id });
     res.json({ message: 'Orden eliminada correctamente', order: result.rows[0] });
@@ -414,7 +447,7 @@ app.get('/api/customers/validate-rut', async (req, res) => {
   res.json(validateRutChileno(rut));
 });
 
-app.get('/api/customers/address-suggest', authMiddleware, async (req, res) => {
+app.get('/api/customers/address-suggest', authMiddleware, requireTenant, async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     if (q.length < 3) return res.status(400).json({ error: 'q debe tener al menos 3 caracteres' });
@@ -437,13 +470,13 @@ app.get('/api/customers/address-suggest', authMiddleware, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Address suggest failed', err); }
 });
 
-app.get('/api/orders/:id/pdf', authMiddleware, async (req, res) => {
+app.get('/api/orders/:id/pdf', authMiddleware, requireTenant, async (req, res) => {
   try {
     const r = await pool.query(
       `SELECT o.*, c.name AS customer_name, c.email AS customer_email,
               c.address AS customer_address, c.phone AS customer_phone, c.rut AS customer_rut
-       FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id=$1`,
-      [req.params.id]
+       FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id=$1 AND o.tenant_id=$2`,
+      [req.params.id, req.tenantId]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     const order = r.rows[0];
@@ -489,52 +522,52 @@ app.get('/api/orders/:id/pdf', authMiddleware, async (req, res) => {
 
 // ══════════════════════════════════════════════════════════════════════════════
 
-app.get('/api/customers', authMiddleware, async (_req, res) => {
-  try { res.json((await pool.query('SELECT * FROM customers ORDER BY name')).rows); }
+app.get('/api/customers', authMiddleware, requireTenant, async (req, res) => {
+  try { res.json((await pool.query('SELECT * FROM customers WHERE tenant_id=$1 ORDER BY name', [req.tenantId])).rows); }
   catch (err) { sendError(res, 500, 'Failed to list customers', err); }
 });
 
-app.get('/api/customers/:id', authMiddleware, async (req, res) => {
+app.get('/api/customers/:id', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM customers WHERE id=$1', [req.params.id]);
+    const r = await pool.query('SELECT * FROM customers WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to get customer', err); }
 });
 
-app.post('/api/customers', authMiddleware, async (req, res) => {
+app.post('/api/customers', authMiddleware, requireTenant, async (req, res) => {
   try {
     const { name, phone, address, email, rut } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
     const c = (await pool.query(
-      'INSERT INTO customers (name, phone, address, email, rut) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [name.trim(), phone || null, address || null, email || null, rut || null])).rows[0];
+      'INSERT INTO customers (name, phone, address, email, rut, tenant_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [name.trim(), phone || null, address || null, email || null, rut || null, req.tenantId])).rows[0];
     res.status(201).json(c);
   } catch (err) { sendError(res, 500, 'Failed to create customer', err); }
 });
 
-app.put('/api/customers/:id', authMiddleware, async (req, res) => {
+app.put('/api/customers/:id', authMiddleware, requireTenant, async (req, res) => {
   try {
     const { name, phone, address, email, rut } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
     const r = await pool.query(
-      'UPDATE customers SET name=$1, phone=$2, address=$3, email=$4, rut=$5 WHERE id=$6 RETURNING *',
-      [name.trim(), phone || null, address || null, email || null, rut || null, req.params.id]);
+      'UPDATE customers SET name=$1, phone=$2, address=$3, email=$4, rut=$5 WHERE id=$6 AND tenant_id=$7 RETURNING *',
+      [name.trim(), phone || null, address || null, email || null, rut || null, req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update customer', err); }
 });
 
-app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
+app.delete('/api/customers/:id', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const r = await pool.query('DELETE FROM customers WHERE id=$1 RETURNING *', [req.params.id]);
+    const r = await pool.query('DELETE FROM customers WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json({ message: 'Cliente eliminado correctamente' });
   } catch (err) { sendError(res, 500, 'Failed to delete customer', err); }
 });
 
 if (require.main === module) {
-  (async () => { await ensureTables(); await seedUsers(); await ensureSecurityProfiles(); await ensureProcedures(); start(); })();
+  (async () => { await ensureTables(); await ensureTenantConstraints(); await seedUsers(); await ensureSecurityProfiles(); await ensureProcedures(); start(); })();
 }
 
 module.exports = { app };
