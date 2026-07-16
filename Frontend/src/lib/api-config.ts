@@ -1,6 +1,26 @@
 const BASE_URL_KEY = "logify-api-base-url";
 const TOKEN_KEY = "logify-api-token";
 
+// Fase 4B del roadmap multi-tenant (ver wiki/Multi-Tenant.md): cada empresa
+// entra por su propio subdominio (acme.logify.cl). Estos slugs no pueden
+// ser subdominio de tenant porque ya tienen un uso reservado en la
+// plataforma (marketing, API, panel de super-admin, etc).
+const PLATFORM_DOMAIN = "logify.cl";
+const RESERVED_TENANT_SLUGS = new Set(["www", "api", "app", "admin", "mail", "logify", "static", "landing"]);
+
+export function getTenantSlugFromHostname(hostname: string): string | null {
+  const suffix = `.${PLATFORM_DOMAIN}`;
+  if (!hostname.endsWith(suffix)) return null;
+  const sub = hostname.slice(0, -suffix.length);
+  if (!sub || sub.includes(".") || RESERVED_TENANT_SLUGS.has(sub)) return null;
+  return sub;
+}
+
+export function getTenantSlug(): string | null {
+  if (typeof window === "undefined") return null;
+  return getTenantSlugFromHostname(window.location.hostname);
+}
+
 export interface ApiConfig {
   baseUrl: string;
   token: string;

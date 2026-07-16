@@ -1,5 +1,5 @@
 import type { ApiErrorResponse } from "@/types/api";
-import { readApiConfig } from "@/lib/api-config";
+import { readApiConfig, getTenantSlug } from "@/lib/api-config";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -142,6 +142,10 @@ export class ApiClient {
       headers.set("Authorization", `Bearer ${this.token}`);
     } else {
       headers.delete("Authorization");
+    }
+    const tenantSlug = getTenantSlug();
+    if (tenantSlug) {
+      headers.set("X-Tenant-Slug", tenantSlug);
     }
     return headers;
   }

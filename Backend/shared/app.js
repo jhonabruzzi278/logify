@@ -3,6 +3,7 @@ const { createPool } = require('./db');
 const log = require('./logger');
 const { applySecurity } = require('./security');
 const { gracefulShutdown } = require('./shutdown');
+const { extractTenantSlug } = require('./tenant');
 
 function sendError(res, status, logMessage, err) {
   log.warn(logMessage, { error: err?.message || String(err) });
@@ -25,6 +26,9 @@ function forwardedFetch(req) {
     if (auth && !headers['authorization']) {
       headers['authorization'] = auth;
     }
+    if (req.tenantSlug && !headers['x-tenant-slug']) {
+      headers['x-tenant-slug'] = req.tenantSlug;
+    }
     return interServiceFetch(url, { ...options, headers });
   };
 }
@@ -33,6 +37,7 @@ function createApp(dbName, port) {
   const app = express();
   applySecurity(app);
   app.use(express.json({ limit: '1mb' }));
+  app.use(extractTenantSlug);
 
   const pool = createPool(dbName);
 

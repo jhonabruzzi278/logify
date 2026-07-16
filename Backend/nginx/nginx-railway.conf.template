@@ -27,6 +27,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
     }
 
     location /api/customers {
@@ -35,6 +36,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
     }
 
     location /api/orders {
@@ -43,6 +45,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
     }
 
     location /api/inventory {
@@ -51,6 +54,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
     }
 
     location /api/sales {
@@ -59,6 +63,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
     }
 
     location /api/shipments {
@@ -67,6 +72,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
     }
 
     location /api/notifications {
@@ -75,6 +81,7 @@ http {
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
     }
 
     location / {
