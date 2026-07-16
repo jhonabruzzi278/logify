@@ -35,7 +35,7 @@ http {
     listen 80;
 
     location = /healthz {
-      return 200 '{"status":"UP","service":"smartlogix-api-gateway"}';
+      return 200 '{"status":"UP","service":"logify-api-gateway"}';
     }
 
     location /api/orders {
@@ -50,11 +50,11 @@ http {
 
 ## Ejecucion
 
-El BFF se levanta automaticamente como parte del `docker-compose.yml` (contenedor `smartlogix-api-gateway`, puerto 8080 del host → 80 del contenedor). No requiere configuracion adicional.
+El BFF se levanta automaticamente como parte del `docker-compose.yml` (contenedor `logify-api-gateway`, puerto 8080 del host → 80 del contenedor). No requiere configuracion adicional.
 
 ## Verificar
 
 ```bash
 curl http://localhost:8080/healthz
-# Respuesta: {"status":"UP","service":"smartlogix-api-gateway"}
+# Respuesta: {"status":"UP","service":"logify-api-gateway"}
 ```

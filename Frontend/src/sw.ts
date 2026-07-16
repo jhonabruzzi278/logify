@@ -22,7 +22,7 @@ interface PushPayload {
 }
 
 self.addEventListener("push", (event: PushEvent) => {
-  let payload: PushPayload = { title: "SmartLogix", body: "Tienes una notificación nueva", url: "/notifications" };
+  let payload: PushPayload = { title: "Logify", body: "Tienes una notificación nueva", url: "/notifications" };
   if (event.data) {
     try {
       payload = { ...payload, ...event.data.json() };

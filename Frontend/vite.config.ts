@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "node:path";
 
-const edgeTarget = process.env.SMARTLOGIX_EDGE_TARGET ?? "http://localhost:8080";
+const edgeTarget = process.env.LOGIFY_EDGE_TARGET ?? "http://localhost:8080";
 const localstackTarget = process.env.LOCALSTACK_TARGET ?? "http://localhost:4567";
 
 function stripBrowserOrigin(proxy: any) {
@@ -24,8 +24,8 @@ export default defineConfig({
       filename: "sw.ts",
       includeAssets: ["favicon.svg", "icon-app.svg", "mask-icon.svg"],
       manifest: {
-        name: "SmartLogix",
-        short_name: "SmartLogix",
+        name: "Logify",
+        short_name: "Logify",
         description: "Dashboard logistico mobile-first para inventario, pedidos, envios y alertas.",
         theme_color: "#0f172a",
         background_color: "#f6f7f3",

@@ -1,13 +1,13 @@
 ﻿import { useState } from "react"
 
 const faqs = [
-    { q: "¿Qué necesito para usar SmartLogix?", a: "Solo un navegador web moderno y conexión a internet. SmartLogix funciona 100% en la nube, no necesitas instalar nada." },
-    { q: "¿Puedo probar SmartLogix antes de pagar?", a: "Sí, ofrecemos 14 días de prueba gratuita en cualquier plan. Sin compromiso y sin necesidad de tarjeta de crédito." },
-    { q: "¿SmartLogix funciona para cualquier tipo de negocio?", a: "SmartLogix está diseñado para pequeños y medianos comercios: almacenes, minimarkets, botillerías, ferias, tiendas de barrio, y cualquier negocio que necesite POS, inventario y despachos." },
+    { q: "¿Qué necesito para usar Logify?", a: "Solo un navegador web moderno y conexión a internet. Logify funciona 100% en la nube, no necesitas instalar nada." },
+    { q: "¿Puedo probar Logify antes de pagar?", a: "Sí, ofrecemos 14 días de prueba gratuita en cualquier plan. Sin compromiso y sin necesidad de tarjeta de crédito." },
+    { q: "¿Logify funciona para cualquier tipo de negocio?", a: "Logify está diseñado para pequeños y medianos comercios: almacenes, minimarkets, botillerías, ferias, tiendas de barrio, y cualquier negocio que necesite POS, inventario y despachos." },
     { q: "¿El stock se actualiza automáticamente?", a: "Sí. Cuando vendes desde el POS o confirmas un pedido, el stock se descuenta automáticamente. También recibirás alertas cuando un producto tenga stock crítico." },
     { q: "¿Cómo funciona el sistema de despachos?", a: "Cuando confirmas un pedido, se crea un despacho automáticamente. El repartidor usa un código QR para marcar el retiro, y la entrega se confirma con el código del cliente y su RUT." },
     { q: "¿Puedo cancelar un pedido?", a: "Sí, puedes cancelar pedidos en cualquier etapa. Si el stock ya fue descontado, se restaura automáticamente al cancelar." },
-    { q: "¿SmartLogix tiene app móvil?", a: "Por ahora SmartLogix es una aplicación web progresiva (PWA) que funciona en cualquier dispositivo. Los repartidores pueden acceder desde su celular para gestionar entregas." },
+    { q: "¿Logify tiene app móvil?", a: "Por ahora Logify es una aplicación web progresiva (PWA) que funciona en cualquier dispositivo. Los repartidores pueden acceder desde su celular para gestionar entregas." },
     { q: "¿Puedo exportar mis datos?", a: "Sí, puedes exportar reportes de ventas, pedidos e inventario en formato CSV para usarlos en Excel u otras herramientas." },
 ]
 
@@ -18,7 +18,7 @@ export default function Faqs1() {
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-14">
                     <h2 className="text-brand-2 font-extrabold mb-4" style={{fontSize: 'clamp(1.8rem, 3vw, 2.5rem)'}}>Preguntas Frecuentes</h2>
-                    <p className="text-grey-700 text-lg">Todo lo que necesitas saber sobre SmartLogix.</p>
+                    <p className="text-grey-700 text-lg">Todo lo que necesitas saber sobre Logify.</p>
                 </div>
                 <div className="space-y-3">
                     {faqs.map((faq, i) => (

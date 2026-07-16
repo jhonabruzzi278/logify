@@ -26,7 +26,7 @@ export const sales: Sale[] = [
     ],
     total: 8000,
     paymentMethod: "cash",
-    vendorId: "maria@smartlogix.cl",
+    vendorId: "maria@logify.cl",
     vendorName: "Maria Gonzalez",
     createdAt: `${today}T09:15:00-04:00`
   },
@@ -38,7 +38,7 @@ export const sales: Sale[] = [
     ],
     total: 4600,
     paymentMethod: "cash",
-    vendorId: "carlos@smartlogix.cl",
+    vendorId: "carlos@logify.cl",
     vendorName: "Carlos Muñoz",
     createdAt: `${today}T09:30:00-04:00`
   },
@@ -50,7 +50,7 @@ export const sales: Sale[] = [
     ],
     total: 9100,
     paymentMethod: "transfer",
-    vendorId: "maria@smartlogix.cl",
+    vendorId: "maria@logify.cl",
     vendorName: "Maria Gonzalez",
     createdAt: `${today}T10:05:00-04:00`
   },
@@ -62,7 +62,7 @@ export const sales: Sale[] = [
     ],
     total: 2600,
     paymentMethod: "cash",
-    vendorId: "carlos@smartlogix.cl",
+    vendorId: "carlos@logify.cl",
     vendorName: "Carlos Muñoz",
     createdAt: `${today}T10:45:00-04:00`
   },
@@ -75,7 +75,7 @@ export const sales: Sale[] = [
     ],
     total: 6600,
     paymentMethod: "cash",
-    vendorId: "maria@smartlogix.cl",
+    vendorId: "maria@logify.cl",
     vendorName: "Maria Gonzalez",
     createdAt: `${today}T11:20:00-04:00`
   },
@@ -86,7 +86,7 @@ export const sales: Sale[] = [
     ],
     total: 7200,
     paymentMethod: "transfer",
-    vendorId: "carlos@smartlogix.cl",
+    vendorId: "carlos@logify.cl",
     vendorName: "Carlos Muñoz",
     createdAt: `${today}T12:00:00-04:00`
   },
@@ -99,7 +99,7 @@ export const sales: Sale[] = [
     ],
     total: 6700,
     paymentMethod: "cash",
-    vendorId: "maria@smartlogix.cl",
+    vendorId: "maria@logify.cl",
     vendorName: "Maria Gonzalez",
     createdAt: `${today}T12:30:00-04:00`
   }

@@ -62,14 +62,14 @@ async function seedUsers() {
 // correo asociado y pregunta secreta para recuperación de clave. Todas las cuentas
 // demo comparten la misma respuesta ("Firulais") para simplificar la demo en vivo.
 const SECURITY_PROFILES = {
-  admin:         { rut: '15.845.679-6', email: 'andres.soto@smartlogix.cl' },
-  operaciones:   { rut: '16.230.987-0', email: 'marcela.fuentes@smartlogix.cl' },
-  bodega:        { rut: '17.384.562-6', email: 'patricio.salazar@smartlogix.cl' },
-  transportista: { rut: '18.923.456-2', email: 'luis.carvajal@smartlogix.cl' },
-  vendedor1:     { rut: '14.567.890-0', email: 'maria.gonzalez@smartlogix.cl' },
-  vendedor2:     { rut: '16.789.012-1', email: 'carlos.munoz@smartlogix.cl' },
-  soporte:       { rut: '13.456.780-5', email: 'camila.torres@smartlogix.cl' },
-  cliente:       { rut: '19.876.543-0', email: 'rosa.mardones@smartlogix.cl' },
+  admin:         { rut: '15.845.679-6', email: 'andres.soto@logify.cl' },
+  operaciones:   { rut: '16.230.987-0', email: 'marcela.fuentes@logify.cl' },
+  bodega:        { rut: '17.384.562-6', email: 'patricio.salazar@logify.cl' },
+  transportista: { rut: '18.923.456-2', email: 'luis.carvajal@logify.cl' },
+  vendedor1:     { rut: '14.567.890-0', email: 'maria.gonzalez@logify.cl' },
+  vendedor2:     { rut: '16.789.012-1', email: 'carlos.munoz@logify.cl' },
+  soporte:       { rut: '13.456.780-5', email: 'camila.torres@logify.cl' },
+  cliente:       { rut: '19.876.543-0', email: 'rosa.mardones@logify.cl' },
 };
 const DEMO_SECRET_QUESTION = '¿Cuál es el nombre de tu primera mascota?';
 const DEMO_SECRET_ANSWER = 'firulais';
@@ -393,7 +393,7 @@ app.get('/api/customers/address-suggest', authMiddleware, async (req, res) => {
     const q = (req.query.q || '').trim();
     if (q.length < 3) return res.status(400).json({ error: 'q debe tener al menos 3 caracteres' });
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Chile')}&format=json&addressdetails=1&limit=5&countrycodes=cl`;
-    const response = await fetch(url, { headers: { 'User-Agent': 'SmartLogix/1.0 (logistica@smartlogix.cl)', 'Accept-Language': 'es' } });
+    const response = await fetch(url, { headers: { 'User-Agent': 'Logify/1.0 (logistica@logify.cl)', 'Accept-Language': 'es' } });
     if (!response.ok) throw new Error(`Nominatim error ${response.status}`);
     const data = await response.json();
     res.json(data.map(item => ({
@@ -428,7 +428,7 @@ app.get('/api/orders/:id/pdf', authMiddleware, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=orden-${order.id}.pdf`);
     doc.pipe(res);
 
-    doc.fontSize(22).fillColor('#0f172a').text('SmartLogix', { align: 'center' });
+    doc.fontSize(22).fillColor('#0f172a').text('Logify', { align: 'center' });
     doc.fontSize(13).fillColor('#475569').text('Comprobante de Pedido', { align: 'center' });
     doc.moveDown(0.5);
     doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#e2e8f0');
@@ -456,7 +456,7 @@ app.get('/api/orders/:id/pdf', authMiddleware, async (req, res) => {
     if (order.customer_address) doc.text(`Dirección: ${order.customer_address}`);
     doc.moveDown(2);
 
-    doc.fontSize(9).fillColor('#94a3b8').text('Documento generado por SmartLogix — ' + new Date().toLocaleString('es-CL'), { align: 'center' });
+    doc.fontSize(9).fillColor('#94a3b8').text('Documento generado por Logify — ' + new Date().toLocaleString('es-CL'), { align: 'center' });
     doc.end();
   } catch (err) { sendError(res, 500, 'PDF generation failed', err); }
 });

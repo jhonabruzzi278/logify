@@ -1,6 +1,6 @@
 # Roles y Control de Acceso (RBAC)
 
-SmartLogix implementa control de acceso basado en roles (Role-Based Access Control) en dos niveles: **servidor** (JWT) y **cliente** (router guards + renderizado condicional).
+Logify implementa control de acceso basado en roles (Role-Based Access Control) en dos niveles: **servidor** (JWT) y **cliente** (router guards + renderizado condicional).
 
 ---
 

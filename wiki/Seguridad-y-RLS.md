@@ -1,6 +1,6 @@
 # Seguridad y RLS
 
-SmartLogix implementa un modelo de seguridad de tres capas para garantizar que cada usuario acceda solo a los datos que le corresponden.
+Logify implementa un modelo de seguridad de tres capas para garantizar que cada usuario acceda solo a los datos que le corresponden.
 
 ---
 

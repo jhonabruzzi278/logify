@@ -1,4 +1,4 @@
-const HISTORY_KEY = "smartlogix-order-history:v2";
+const HISTORY_KEY = "logify-order-history:v2";
 
 export interface HistoryEntry {
   id: string;
@@ -26,7 +26,7 @@ export function addHistoryEntry(entry: Omit<HistoryEntry, "id" | "timestamp">) {
     timestamp: new Date().toISOString(),
   });
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 200)));
-  window.dispatchEvent(new CustomEvent("smartlogix-history-updated", { detail: { orderId: entry.orderId } }));
+  window.dispatchEvent(new CustomEvent("logify-history-updated", { detail: { orderId: entry.orderId } }));
 }
 
 export function getOrderHistory(orderId: string): HistoryEntry[] {

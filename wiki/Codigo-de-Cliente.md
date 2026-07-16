@@ -1,6 +1,6 @@
 # Código de cliente (SL-XXXXXX)
 
-El código de cliente es el mecanismo central de verificación de identidad en SmartLogix. Permite al cliente rastrear su pedido y al transportista confirmar que entregó al destinatario correcto.
+El código de cliente es el mecanismo central de verificación de identidad en Logify. Permite al cliente rastrear su pedido y al transportista confirmar que entregó al destinatario correcto.
 
 ---
 
@@ -77,7 +77,7 @@ Incluso si el frontend fuera modificado, el servidor nunca devolvería el códig
 El cliente accede a `/tracking` (página pública, sin login) e ingresa su código:
 
 ```
-https://smartlogix-five.vercel.app/tracking
+https://logify-five.vercel.app/tracking
 ```
 
 La página solo acepta códigos que empiecen con `SL-`. Si el código es válido, muestra:

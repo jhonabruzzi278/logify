@@ -144,7 +144,7 @@ app.get('/api/shipments/:id/qr', authMiddleware, async (req, res) => {
   try {
     const r = await pool.query('SELECT * FROM shipments WHERE id=$1', [req.params.id]);
     if (!r.rows.length) return res.status(404).json({ error: 'Envío no encontrado' });
-    res.json({ qrCode: 'SMARTLOGIX-' + r.rows[0].tracking_number });
+    res.json({ qrCode: 'LOGIFY-' + r.rows[0].tracking_number });
   } catch (err) { sendError(res, 500, 'Failed', err); }
 });
 
@@ -166,7 +166,7 @@ app.get('/api/shipments/:id/qr-image', authMiddleware, async (req, res) => {
     const r = await pool.query('SELECT * FROM shipments WHERE id=$1', [req.params.id]);
     if (!r.rows.length) return res.status(404).json({ error: 'Envío no encontrado' });
     const shipment = r.rows[0];
-    const text = `SMARTLOGIX-${shipment.tracking_number}`;
+    const text = `LOGIFY-${shipment.tracking_number}`;
     const size = req.query.size || '250x250';
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent(text)}&format=png&margin=10`;
     const qrRes = await fetch(qrUrl);
@@ -193,7 +193,7 @@ app.get('/api/shipments/:id/weather', authMiddleware, async (req, res) => {
         if (customer.address) {
           const geoRes = await fetch(
             `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(customer.address + ', Chile')}&format=json&limit=1&countrycodes=cl`,
-            { headers: { 'User-Agent': 'SmartLogix/1.0' } }
+            { headers: { 'User-Agent': 'Logify/1.0' } }
           );
           const geoData = await geoRes.json();
           if (geoData.length) { lat = parseFloat(geoData[0].lat); lon = parseFloat(geoData[0].lon); }
@@ -246,7 +246,7 @@ app.get('/api/shipments/:id/route', authMiddleware, async (req, res) => {
         if (customer.address) {
           const geoRes = await fetch(
             `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(customer.address + ', Chile')}&format=json&limit=1&countrycodes=cl`,
-            { headers: { 'User-Agent': 'SmartLogix/1.0' } }
+            { headers: { 'User-Agent': 'Logify/1.0' } }
           );
           const geoData = await geoRes.json();
           if (geoData.length) { destLat = parseFloat(geoData[0].lat); destLon = parseFloat(geoData[0].lon); }
@@ -270,7 +270,7 @@ app.get('/api/shipments/:id/route', authMiddleware, async (req, res) => {
       trackingNumber: shipment.tracking_number,
       distanceKm: parseFloat((route.distance / 1000).toFixed(2)),
       durationMin: parseInt((route.duration / 60).toFixed(0)),
-      origin: { lat: originLat, lon: originLon, label: 'Bodega SmartLogix' },
+      origin: { lat: originLat, lon: originLon, label: 'Bodega Logify' },
       destination: { lat: destLat, lon: destLon },
       geometry: route.geometry
     });

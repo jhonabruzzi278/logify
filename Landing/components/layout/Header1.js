@@ -9,7 +9,7 @@ export default function Header1({ scroll, handleMobileMenuOpen }) {
                         <svg width="160" height="40" viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="2" y="6" width="28" height="28" rx="8" fill="currentColor" className="text-brand-1"/>
                             <text x="9" y="25" fontFamily="Arial" fontWeight="900" fontSize="16" fill="#034460">S</text>
-                            <text x="36" y="25" fontFamily="Arial" fontWeight="800" fontSize="17" fill="#034460">SmartLogix</text>
+                            <text x="36" y="25" fontFamily="Arial" fontWeight="800" fontSize="17" fill="#034460">Logify</text>
                         </svg>
                     </Link>
                     <nav className="hidden xl:flex items-center gap-1">
@@ -23,13 +23,13 @@ export default function Header1({ scroll, handleMobileMenuOpen }) {
                         })}
                     </nav>
                     <div className="flex items-center gap-2 shrink-0">
-                        <Link href="https://smartlogix-five.vercel.app"
+                        <Link href="https://logify-five.vercel.app"
                             className="hidden sm:inline-flex text-sm font-semibold text-brand-2 border-2 border-grey-300 hover:border-brand-2 px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-brand-1 focus:ring-offset-2"
-                            aria-label="Acceso Clientes al software SmartLogix"
+                            aria-label="Acceso Clientes al software Logify"
                         >Acceso Clientes</Link>
                         <Link href="#demo"
                             className="text-sm font-bold text-brand-2 bg-brand-1 hover:bg-yellow-400 px-4 py-2.5 rounded-lg transition-all whitespace-nowrap hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
-                            aria-label="Solicitar Demo Gratis de SmartLogix"
+                            aria-label="Solicitar Demo Gratis de Logify"
                         >Solicitar Demo</Link>
                         <button onClick={handleMobileMenuOpen} className="xl:hidden flex flex-col gap-1.5 p-2">
                             <span className="block w-6 h-0.5 bg-brand-2 rounded-sm"/>

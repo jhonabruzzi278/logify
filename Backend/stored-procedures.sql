@@ -1,7 +1,7 @@
 -- ============================================================
--- SmartLogix - Stored Procedures / Functions PostgreSQL
+-- Logify - Stored Procedures / Functions PostgreSQL
 -- Ejecutar después de crear tablas:
--- docker exec -i smartlogix-db psql -U postgres < stored-procedures.sql
+-- docker exec -i logify-db psql -U postgres < stored-procedures.sql
 -- ============================================================
 
 -- ============================================================

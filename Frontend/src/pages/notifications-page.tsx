@@ -215,7 +215,7 @@ export function NotificationsPage() {
     try {
       await apiFetch("/api/notifications", { method: "DELETE" });
       clearHistory();
-      localStorage.removeItem("smartlogix-pos-cart:v1");
+      localStorage.removeItem("logify-pos-cart:v1");
       setClearedIds(new Set(notifications.map((n) => n.id)));
       alert("Base de datos de notificaciones vaciada correctamente.");
     } catch {
@@ -278,7 +278,7 @@ export function NotificationsPage() {
                   <div className="space-y-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Texto a codificar</label>
-                      <Input value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="SMARTLOGIX-TRACK123" className="h-9 text-sm" />
+                      <Input value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="LOGIFY-TRACK123" className="h-9 text-sm" />
                     </div>
                     {qrGenerated && (
                       <div className="flex flex-col items-center gap-2 py-2">

@@ -389,7 +389,7 @@ Genera un PDF (vía `pdfkit`) con el listado de productos, totales por nivel de 
 GET /api/inventory/:sku/qr?size=200x200
 ```
 
-Devuelve una imagen PNG con el código QR del SKU (contenido `SMARTLOGIX-SKU:<sku>`), generada vía [QR Server API](https://goqr.me/api/).
+Devuelve una imagen PNG con el código QR del SKU (contenido `LOGIFY-SKU:<sku>`), generada vía [QR Server API](https://goqr.me/api/).
 
 ---
 
@@ -594,7 +594,7 @@ Calcula distancia, duración y geometría de la ruta vía [OSRM](http://project-
   "trackingNumber": "TRACK-A1B2C3D4",
   "distanceKm": 12.4,
   "durationMin": 22,
-  "origin": { "lat": -33.4489, "lon": -70.6693, "label": "Bodega SmartLogix" },
+  "origin": { "lat": -33.4489, "lon": -70.6693, "label": "Bodega Logify" },
   "destination": { "lat": -33.45, "lon": -70.66 },
   "geometry": { "type": "LineString", "coordinates": [ ] }
 }
@@ -675,7 +675,7 @@ Genera un PDF (vía `pdfkit`) con las últimas 200 notificaciones registradas. D
 ### QR genérico
 
 ```
-GET /api/notifications/qr?text=SMARTLOGIX-TRACK123&size=200x200
+GET /api/notifications/qr?text=LOGIFY-TRACK123&size=200x200
 ```
 
 Genera un código QR PNG a partir de cualquier texto, vía [QR Server API](https://goqr.me/api/).

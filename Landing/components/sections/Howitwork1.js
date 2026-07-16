@@ -11,13 +11,13 @@ export default function Howitwork1() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-14">
                     <h2 className="text-brand-2 font-extrabold mb-4" style={{fontSize: 'clamp(1.8rem, 3vw, 2.5rem)'}}>¿Cómo Funciona?</h2>
-                    <p className="text-grey-700 text-lg">En solo 4 pasos puedes tener tu negocio funcionando con SmartLogix.</p>
+                    <p className="text-grey-700 text-lg">En solo 4 pasos puedes tener tu negocio funcionando con Logify.</p>
                 </div>
                 <div className="flex flex-col lg:flex-row items-center gap-14">
                     <div className="lg:w-1/2 w-full">
                         <div className="bg-[#c5e0ed] rounded-2xl p-6 shadow-xl shadow-brand-2/15">
                             <div className="bg-brand-2 rounded-xl px-6 py-3 mb-4">
-                                <p className="text-white font-bold text-sm">Flujo de Trabajo SmartLogix</p>
+                                <p className="text-white font-bold text-sm">Flujo de Trabajo Logify</p>
                             </div>
                             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-4">
                                 {[["🏪","#FEC201","#034460","Registro"],["🛒","#034460","#FEC201","Ventas"],["🚚","#FEC201","#034460","Despacho"],["📊","#16BA8F","white","Dashboard"]].map(([emoji, bg, fg, label], i) => (

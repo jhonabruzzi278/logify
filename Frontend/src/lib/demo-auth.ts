@@ -36,7 +36,7 @@ export function generateDemoTokens(username: string, password: string) {
     name: user.name,
     "cognito:groups": user.groups,
     iss: "https://cognito-idp.us-east-1.amazonaws.com/local-demo",
-    aud: "smartlogixwebclient",
+    aud: "logifywebclient",
     token_use: "id",
     auth_time: now,
     iat: now,
@@ -48,7 +48,7 @@ export function generateDemoTokens(username: string, password: string) {
     ...basePayload,
     token_use: "access",
     scope: "openid profile",
-    client_id: "smartlogixwebclient"
+    client_id: "logifywebclient"
   });
 
   return {

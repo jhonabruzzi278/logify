@@ -1,7 +1,7 @@
 services:
   postgres-db:
     image: postgres:15-alpine
-    container_name: smartlogix-db
+    container_name: logify-db
     restart: unless-stopped
     environment:
       - POSTGRES_USER=postgres
@@ -22,13 +22,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - smartlogix-net
+      - logify-net
 
   orders-service:
     build:
       context: ./Backend
       dockerfile: orders-service/Dockerfile
-    container_name: smartlogix-orders
+    container_name: logify-orders
     restart: unless-stopped
     environment:
       - DB_URL=postgresql://postgres:admin123@postgres-db:5432/orders_db
@@ -42,7 +42,7 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL}
-      - JWT_SECRET=${JWT_SECRET:-smartlogix-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:-logify-jwt-secret-change-me}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8081:8081"
@@ -50,19 +50,19 @@ services:
       postgres-db:
         condition: service_healthy
     networks:
-      - smartlogix-net
+      - logify-net
 
   inventory-service:
     build:
       context: ./Backend
       dockerfile: inventory-service/Dockerfile
-    container_name: smartlogix-inventory
+    container_name: logify-inventory
     restart: unless-stopped
     environment:
       - DB_URL=postgresql://postgres:admin123@postgres-db:5432/inventory_db
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - PORT=8082
-      - JWT_SECRET=${JWT_SECRET:-smartlogix-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:-logify-jwt-secret-change-me}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8082:8082"
@@ -70,13 +70,13 @@ services:
       postgres-db:
         condition: service_healthy
     networks:
-      - smartlogix-net
+      - logify-net
 
   shipping-service:
     build:
       context: ./Backend
       dockerfile: shipping-service/Dockerfile
-    container_name: smartlogix-shipping
+    container_name: logify-shipping
     restart: unless-stopped
     environment:
       - DB_URL=postgresql://postgres:admin123@postgres-db:5432/shipping_db
@@ -89,7 +89,7 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL}
-      - JWT_SECRET=${JWT_SECRET:-smartlogix-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:-logify-jwt-secret-change-me}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8084:8084"
@@ -97,34 +97,34 @@ services:
       postgres-db:
         condition: service_healthy
     networks:
-      - smartlogix-net
+      - logify-net
 
   notification-service:
     build:
       context: ./Backend
       dockerfile: notification-service/Dockerfile
-    container_name: smartlogix-notification
+    container_name: logify-notification
     restart: unless-stopped
     environment:
       - DB_URL=postgresql://postgres:admin123@postgres-db:5432/notification_db
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - PORT=8085
-      - JWT_SECRET=${JWT_SECRET:-smartlogix-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:-logify-jwt-secret-change-me}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
-      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:logistica@smartlogix.cl}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:logistica@logify.cl}
     ports:
       - "8085:8085"
     depends_on:
       postgres-db:
         condition: service_healthy
     networks:
-      - smartlogix-net
+      - logify-net
 
   api-gateway:
     image: nginx:alpine
-    container_name: smartlogix-api-gateway
+    container_name: logify-api-gateway
     restart: unless-stopped
     ports:
       - "8080:80"
@@ -136,10 +136,10 @@ services:
       - shipping-service
       - notification-service
     networks:
-      - smartlogix-net
+      - logify-net
 
 networks:
-  smartlogix-net:
+  logify-net:
     driver: bridge
 
 volumes:

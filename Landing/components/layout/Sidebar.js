@@ -11,7 +11,7 @@ export default function Sidebar({ openClass, handleMobileMenuClose }) {
                             <svg width="130" height="32" viewBox="0 0 130 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <rect x="2" y="3" width="26" height="26" rx="7" fill="#FEC201"/>
                                 <text x="8" y="21" fontFamily="Arial" fontWeight="900" fontSize="15" fill="#034460">S</text>
-                                <text x="35" y="21" fontFamily="Arial" fontWeight="800" fontSize="16" fill="#034460">SmartLogix</text>
+                                <text x="35" y="21" fontFamily="Arial" fontWeight="800" fontSize="16" fill="#034460">Logify</text>
                             </svg>
                         </Link>
                         <button onClick={handleMobileMenuClose} className="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50">
@@ -33,7 +33,7 @@ export default function Sidebar({ openClass, handleMobileMenuClose }) {
                         </ul>
                     </nav>
                     <div className="space-y-3 pt-4 border-t border-gray-200">
-                        <Link href="https://app.smartlogix.cl" onClick={handleMobileMenuClose}
+                        <Link href="https://app.logify.cl" onClick={handleMobileMenuClose}
                             className="block w-full text-center text-sm font-bold text-brand-2 bg-brand-1 hover:bg-yellow-400 py-3 rounded-lg transition-colors"
                         >Iniciar Sesión</Link>
                         <a href="#demo" onClick={handleMobileMenuClose}

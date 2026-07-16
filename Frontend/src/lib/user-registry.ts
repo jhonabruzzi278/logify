@@ -12,7 +12,7 @@ export interface RegisteredUser {
 
 export const REGISTERED_USERS: RegisteredUser[] = [
   {
-    username: "admin@smartlogix.cl",
+    username: "admin@logify.cl",
     name: "Andrés Soto",
     role: "owner",
     groups: ["admin", "owner"],
@@ -20,7 +20,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
     summary: "Supervisa toda la operacion, define accesos y revisa el estado transversal del negocio."
   },
   {
-    username: "operaciones@smartlogix.cl",
+    username: "operaciones@logify.cl",
     name: "Marcela Fuentes",
     role: "ops",
     groups: ["operador", "ops"],
@@ -28,7 +28,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
     summary: "Gestiona pedidos, incidencias y coordinacion de despacho."
   },
   {
-    username: "bodega@smartlogix.cl",
+    username: "bodega@logify.cl",
     name: "Patricio Salazar",
     role: "warehouse",
     groups: ["bodega", "warehouse"],
@@ -36,7 +36,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
     summary: "Controla stock y ajustes manuales de inventario."
   },
   {
-    username: "soporte@smartlogix.cl",
+    username: "soporte@logify.cl",
     name: "Camila Torres",
     role: "support",
     groups: ["soporte", "support"],
@@ -44,7 +44,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
     summary: "Monitorea alertas, trazabilidad y continuidad operativa."
   },
   {
-    username: "transportista@smartlogix.cl",
+    username: "transportista@logify.cl",
     name: "Luis Carvajal",
     role: "shipper",
     groups: ["transportista", "shipper"],
@@ -52,7 +52,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
     summary: "Actualiza entregas, confirma reparto y reporta retrasos o novedades de ruta."
   },
   {
-    username: "maria@smartlogix.cl",
+    username: "maria@logify.cl",
     name: "María González",
     role: "vendor",
     groups: ["vendedor", "vendor"],
@@ -60,7 +60,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
     summary: "Vendedora de tienda. Registra ventas en caja y atiende clientes."
   },
   {
-    username: "carlos@smartlogix.cl",
+    username: "carlos@logify.cl",
     name: "Carlos Muñoz",
     role: "vendor",
     groups: ["vendedor", "vendor"],
@@ -68,7 +68,7 @@ export const REGISTERED_USERS: RegisteredUser[] = [
     summary: "Vendedor de tienda. Responsable de atencion al cliente y registro de ventas."
   },
   {
-    username: "cliente@smartlogix.cl",
+    username: "cliente@logify.cl",
     name: "Rosa Mardones",
     role: "customer",
     groups: ["cliente", "customer"],
@@ -84,19 +84,19 @@ for (const u of REGISTERED_USERS) {
 }
 
 const SIMPLE_ALIASES: Record<string, string> = {
-  admin: "admin@smartlogix.cl",
-  operaciones: "operaciones@smartlogix.cl",
-  ops: "operaciones@smartlogix.cl",
-  bodega: "bodega@smartlogix.cl",
-  warehouse: "bodega@smartlogix.cl",
-  transportista: "transportista@smartlogix.cl",
-  shipper: "transportista@smartlogix.cl",
-  vendedor1: "maria@smartlogix.cl",
-  vendedor2: "carlos@smartlogix.cl",
-  soporte: "soporte@smartlogix.cl",
-  support: "soporte@smartlogix.cl",
-  cliente: "cliente@smartlogix.cl",
-  customer: "cliente@smartlogix.cl",
+  admin: "admin@logify.cl",
+  operaciones: "operaciones@logify.cl",
+  ops: "operaciones@logify.cl",
+  bodega: "bodega@logify.cl",
+  warehouse: "bodega@logify.cl",
+  transportista: "transportista@logify.cl",
+  shipper: "transportista@logify.cl",
+  vendedor1: "maria@logify.cl",
+  vendedor2: "carlos@logify.cl",
+  soporte: "soporte@logify.cl",
+  support: "soporte@logify.cl",
+  cliente: "cliente@logify.cl",
+  customer: "cliente@logify.cl",
 };
 
 for (const [alias, email] of Object.entries(SIMPLE_ALIASES)) {
@@ -107,8 +107,8 @@ for (const [alias, email] of Object.entries(SIMPLE_ALIASES)) {
 
 export const DEFAULT_DEMO_PASSWORD =
   (typeof window !== "undefined"
-    ? (window as unknown as Record<string, string>).__SMARTLOGIX_DEMO_PASSWORD__
-    : undefined) ?? "Smartlogix123!";
+    ? (window as unknown as Record<string, string>).__LOGIFY_DEMO_PASSWORD__
+    : undefined) ?? "Logify123!";
 
 export function getRoleLabel(role: Role): string {
   return getRoleProfile(role).label;

@@ -1,4 +1,4 @@
-# SmartLogix Backend
+# Logify Backend
 
 # Dependencies
 node_modules/
@@ -6,6 +6,7 @@ node_modules/
 # Environment
 *.env
 .env.*
+!.env.*.example
 
 # Coverage
 **/coverage/

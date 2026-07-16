@@ -37,7 +37,7 @@ export default function Pricing1() {
                         <div className="mt-8">
                             <Link href="#demo"
                                 className="block text-center font-bold py-3.5 rounded-xl transition-all hover:-translate-y-0.5 bg-brand-1 text-brand-2 hover:bg-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-brand-2"
-                                aria-label="Comenzar prueba gratuita de SmartLogix">
+                                aria-label="Comenzar prueba gratuita de Logify">
                                 Comenzar Prueba
                                 <svg className="w-4 h-4 inline ml-2" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                             </Link>

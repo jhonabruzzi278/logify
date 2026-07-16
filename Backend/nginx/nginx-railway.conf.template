@@ -13,7 +13,7 @@ http {
   client_max_body_size 10M;
 
   server {
-    listen 80;
+    listen 8080;
     server_name _;
 
     location = /healthz {
@@ -22,7 +22,7 @@ http {
     }
 
     location /api/auth {
-      proxy_pass http://127.0.0.1:8081;
+      proxy_pass ${ORDERS_SERVICE_URL};
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -30,7 +30,7 @@ http {
     }
 
     location /api/customers {
-      proxy_pass http://127.0.0.1:8081;
+      proxy_pass ${ORDERS_SERVICE_URL};
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -38,7 +38,7 @@ http {
     }
 
     location /api/orders {
-      proxy_pass http://127.0.0.1:8081;
+      proxy_pass ${ORDERS_SERVICE_URL};
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -46,7 +46,7 @@ http {
     }
 
     location /api/inventory {
-      proxy_pass http://127.0.0.1:8082;
+      proxy_pass ${INVENTORY_SERVICE_URL};
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -54,7 +54,7 @@ http {
     }
 
     location /api/sales {
-      proxy_pass http://127.0.0.1:8082;
+      proxy_pass ${INVENTORY_SERVICE_URL};
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -62,7 +62,7 @@ http {
     }
 
     location /api/shipments {
-      proxy_pass http://127.0.0.1:8084;
+      proxy_pass ${SHIPPING_SERVICE_URL};
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -70,7 +70,7 @@ http {
     }
 
     location /api/notifications {
-      proxy_pass http://127.0.0.1:8085;
+      proxy_pass ${NOTIFICATION_SERVICE_URL};
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

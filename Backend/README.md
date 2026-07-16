@@ -1,4 +1,4 @@
-# SmartLogix — Backend
+# Logify — Backend
 
 Cuatro microservicios Node.js 22 + Express 4 + PostgreSQL 15, orquestados con Docker Compose y expuestos a través de un API Gateway Nginx en el puerto 8080.
 
@@ -97,7 +97,7 @@ Cada servicio crea sus tablas al arrancar con `CREATE TABLE IF NOT EXISTS` — n
 
 Para cargar datos de prueba:
 ```bash
-docker exec -i smartlogix-db psql -U postgres -d orders_db < Backend/seed.sql
+docker exec -i logify-db psql -U postgres -d orders_db < Backend/seed.sql
 ```
 
 `seed.sql` incluye productos, clientes, pedidos, envíos y notificaciones de ejemplo.

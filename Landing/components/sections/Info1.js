@@ -9,7 +9,7 @@ export default function Info1() {
                         <svg width="100%" viewBox="0 0 540 420" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full max-w-[540px] mx-auto">
                             <rect x="20" y="20" width="500" height="380" rx="20" fill="white" stroke="#CDE2E7" strokeWidth="1"/>
                             <rect x="40" y="40" width="460" height="55" rx="10" fill="#034460"/>
-                            <text x="60" y="72" fontFamily="Arial" fontWeight="bold" fontSize="18" fill="white">SmartLogix Dashboard</text>
+                            <text x="60" y="72" fontFamily="Arial" fontWeight="bold" fontSize="18" fill="white">Logify Dashboard</text>
                             <rect x="50" y="110" width="140" height="85" rx="12" fill="#FFE799"/>
                             <text x="65" y="142" fontFamily="Arial" fontSize="13" fill="#034460">Ventas Hoy</text>
                             <text x="65" y="175" fontFamily="Arial" fontWeight="bold" fontSize="24" fill="#034460">$245.600</text>
@@ -37,7 +37,7 @@ export default function Info1() {
                     </div>
                     <div className="lg:w-1/2 w-full">
                         <h2 className="text-brand-2 font-extrabold mb-5" style={{fontSize: 'clamp(1.8rem, 3vw, 2.5rem)'}}>Control total de tu negocio</h2>
-                        <p className="text-grey-700 text-lg mb-8">SmartLogix te da visibilidad completa sobre tus ventas, inventario y pedidos en tiempo real. Toma decisiones informadas con datos actualizados al instante.</p>
+                        <p className="text-grey-700 text-lg mb-8">Logify te da visibilidad completa sobre tus ventas, inventario y pedidos en tiempo real. Toma decisiones informadas con datos actualizados al instante.</p>
                         <ul className="space-y-3 mb-8">
                             {["Dashboard en tiempo real con métricas clave","Alertas automáticas de stock crítico","Reportes exportables en CSV","Historial completo de clientes y pedidos","Multiusuario con roles y permisos"].map((item, i) => (
                                 <li key={i} className="flex items-start gap-2.5 text-grey-700">

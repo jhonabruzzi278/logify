@@ -9,7 +9,7 @@ const { app, pool, sendError, start } = createApp('notification_db', process.env
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:logistica@smartlogix.cl', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:logistica@logify.cl', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
 
 async function ensureTables() {
@@ -150,7 +150,7 @@ app.get('/api/notifications/report/pdf', authMiddleware, async (_req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=notificaciones.pdf');
     doc.pipe(res);
 
-    doc.fontSize(22).fillColor('#0f172a').text('SmartLogix', { align: 'center' });
+    doc.fontSize(22).fillColor('#0f172a').text('Logify', { align: 'center' });
     doc.fontSize(13).fillColor('#475569').text('Historial de Notificaciones', { align: 'center' });
     doc.fontSize(9).fillColor('#94a3b8').text(`Generado: ${new Date().toLocaleString('es-CL')} — Total: ${rows.length}`, { align: 'center' });
     doc.moveDown(0.5);
@@ -175,7 +175,7 @@ app.get('/api/notifications/report/pdf', authMiddleware, async (_req, res) => {
 app.get('/api/notifications/qr', authMiddleware, async (req, res) => {
   try {
     const text = (req.query.text || '').trim();
-    if (!text) return res.status(400).json({ error: 'text es requerido. Ej: ?text=SMARTLOGIX-TRACK123' });
+    if (!text) return res.status(400).json({ error: 'text es requerido. Ej: ?text=LOGIFY-TRACK123' });
     const size = req.query.size || '200x200';
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent(text)}&format=png&margin=10`;
     const qrRes = await fetch(qrUrl);

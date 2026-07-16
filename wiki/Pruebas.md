@@ -1,6 +1,6 @@
 # Pruebas
 
-SmartLogix incluye pruebas unitarias en cada microservicio y en el frontend. Estado actual: **212 pruebas, todas en verde**.
+Logify incluye pruebas unitarias en cada microservicio y en el frontend. Estado actual: **212 pruebas, todas en verde**.
 
 ---
 
@@ -121,14 +121,14 @@ En la carpeta `ENTREGABLE/` se incluye la colección Postman con todos los endpo
 
 ```
 ENTREGABLE/
-├── SmartLogix-Postman-Collection.json
+├── Logify-Postman-Collection.json
 └── newman-report/
 ```
 
 ### Importar en Postman
 
 1. Abrir Postman
-2. `Import` → seleccionar `SmartLogix-Postman-Collection.json`
+2. `Import` → seleccionar `Logify-Postman-Collection.json`
 3. Configurar la variable de entorno `baseUrl = http://localhost:8080`
 4. Ejecutar los requests en orden
 
@@ -136,7 +136,7 @@ ENTREGABLE/
 
 ```bash
 npm install -g newman
-newman run ENTREGABLE/SmartLogix-Postman-Collection.json \
+newman run ENTREGABLE/Logify-Postman-Collection.json \
   --env-var "baseUrl=http://localhost:8080" \
   --reporters cli,html \
   --reporter-html-export ENTREGABLE/newman-report/report.html

@@ -18,7 +18,7 @@ export default function Cta1() {
                                 <span className="text-brand-1">tu negocio?</span>
                             </h2>
                             <p className="text-lg text-white/80 max-w-lg">
-                                Únete a los cientos de comercios que ya confían en SmartLogix. Prueba gratis por 14 días, sin compromiso.
+                                Únete a los cientos de comercios que ya confían en Logify. Prueba gratis por 14 días, sin compromiso.
                             </p>
                         </div>
                         <div className="flex flex-col items-start lg:items-end gap-3 shrink-0">

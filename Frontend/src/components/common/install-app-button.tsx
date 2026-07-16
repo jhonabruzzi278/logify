@@ -18,7 +18,7 @@ export function InstallAppButton({ canInstall, onInstall, compact = false, class
       className={cn("whitespace-nowrap", compact ? "gap-1.5 px-3" : "gap-2", className)}
       onClick={onInstall}
       disabled={!canInstall}
-      title={canInstall ? "Instalar SmartLogix como app" : "La instalacion no esta disponible en este momento"}
+      title={canInstall ? "Instalar Logify como app" : "La instalacion no esta disponible en este momento"}
     >
       <Download className="h-4 w-4" />
       <span>{compact ? "Instalar" : "Instalar app"}</span>

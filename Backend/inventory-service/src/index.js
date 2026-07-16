@@ -87,7 +87,7 @@ app.get('/api/inventory/report/pdf', authMiddleware, async (_req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=inventario.pdf');
     doc.pipe(res);
 
-    doc.fontSize(22).fillColor('#0f172a').text('SmartLogix', { align: 'center' });
+    doc.fontSize(22).fillColor('#0f172a').text('Logify', { align: 'center' });
     doc.fontSize(13).fillColor('#475569').text('Reporte de Inventario', { align: 'center' });
     doc.fontSize(9).fillColor('#94a3b8').text(`Generado: ${new Date().toLocaleString('es-CL')}`, { align: 'center' });
     doc.moveDown(0.5);
@@ -161,7 +161,7 @@ app.get('/api/inventory/geocode', authMiddleware, async (req, res) => {
     const address = (req.query.address || '').trim();
     if (address.length < 3) return res.status(400).json({ error: 'address es requerido (mínimo 3 caracteres)' });
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address + ', Chile')}&format=json&addressdetails=1&limit=5&countrycodes=cl`;
-    const response = await fetch(url, { headers: { 'User-Agent': 'SmartLogix/1.0 (logistica@smartlogix.cl)', 'Accept-Language': 'es' } });
+    const response = await fetch(url, { headers: { 'User-Agent': 'Logify/1.0 (logistica@logify.cl)', 'Accept-Language': 'es' } });
     if (!response.ok) throw new Error(`Nominatim error ${response.status}`);
     const data = await response.json();
     res.json(data.map(r => ({
@@ -183,7 +183,7 @@ app.get('/api/inventory/image-search', authMiddleware, async (req, res) => {
     const q = (req.query.q || '').trim();
     if (q.length < 2) return res.status(400).json({ error: 'q debe tener al menos 2 caracteres' });
     const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=8&license_type=all`;
-    const response = await fetch(url, { headers: { 'User-Agent': 'SmartLogix/1.0 (logistica@smartlogix.cl)' } });
+    const response = await fetch(url, { headers: { 'User-Agent': 'Logify/1.0 (logistica@logify.cl)' } });
     if (!response.ok) throw new Error(`Openverse error ${response.status}`);
     const data = await response.json();
     res.json((data.results || []).map(r => ({
@@ -254,7 +254,7 @@ app.get('/api/inventory/:sku/qr', authMiddleware, async (req, res) => {
     if (!(await pool.query('SELECT 1 FROM inventory WHERE sku=$1', [sku])).rows.length)
       return res.status(404).json({ error: 'SKU no encontrado' });
     const size = req.query.size || '200x200';
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent('SMARTLOGIX-SKU:' + sku)}&format=png&margin=10`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent('LOGIFY-SKU:' + sku)}&format=png&margin=10`;
     const qrRes = await fetch(qrUrl);
     if (!qrRes.ok) throw new Error('QR service error');
     res.setHeader('Content-Type', 'image/png');

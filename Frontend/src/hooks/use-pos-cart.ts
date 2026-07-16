@@ -6,7 +6,7 @@ export interface CartEntry {
   quantity: number;
 }
 
-const CART_KEY = "smartlogix-pos-cart:v1";
+const CART_KEY = "logify-pos-cart:v1";
 
 function readCart(): CartEntry[] {
   try {

@@ -4,7 +4,7 @@ const SMTP_HOST = process.env.SMTP_HOST || '';
 const SMTP_PORT = process.env.SMTP_PORT || '587';
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
-const SMTP_FROM = process.env.SMTP_FROM || 'no-reply@smartlogix.cl';
+const SMTP_FROM = process.env.SMTP_FROM || 'no-reply@logify.cl';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
 async function sendEmail({ to, subject, html }) {
@@ -87,7 +87,7 @@ function layout(content) {
       <tr>
         <td style="padding:24px 40px" align="center">
           <p style="margin:0;font-size:12px;color:#94A3B8;line-height:1.6">
-            Este correo fue enviado por SmartLogix de forma automatica.<br>
+            Este correo fue enviado por Logify de forma automatica.<br>
             Si tienes dudas, contacta a nuestro equipo de soporte.
           </p>
         </td>
@@ -201,7 +201,7 @@ function buildOrderConfirmationEmail({ customerName, orderId, sku, quantity, cus
     </table>`;
 
   return {
-    subject: `SmartLogix — Tu pedido #${orderId} fue registrado`,
+    subject: `Logify — Tu pedido #${orderId} fue registrado`,
     html: layout(content)
   };
 }
@@ -268,7 +268,7 @@ function buildShipmentInTransitEmail({ customerName, orderId, clientCode, tracki
     </table>`;
 
   return {
-    subject: `SmartLogix — Tu pedido #${orderId} esta en camino`,
+    subject: `Logify — Tu pedido #${orderId} esta en camino`,
     html: layout(content)
   };
 }
@@ -321,7 +321,7 @@ function buildShipmentDeliveredEmail({ customerName, orderId, clientCode, tracki
           ${clientCode ? ctaButton(trackingUrl, 'Ver comprobante de entrega →') : ''}
 
           <p style="margin:16px 0 0;font-size:14px;color:#64748B;text-align:center;line-height:1.6">
-            Gracias por confiar en SmartLogix.<br>
+            Gracias por confiar en Logify.<br>
             <strong style="color:#0D1B2A">Buena recepcion.</strong>
           </p>
         </td>
@@ -329,7 +329,7 @@ function buildShipmentDeliveredEmail({ customerName, orderId, clientCode, tracki
     </table>`;
 
   return {
-    subject: `SmartLogix — Tu pedido #${orderId} fue entregado`,
+    subject: `Logify — Tu pedido #${orderId} fue entregado`,
     html: layout(content)
   };
 }

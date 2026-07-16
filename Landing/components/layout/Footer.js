@@ -9,9 +9,9 @@ export default function Footer() {
                         <svg width="150" height="36" viewBox="0 0 150 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-5">
                             <rect x="2" y="5" width="26" height="26" rx="7" fill="#FEC201"/>
                             <text x="8" y="23" fontFamily="Arial" fontWeight="900" fontSize="15" fill="#034460">S</text>
-                            <text x="36" y="23" fontFamily="Arial" fontWeight="800" fontSize="17" fill="white">SmartLogix</text>
+                            <text x="36" y="23" fontFamily="Arial" fontWeight="800" fontSize="17" fill="white">Logify</text>
                         </svg>
-                        <p className="text-sm text-white/70 mb-5">SmartLogix es la plataforma todo-en-uno para pequeños comercios. POS, inventario, pedidos, despachos y dashboard en un solo lugar.</p>
+                        <p className="text-sm text-white/70 mb-5">Logify es la plataforma todo-en-uno para pequeños comercios. POS, inventario, pedidos, despachos y dashboard en un solo lugar.</p>
                         <h6 className="text-brand-1 font-semibold mb-3">Síguenos</h6>
                         <div className="flex gap-3">
                             {["facebook","instagram","twitter","youtube"].map(s => (
@@ -38,7 +38,7 @@ export default function Footer() {
                     <div>
                         <h5 className="text-brand-1 font-bold mb-4">Contacto</h5>
                         <ul className="space-y-3">
-                            <li><a href="mailto:contacto@smartlogix.cl" className="text-sm text-white/60 hover:text-brand-1 transition-colors">contacto@smartlogix.cl</a></li>
+                            <li><a href="mailto:contacto@logify.cl" className="text-sm text-white/60 hover:text-brand-1 transition-colors">contacto@logify.cl</a></li>
                             <li><a href="tel:+56912345678" className="text-sm text-white/60 hover:text-brand-1 transition-colors">+56 9 1234 5678</a></li>
                             <li><span className="text-sm text-white/50">Santiago, Chile</span></li>
                         </ul>
@@ -49,7 +49,7 @@ export default function Footer() {
             </div>
             <div className="border-t border-white/10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <span className="text-sm text-white/50">© SmartLogix {new Date().getFullYear()}. Todos los derechos reservados.</span>
+                    <span className="text-sm text-white/50">© Logify {new Date().getFullYear()}. Todos los derechos reservados.</span>
                     <div className="flex gap-6">
                         {["Política de Privacidad","Términos del Servicio","Cookies"].map((item, i) => (
                             <Link key={i} href="#" className="text-xs text-white/40 hover:text-white/60 transition-colors">{item}</Link>

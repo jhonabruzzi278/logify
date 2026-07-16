@@ -114,7 +114,7 @@ export function ProfilePage() {
             </div>
             <div className="flex items-center gap-2 text-[#6B7280]">
               <Boxes className="h-4 w-4 shrink-0" />
-              <span>SmartLogix v2.0</span>
+              <span>Logify v2.0</span>
             </div>
             <div className="flex items-center gap-2 text-[#6B7280]">
               <MapPin className="h-4 w-4 shrink-0" />
@@ -123,7 +123,7 @@ export function ProfilePage() {
           </div>
 
           <p className="mt-4 text-sm leading-relaxed text-[#6B7280]">
-            {profile?.summary ?? "Perfil operativo de SmartLogix."}
+            {profile?.summary ?? "Perfil operativo de Logify."}
           </p>
 
           {/* Stats */}

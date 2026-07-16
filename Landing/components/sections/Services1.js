@@ -2,10 +2,10 @@
 
 const features = [
     { icon: "🏪", title: "Punto de Venta (POS)", short: "Vende de forma rápida e intuitiva. Agrega productos al carrito, calcula vueltos y genera comprobantes al instante.",
-        detail: "El POS de SmartLogix está diseñado para que tu cajero aprenda en segundos. Agrega productos con búsqueda rápida, calcula el vuelto automáticamente, y el stock se descuenta al instante. Compatible con lectores de código de barras y básculas.",
+        detail: "El POS de Logify está diseñado para que tu cajero aprenda en segundos. Agrega productos con búsqueda rápida, calcula el vuelto automáticamente, y el stock se descuenta al instante. Compatible con lectores de código de barras y básculas.",
         bullets: ["Carrito de compras rápido","Cálculo automático de vuelto","Descuento automático de stock","Comprobante de venta digital"] },
     { icon: "📦", title: "Control de Inventario", short: "Gestióna tu stock con alertas de inventario crítico. Por producto, por categoría y por proveedor.",
-        detail: "Mantén el control total de tu bodega. Registra cada producto con SKU, precio, costo y categoría. SmartLogix te avisa automáticamente cuando un producto llega a nivel crítico, para que nunca te quedes sin stock de lo que más vendes.",
+        detail: "Mantén el control total de tu bodega. Registra cada producto con SKU, precio, costo y categoría. Logify te avisa automáticamente cuando un producto llega a nivel crítico, para que nunca te quedes sin stock de lo que más vendes.",
         bullets: ["Alertas de stock crítico y warning","Seguimiento por proveedor","Costos y precios por producto","Categorías personalizables"] },
     { icon: "📋", title: "Gestión de Pedidos", short: "Crea, confirma y da seguimiento a cada pedido. Desde la creación hasta la entrega final.",
         detail: "Cada pedido pasa por 5 etapas claras: Creado → En Preparación → En Reparto → Entregado. Puedes confirmar pedidos (descontando stock automáticamente) y cancelarlos con un motivo. El historial completo de cada pedido queda registrado.",

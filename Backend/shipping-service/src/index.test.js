@@ -264,12 +264,12 @@ describe('shipping-service', () => {
   // ─── GET /api/shipments/:id/qr ──────────────────────────────────────────────
 
   describe('GET /api/shipments/:id/qr', () => {
-    it('retorna código QR con formato SMARTLOGIX-{tracking_number}', async () => {
+    it('retorna código QR con formato LOGIFY-{tracking_number}', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
       const res = await request(app).get('/api/shipments/1/qr');
       expect(res.status).toBe(200);
-      expect(res.body.qrCode).toBe('SMARTLOGIX-TRACK-UUID-123');
-      expect(res.body.qrCode).toMatch(/^SMARTLOGIX-TRACK-/);
+      expect(res.body.qrCode).toBe('LOGIFY-TRACK-UUID-123');
+      expect(res.body.qrCode).toMatch(/^LOGIFY-TRACK-/);
     });
 
     it('retorna 404 con error si envío no existe', async () => {

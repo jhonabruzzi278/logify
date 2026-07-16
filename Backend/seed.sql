@@ -1,9 +1,9 @@
 -- ============================================================
--- SmartLogix Seed — Caso de uso real
+-- Logify Seed — Caso de uso real
 -- Distribuidora mayorista de abarrotes y bebidas que abastece
 -- almacenes y minimarkets de barrio en Santiago de Chile.
 --
--- Ejecutar: docker exec -i smartlogix-db psql -U postgres < seed.sql
+-- Ejecutar: docker exec -i logify-db psql -U postgres < seed.sql
 -- ADVERTENCIA: este script VACÍA los datos operacionales
 -- (pedidos, clientes, inventario, ventas, envíos, notificaciones)
 -- y los reemplaza por el dataset realista. Los usuarios se
@@ -101,14 +101,14 @@ INSERT INTO customers (name, phone, address, email, rut, created_at) VALUES
 
 INSERT INTO orders (id, customer_id, sku, quantity, status, created_at, assigned_to, cancel_reason, client_code) VALUES
   -- Entregados (historial de los últimos días)
-  (101, 1, 'COCA-COLA-2L',        24, 'ENTREGADO', NOW() - INTERVAL '4 days',    'transportista@smartlogix.cl', NULL, 'SL-7K2MQ9'),
-  (102, 3, 'ARROZ-TUCAPEL-1KG',   30, 'ENTREGADO', NOW() - INTERVAL '3 days',    'transportista@smartlogix.cl', NULL, 'SL-4TB8XN'),
-  (103, 5, 'CERVEZA-CRISTAL-350', 48, 'ENTREGADO', NOW() - INTERVAL '2 days',    'transportista@smartlogix.cl', NULL, 'SL-9WF3JD'),
-  (104, 7, 'GALLETA-SODA-MCKAY',  20, 'ENTREGADO', NOW() - INTERVAL '1 day',     'transportista@smartlogix.cl', NULL, 'SL-2HR6VL'),
+  (101, 1, 'COCA-COLA-2L',        24, 'ENTREGADO', NOW() - INTERVAL '4 days',    'transportista@logify.cl', NULL, 'SL-7K2MQ9'),
+  (102, 3, 'ARROZ-TUCAPEL-1KG',   30, 'ENTREGADO', NOW() - INTERVAL '3 days',    'transportista@logify.cl', NULL, 'SL-4TB8XN'),
+  (103, 5, 'CERVEZA-CRISTAL-350', 48, 'ENTREGADO', NOW() - INTERVAL '2 days',    'transportista@logify.cl', NULL, 'SL-9WF3JD'),
+  (104, 7, 'GALLETA-SODA-MCKAY',  20, 'ENTREGADO', NOW() - INTERVAL '1 day',     'transportista@logify.cl', NULL, 'SL-2HR6VL'),
   -- En reparto (camión en ruta ahora)
-  (105, 2, 'ACEITE-CHEF-900',     12, 'EN_REPARTO', NOW() - INTERVAL '3 hours',  'transportista@smartlogix.cl', NULL, 'SL-6PC1ZT'),
-  (106, 4, 'CERVEZA-CRISTAL-350', 60, 'EN_REPARTO', NOW() - INTERVAL '2 hours',  'transportista@smartlogix.cl', NULL, 'SL-8NJ5KW'),
-  (107, 8, 'AZUCAR-IANSA-1KG',    25, 'EN_REPARTO', NOW() - INTERVAL '90 minutes','transportista@smartlogix.cl', NULL, 'SL-3QX7DM'),
+  (105, 2, 'ACEITE-CHEF-900',     12, 'EN_REPARTO', NOW() - INTERVAL '3 hours',  'transportista@logify.cl', NULL, 'SL-6PC1ZT'),
+  (106, 4, 'CERVEZA-CRISTAL-350', 60, 'EN_REPARTO', NOW() - INTERVAL '2 hours',  'transportista@logify.cl', NULL, 'SL-8NJ5KW'),
+  (107, 8, 'AZUCAR-IANSA-1KG',    25, 'EN_REPARTO', NOW() - INTERVAL '90 minutes','transportista@logify.cl', NULL, 'SL-3QX7DM'),
   -- En preparación (bodega armando el pedido)
   (108, 6, 'FIDEOS-CAROZZI-400',  40, 'EN_PREPARACION', NOW() - INTERVAL '1 hour',    NULL, NULL, 'SL-5VG9BH'),
   (109, 9, 'JUGO-WATTS-1L',       18, 'EN_PREPARACION', NOW() - INTERVAL '45 minutes', NULL, NULL, 'SL-1LD4SC'),

@@ -1,4 +1,4 @@
-# SmartLogix — Frontend
+# Logify — Frontend
 
 SPA con React 18 + TypeScript 5.7 + Vite 6 + Tailwind CSS + shadcn/ui. PWA instalable.
 

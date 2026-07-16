@@ -2,7 +2,7 @@ function applySecurity(app) {
   const helmet = require('helmet');
   const cors = require('cors');
 
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,https://smartlogix-five.vercel.app')
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,https://logify-five.vercel.app')
     .split(',').map(s => s.trim());
   // Túneles temporales (ngrok) para probar la demo fuera de la red local.
   const allowedOriginPatterns = [/^https:\/\/[a-z0-9-]+\.ngrok-free\.app$/, /^https:\/\/[a-z0-9-]+\.ngrok\.io$/];

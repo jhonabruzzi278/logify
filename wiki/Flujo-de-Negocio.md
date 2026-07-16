@@ -1,6 +1,6 @@
 # Flujo de negocio
 
-Ciclo de vida completo de un pedido en SmartLogix, desde la creación hasta la entrega.
+Ciclo de vida completo de un pedido en Logify, desde la creación hasta la entrega.
 
 ---
 

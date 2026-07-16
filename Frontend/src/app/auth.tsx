@@ -13,7 +13,7 @@ interface AuthContextValue {
   logout: () => Promise<void>;
 }
 
-const STORAGE_KEY = "smartlogix-auth-v2";
+const STORAGE_KEY = "logify-auth-v2";
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function readStoredSession(): Session | null {

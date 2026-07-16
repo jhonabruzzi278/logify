@@ -1,7 +1,10 @@
-# SmartLogix — Plataforma de Gestión Logística
+# Logify — Plataforma de Gestión Logística
 
-**Repositorio:** https://github.com/jhonabruzzi278/smartlogix-eva  
-**Frontend (Vercel):** https://smartlogix-five.vercel.app
+Logify es una plataforma SaaS de gestión logística: pedidos, inventario,
+envíos y notificaciones en un solo sistema, con control de acceso por rol.
+
+**Repositorio:** https://github.com/jhonabruzzi278/logify
+**Dominio:** logify.cl (en configuración — ver [RAILWAY_DEPLOY.md](RAILWAY_DEPLOY.md))
 
 ---
 
@@ -63,12 +66,12 @@ docker compose ps
 
 | Contenedor | Puerto local | Descripción |
 |-----------|-------------|-------------|
-| smartlogix-db | 5432 | PostgreSQL (4 DBs) |
-| smartlogix-orders | 8081 | orders-service |
-| smartlogix-inventory | 8082 | inventory-service |
-| smartlogix-shipping | 8084 | shipping-service |
-| smartlogix-notification | 8085 | notification-service |
-| smartlogix-api-gateway | **8080** | Nginx BFF (punto único de entrada) |
+| logify-db | 5432 | PostgreSQL (4 DBs) |
+| logify-orders | 8081 | orders-service |
+| logify-inventory | 8082 | inventory-service |
+| logify-shipping | 8084 | shipping-service |
+| logify-notification | 8085 | notification-service |
+| logify-api-gateway | **8080** | Nginx BFF (punto único de entrada) |
 
 ### 2. Verificar el backend
 
@@ -309,6 +312,22 @@ docker compose up -d --build orders-service
 
 ---
 
+## Despliegue a producción
+
+Backend (4 microservicios + gateway + PostgreSQL) en Railway, Frontend y
+Landing en Vercel. Guía paso a paso completa en
+[RAILWAY_DEPLOY.md](RAILWAY_DEPLOY.md).
+
+## Roadmap: multi-tenant
+
+Hoy el sistema es single-tenant (una sola empresa operadora). El plan de
+evolución a SaaS multi-tenant con subdominio por empresa
+(`<empresa>.logify.cl`) está documentado como diseño de arquitectura y se
+implementa de forma incremental, sin romper el sistema actual en ningún
+paso intermedio.
+
+---
+
 ## Pruebas
 
 **212 pruebas** en total (backend 159 con Jest + Supertest, frontend 53 con Vitest + RTL). Ver detalle y cobertura en [wiki/Pruebas.md](wiki/Pruebas.md).
@@ -330,7 +349,7 @@ npm run test:coverage   # Reporte en Frontend/coverage/index.html
 ## Estructura del proyecto
 
 ```
-SmartLogix/
+Logify/
 ├── Frontend/                   # React 18 SPA + PWA (Vite 6) + Web Push
 │   └── src/
 │       ├── app/                # Auth, router, RBAC (access.ts)
@@ -347,9 +366,10 @@ SmartLogix/
 │   ├── shared/                 # app, db, logger, validate, security, email
 │   └── seed.sql                # Datos de prueba
 ├── Landing/                    # Landing pública (Next.js, deploy en Vercel)
-├── infra/                      # Terraform: VPC, ECS, S3, IAM, SSM (AWS)
-├── .github/workflows/          # CI/CD: infra-deploy, app-deploy, frontend-deploy
 ├── wiki/                       # Documentación técnica del proyecto
-├── ENTREGABLE/                 # Colección Postman + reporte Newman
+├── docs/
+│   ├── technical/               # Arquitectura, persistencia, informe de pruebas (HTML)
+│   └── api/                     # Colección Postman
+├── RAILWAY_DEPLOY.md           # Guía de despliegue (Railway + Vercel)
 └── docker-compose.yml          # Orquestación completa local
 ```

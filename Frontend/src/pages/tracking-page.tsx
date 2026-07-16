@@ -161,7 +161,7 @@ export function TrackingPage() {
           <div className="h-8 w-8 rounded-lg bg-[#4B98CF] flex items-center justify-center">
             <Truck className="h-4 w-4 text-white" />
           </div>
-          <span className="text-white font-bold text-lg tracking-tight">SmartLogix</span>
+          <span className="text-white font-bold text-lg tracking-tight">Logify</span>
         </div>
         {session ? (
           <div className="flex items-center gap-3">
@@ -372,7 +372,7 @@ export function TrackingPage() {
       </div>
 
       <footer className="py-5 text-center">
-        <p className="text-white/20 text-xs">SmartLogix © 2025 · Logística inteligente</p>
+        <p className="text-white/20 text-xs">Logify © 2025 · Logística inteligente</p>
       </footer>
     </div>
   );

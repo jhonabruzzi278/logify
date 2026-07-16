@@ -1,5 +1,5 @@
-const BASE_URL_KEY = "smartlogix-api-base-url";
-const TOKEN_KEY = "smartlogix-api-token";
+const BASE_URL_KEY = "logify-api-base-url";
+const TOKEN_KEY = "logify-api-token";
 
 export interface ApiConfig {
   baseUrl: string;

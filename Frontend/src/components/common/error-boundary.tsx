@@ -21,7 +21,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[SmartLogix ErrorBoundary]", error, info.componentStack);
+    console.error("[Logify ErrorBoundary]", error, info.componentStack);
   }
 
   render() {

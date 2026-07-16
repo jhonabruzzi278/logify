@@ -1,6 +1,6 @@
 # Inicio rápido
 
-Levantar SmartLogix completo en 3 pasos.
+Levantar Logify completo en 3 pasos.
 
 ---
 
@@ -15,8 +15,8 @@ Levantar SmartLogix completo en 3 pasos.
 ## Paso 1 — Clonar el repositorio
 
 ```bash
-git clone https://github.com/jhonabruzzi278/smartlogix-eva.git
-cd smartlogix-eva
+git clone https://github.com/jhonabruzzi278/logify-eva.git
+cd logify-eva
 ```
 
 ---
@@ -31,12 +31,12 @@ Este comando construye y levanta 6 contenedores:
 
 | Contenedor | Puerto | Descripción |
 |-----------|--------|-------------|
-| smartlogix-db | 5432 | PostgreSQL 15 (4 bases de datos) |
-| smartlogix-orders | 8081 | orders-service |
-| smartlogix-inventory | 8082 | inventory-service |
-| smartlogix-shipping | 8084 | shipping-service |
-| smartlogix-notification | 8085 | notification-service |
-| smartlogix-api-gateway | **8080** | Nginx BFF (entrada única) |
+| logify-db | 5432 | PostgreSQL 15 (4 bases de datos) |
+| logify-orders | 8081 | orders-service |
+| logify-inventory | 8082 | inventory-service |
+| logify-shipping | 8084 | shipping-service |
+| logify-notification | 8085 | notification-service |
+| logify-api-gateway | **8080** | Nginx BFF (entrada única) |
 
 Verificar que todo está corriendo:
 
@@ -86,7 +86,7 @@ Sembrados automáticamente en el primer arranque (`seedUsers()` en `Backend/orde
 Los datos de prueba se cargan automáticamente al arrancar. Para recargarlos manualmente:
 
 ```bash
-docker exec -i smartlogix-db psql -U postgres -d orders_db < Backend/seed.sql
+docker exec -i logify-db psql -U postgres -d orders_db < Backend/seed.sql
 ```
 
 ---
@@ -117,7 +117,7 @@ docker compose ps
 
 ## Frontend en producción (Vercel)
 
-El frontend está desplegado en: **https://smartlogix-five.vercel.app**
+El frontend está desplegado en: **https://logify-five.vercel.app**
 
 Los rewrites de `vercel.json` redirigen `/api/*` al backend. Asegúrate de tener el backend accesible desde internet o configura `BACKEND_URL` en las variables de entorno de Vercel.
 

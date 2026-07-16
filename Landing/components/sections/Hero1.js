@@ -15,10 +15,10 @@
                         <span className="text-brand-1">en un solo lugar</span>
                     </h1>
                     <p className="text-lg text-white/85 leading-relaxed mb-8 max-w-lg">
-                        SmartLogix simplifica la gestión de tu pequeño comercio. Vende, controla stock, gestiona pedidos y coordina despachos desde un solo panel.
+                        Logify simplifica la gestión de tu pequeño comercio. Vende, controla stock, gestiona pedidos y coordina despachos desde un solo panel.
                     </p>
                     <div className="flex flex-wrap gap-3 mb-10">
-                        <a href="https://smartlogix-five.vercel.app" className="inline-flex items-center gap-2 bg-brand-1 text-brand-2 font-bold px-8 py-4 rounded-xl hover:bg-yellow-400 transition-all hover:-translate-y-0.5 shadow-lg shadow-brand-1/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-brand-2" aria-label="Acceder al software SmartLogix">
+                        <a href="https://logify-five.vercel.app" className="inline-flex items-center gap-2 bg-brand-1 text-brand-2 font-bold px-8 py-4 rounded-xl hover:bg-yellow-400 transition-all hover:-translate-y-0.5 shadow-lg shadow-brand-1/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-brand-2" aria-label="Acceder al software Logify">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
                             Acceder al Software
                         </a>
@@ -26,7 +26,7 @@
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                             Solicitar Demo Gratis
                         </a>
-                        <a href="#caracteristicas" className="inline-flex items-center gap-2 text-white font-semibold px-6 py-4 rounded-xl hover:bg-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-white/50" aria-label="Ver como funciona SmartLogix">
+                        <a href="#caracteristicas" className="inline-flex items-center gap-2 text-white font-semibold px-6 py-4 rounded-xl hover:bg-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-white/50" aria-label="Ver como funciona Logify">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
                             Ver como funciona
                         </a>
@@ -40,7 +40,7 @@
                             ))}
                         </div>
                         <div>
-                            <span className="text-white text-base font-medium block">+500 comercios ya usan SmartLogix</span>
+                            <span className="text-white text-base font-medium block">+500 comercios ya usan Logify</span>
                             <div className="flex items-center gap-2 text-brand-1 text-sm mt-0.5">
                                 <span>★★★★★</span><span className="text-white">4.9/5 satisfacción</span>
                             </div>

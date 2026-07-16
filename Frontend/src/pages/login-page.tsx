@@ -67,7 +67,7 @@ export function LoginPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#4B98CF]">
             <span className="text-lg font-bold text-white">S</span>
           </div>
-          <span className="text-lg font-bold text-white">SmartLogix</span>
+          <span className="text-lg font-bold text-white">Logify</span>
         </div>
 
         <div className="relative z-10 max-w-md">
@@ -91,7 +91,7 @@ export function LoginPage() {
         </div>
 
         <p className="relative z-10 text-xs text-[#6B85A3]">
-          &copy; {new Date().getFullYear()} SmartLogix &middot; Plataforma interna de operaciones
+          &copy; {new Date().getFullYear()} Logify &middot; Plataforma interna de operaciones
         </p>
       </div>
 
@@ -102,7 +102,7 @@ export function LoginPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1A3142]">
               <span className="text-lg font-bold text-white">S</span>
             </div>
-            <span className="text-lg font-bold text-foreground">SmartLogix</span>
+            <span className="text-lg font-bold text-foreground">Logify</span>
           </div>
 
           <h1 className="text-2xl font-bold text-foreground">Bienvenido de vuelta</h1>
@@ -192,7 +192,7 @@ export function LoginPage() {
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
             ¿Problemas para ingresar?{" "}
-            <a href="mailto:soporte@smartlogix.cl" className="font-medium text-[#4B98CF] hover:underline">
+            <a href="mailto:soporte@logify.cl" className="font-medium text-[#4B98CF] hover:underline">
               Contacta a soporte
             </a>
           </p>

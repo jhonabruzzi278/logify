@@ -8,7 +8,7 @@ export default function Requestquote1() {
 
     const handleSubmit = (e) => {
         e.preventDefault()
-        const msg = `Hola SmartLogix,%0A%0A*Solicitud de Demo*%0A%0ANombre: ${formData.name}%0AEmail: ${formData.email}%0ATeléfono: ${formData.phone}%0ANegocio: ${formData.business}%0AMensaje: ${formData.message}`
+        const msg = `Hola Logify,%0A%0A*Solicitud de Demo*%0A%0ANombre: ${formData.name}%0AEmail: ${formData.email}%0ATeléfono: ${formData.phone}%0ANegocio: ${formData.business}%0AMensaje: ${formData.message}`
         setSubmitted(true)
         window.open(`https://wa.me/56938980598?text=${msg}`, '_blank')
     }
@@ -26,7 +26,7 @@ export default function Requestquote1() {
                         <h2 className="text-white font-extrabold leading-tight mb-5" style={{fontSize: 'clamp(2rem, 4vw, 3rem)'}}>
                             Solicita una Demo<br/><span className="text-brand-1">Gratis</span>
                         </h2>
-                        <p className="text-lg text-white/80 mb-10">Cuéntanos sobre tu negocio y te mostraremos como SmartLogix puede ayudarte. Sin compromiso, sin tarjeta de credito.</p>
+                        <p className="text-lg text-white/80 mb-10">Cuéntanos sobre tu negocio y te mostraremos como Logify puede ayudarte. Sin compromiso, sin tarjeta de credito.</p>
                         <div className="space-y-5">
                             {[["Demo personalizada","Adaptada a las necesidades de tu negocio"],["14 días de prueba gratis","Acceso completo a todas las funcionalidades"],["Sin compromiso","Cancela cuando quieras, sin preguntas"]].map(([title, desc], i) => (
                                 <div key={i} className="flex items-start gap-4">

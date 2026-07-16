@@ -2,7 +2,7 @@ import { generateDemoTokens, isLocalDemoEnvironment } from "@/lib/demo-auth";
 import { loginWithLocalJwt } from "@/lib/local-jwt-auth";
 
 const DEFAULT_COGNITO_ENDPOINT = import.meta.env.VITE_COGNITO_ENDPOINT ?? "/aws/cognito";
-const DEFAULT_COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? "smartlogixwebclient";
+const DEFAULT_COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID ?? "logifywebclient";
 
 interface CognitoErrorPayload {
   __type?: string;
@@ -138,7 +138,7 @@ export async function refreshCognitoSession(refreshToken: string): Promise<Cogni
     if (!username) {
       throw new Error("Token demo invalido.");
     }
-    return generateDemoTokens(username, "Smartlogix123!");
+    return generateDemoTokens(username, "Logify123!");
   }
 
   if (useLocalJwtAuth()) {

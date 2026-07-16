@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const log = require('./logger');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'smartlogix-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'logify-dev-secret-change-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
 function signToken(user) {

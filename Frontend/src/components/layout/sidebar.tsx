@@ -16,7 +16,7 @@ export function Sidebar({ role }: { role: Role }) {
             <span className="text-base font-bold text-white">S</span>
           </div>
           <div>
-            <p className="text-base font-bold text-white">SmartLogix</p>
+            <p className="text-base font-bold text-white">Logify</p>
           </div>
         </Link>
       </div>

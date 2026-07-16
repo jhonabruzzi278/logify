@@ -1,0 +1,6 @@
+FROM nginx:alpine
+COPY nginx-railway.conf.template /etc/nginx/templates/nginx-railway.conf.template
+COPY docker-entrypoint-railway.sh /docker-entrypoint-railway.sh
+RUN chmod +x /docker-entrypoint-railway.sh
+EXPOSE 8080
+ENTRYPOINT ["/docker-entrypoint-railway.sh"]

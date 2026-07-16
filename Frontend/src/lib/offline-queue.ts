@@ -7,7 +7,7 @@ type QueuedRequest = {
   retries: number;
 };
 
-const QUEUE_KEY = "smartlogix-offline-queue:v1";
+const QUEUE_KEY = "logify-offline-queue:v1";
 const MAX_RETRIES = 3;
 
 function readQueue(): QueuedRequest[] {
@@ -27,7 +27,7 @@ export function enqueueOffline(url: string, method: string, body?: string): stri
   const queue = readQueue();
   queue.push({ id, url, method, body, timestamp: Date.now(), retries: 0 });
   writeQueue(queue);
-  window.dispatchEvent(new CustomEvent("smartlogix-offline-queued"));
+  window.dispatchEvent(new CustomEvent("logify-offline-queued"));
   return id;
 }
 
@@ -62,9 +62,9 @@ export async function processOfflineQueue(fetchFn: (url: string, init?: RequestI
 
   writeQueue(remaining);
   if (remaining.length > 0) {
-    window.dispatchEvent(new CustomEvent("smartlogix-offline-retry-failed"));
+    window.dispatchEvent(new CustomEvent("logify-offline-retry-failed"));
   } else {
-    window.dispatchEvent(new CustomEvent("smartlogix-offline-processed"));
+    window.dispatchEvent(new CustomEvent("logify-offline-processed"));
   }
 }
 
