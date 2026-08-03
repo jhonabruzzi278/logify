@@ -521,6 +521,15 @@ describe('orders-service', () => {
       expect(res.body.name).toBe('Juan Actualizado');
     });
 
+    it('acepta y guarda la provincia', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockCustomer, province: 'Santiago' }] });
+      const res = await request(app).put('/api/customers/1').send({ name: 'Juan Perez', province: 'Santiago' });
+      expect(res.status).toBe(200);
+      expect(res.body.province).toBe('Santiago');
+      const [, params] = mockQuery.mock.calls[0];
+      expect(params).toContain('Santiago');
+    });
+
     it('rechaza actualización sin nombre → 400', async () => {
       const res = await request(app).put('/api/customers/1').send({ email: 'test@test.com' });
       expect(res.status).toBe(400);
@@ -557,6 +566,154 @@ describe('orders-service', () => {
       mockQuery.mockRejectedValueOnce(new Error('DB crash'));
       const res = await request(app).delete('/api/customers/1');
       expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── SETTINGS: NEGOCIO ──────────────────────────────────────────────────────
+
+  const mockTenant = {
+    id: 1, slug: 'logify', name: 'Logify', status: 'active', plan: 'enterprise',
+    contact_email: 'contacto@logify.cl', business_rut: null, business_country: null,
+    business_industry: null, business_phone: null, settings: {}
+  };
+
+  describe('GET /api/settings/business', () => {
+    it('retorna los datos de negocio del tenant actual', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockTenant, business_rut: '76.123.456-7' }] });
+      const res = await request(app).get('/api/settings/business');
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Logify');
+      expect(res.body.businessRut).toBe('76.123.456-7');
+    });
+
+    it('retorna 404 si el tenant no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/settings/business');
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('PUT /api/settings/business', () => {
+    it('actualiza los datos de negocio → 200 con datos actualizados', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockTenant, name: 'Nuevo Nombre', business_rut: '76.123.456-7' }] });
+      const res = await request(app).put('/api/settings/business')
+        .send({ name: 'Nuevo Nombre', businessRut: '76.123.456-7', businessCountry: 'Chile', businessIndustry: 'Kiosco', businessPhone: '+56912345678' });
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Nuevo Nombre');
+      expect(res.body.businessRut).toBe('76.123.456-7');
+    });
+
+    it('rechaza sin nombre → 400', async () => {
+      const res = await request(app).put('/api/settings/business').send({ businessRut: '76.123.456-7' });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).put('/api/settings/business').send({ name: 'X' });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── SETTINGS: SISTEMA ──────────────────────────────────────────────────────
+
+  describe('GET /api/settings/system', () => {
+    it('retorna el objeto settings del tenant (vacío por defecto)', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ settings: {} }] });
+      const res = await request(app).get('/api/settings/system');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({});
+    });
+
+    it('retorna los toggles ya guardados', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ settings: { cashRegisterEnabled: true, roundingEnabled: false } }] });
+      const res = await request(app).get('/api/settings/system');
+      expect(res.status).toBe(200);
+      expect(res.body.cashRegisterEnabled).toBe(true);
+    });
+  });
+
+  describe('PUT /api/settings/system', () => {
+    it('mergea los toggles nuevos con los existentes → 200', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ settings: { cashRegisterEnabled: true } }] });
+      mockQuery.mockResolvedValueOnce({ rows: [{ settings: { cashRegisterEnabled: true, roundingEnabled: true } }] });
+      const res = await request(app).put('/api/settings/system').send({ roundingEnabled: true });
+      expect(res.status).toBe(200);
+      expect(res.body.cashRegisterEnabled).toBe(true);
+      expect(res.body.roundingEnabled).toBe(true);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).put('/api/settings/system').send({ roundingEnabled: true });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── INVITACIONES DE USUARIO ────────────────────────────────────────────────
+
+  describe('POST /api/auth/invite', () => {
+    it('crea invitación válida → 201 sin exponer el token', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, email: 'nuevo@empresa.com', role: 'ops', status: 'pending', expires_at: new Date().toISOString() }]
+      });
+      const res = await request(app).post('/api/auth/invite').send({ email: 'nuevo@empresa.com', role: 'ops' });
+      expect(res.status).toBe(201);
+      expect(res.body.email).toBe('nuevo@empresa.com');
+      expect(res.body.token).toBeUndefined();
+    });
+
+    it('rechaza rol inválido → 400', async () => {
+      const res = await request(app).post('/api/auth/invite').send({ email: 'x@x.com', role: 'root' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza sin email → 400', async () => {
+      const res = await request(app).post('/api/auth/invite').send({ role: 'ops' });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).post('/api/auth/invite').send({ email: 'x@x.com', role: 'ops' });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('POST /api/auth/invite/:token/accept', () => {
+    it('acepta invitación válida → 201 con el usuario creado', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, tenant_id: 1, email: 'nuevo@empresa.com', role: 'ops', status: 'pending', expires_at: new Date(Date.now() + 86400000).toISOString() }]
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // username disponible
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevo.usuario', name: 'Nuevo Usuario', role: 'ops' }] });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // marca invitación como aceptada
+      const res = await request(app).post('/api/auth/invite/abc123/accept')
+        .send({ username: 'nuevo.usuario', password: 'Clave123!', name: 'Nuevo Usuario' });
+      expect(res.status).toBe(201);
+      expect(res.body.username).toBe('nuevo.usuario');
+      expect(res.body.role).toBe('ops');
+    });
+
+    it('retorna 404 si el token no existe o ya expiró', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).post('/api/auth/invite/invalido/accept')
+        .send({ username: 'x', password: 'Clave123!', name: 'X' });
+      expect(res.status).toBe(404);
+    });
+
+    it('rechaza sin password → 400', async () => {
+      const res = await request(app).post('/api/auth/invite/abc123/accept').send({ username: 'x', name: 'X' });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('GET /api/auth/users (con último acceso)', () => {
+    it('incluye last_login_at en cada usuario', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', name: 'Admin', role: 'owner', last_login_at: '2026-08-01T10:00:00.000Z' }] });
+      const res = await request(app).get('/api/auth/users');
+      expect(res.status).toBe(200);
+      expect(res.body[0].last_login_at).toBe('2026-08-01T10:00:00.000Z');
     });
   });
 });

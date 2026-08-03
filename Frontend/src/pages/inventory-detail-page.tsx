@@ -1,15 +1,19 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Box, Check, ImageOff, ImagePlus, Package, QrCode, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeft, Box, Check, Edit2, ImageOff, ImagePlus, Package, QrCode, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuthImage } from "@/hooks/use-auth-image";
 import { useDebounce } from "@/hooks/use-debounce";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useOperationalWorkspace, type OperationalProduct } from "@/hooks/use-operational-workspace";
-import { adaptInventory, adaptOrder } from "@/lib/api-adapters";
-import { apiFetch } from "@/lib/api-client";
+import { adaptInventory, adaptOrder, adaptSupplier } from "@/lib/api-adapters";
+import { apiFetch, ApiRequestError } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { ApiInventory, ApiOrder } from "@/types/api";
-import type { Order, Product } from "@/types/domain";
+import type { ApiInventory, ApiOrder, ApiSupplier } from "@/types/api";
+import type { Order, Product, Supplier } from "@/types/domain";
 
 interface ImageResult {
   id: string;
@@ -27,9 +31,17 @@ export function InventoryDetailPage() {
   const [imageResults, setImageResults] = useState<ImageResult[]>([]);
   const [imageSearching, setImageSearching] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", category: "otros", price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 0, active: true });
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const { can } = usePermissions();
 
   const { data: product, refresh: refreshProduct } = useApiQuery<ApiInventory, Product | null>({
     path: `/api/inventory/${encodeURIComponent(decodedId)}`, transform: adaptInventory, enabled: Boolean(decodedId)
+  });
+  const { data: suppliers } = useApiQuery<ApiSupplier[], Supplier[]>({
+    path: "/api/suppliers", transform: (r) => r.map(adaptSupplier)
   });
   const { data: orders } = useApiQuery<ApiOrder[], Order[]>({
     path: "/api/orders", transform: (r) => r.map((o) => adaptOrder(o))
@@ -54,6 +66,46 @@ export function InventoryDetailPage() {
       .finally(() => { if (!cancelled) setImageSearching(false); });
     return () => { cancelled = true; };
   }, [debouncedImageQuery, imagePickerOpen]);
+
+  function openEdit() {
+    if (!resolvedProduct) return;
+    setEditForm({
+      name: resolvedProduct.name,
+      category: resolvedProduct.category,
+      price: resolvedProduct.price,
+      cost: resolvedProduct.cost,
+      supplierId: resolvedProduct.supplierId ? String(resolvedProduct.supplierId) : "",
+      unitOfMeasure: resolvedProduct.unitOfMeasure ?? "unidad",
+      taxRate: resolvedProduct.taxRate ?? 0,
+      active: resolvedProduct.active ?? true,
+    });
+    setEditError("");
+    setEditOpen(true);
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resolvedProduct) return;
+    setEditError("");
+    if (!editForm.name.trim()) { setEditError("El nombre es obligatorio"); return; }
+    setEditSaving(true);
+    try {
+      await apiFetch(`/api/inventory/${encodeURIComponent(resolvedProduct.sku)}/details`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: editForm.name, category: editForm.category, price: editForm.price, cost: editForm.cost,
+          supplierId: editForm.supplierId ? Number(editForm.supplierId) : null,
+          unitOfMeasure: editForm.unitOfMeasure, taxRate: editForm.taxRate, active: editForm.active,
+        }),
+      });
+      setEditOpen(false);
+      refreshProduct();
+    } catch (err) {
+      setEditError(err instanceof ApiRequestError ? err.message : "No se pudo guardar el producto");
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   async function handleSelectImage(url: string) {
     if (!resolvedProduct) return;
@@ -111,15 +163,93 @@ export function InventoryDetailPage() {
             <p className="text-sm text-[#6B7280]">{resolvedProduct.name}</p>
           </div>
         </div>
-        <span className={cn(
-          "self-start rounded-full px-3 py-1 text-xs font-bold",
-          resolvedProduct.status === "healthy" && "bg-[#4EB4A5]/10 text-[#4EB4A5]",
-          resolvedProduct.status === "warning" && "bg-[#E3AA75]/10 text-[#E3AA75]",
-          resolvedProduct.status === "critical" && "bg-red-50 text-red-500",
-        )}>
-          {resolvedProduct.status === "healthy" ? "Estable" : resolvedProduct.status === "warning" ? "Bajo" : "Crítico"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            "self-start rounded-full px-3 py-1 text-xs font-bold",
+            resolvedProduct.status === "healthy" && "bg-[#4EB4A5]/10 text-[#4EB4A5]",
+            resolvedProduct.status === "warning" && "bg-[#E3AA75]/10 text-[#E3AA75]",
+            resolvedProduct.status === "critical" && "bg-red-50 text-red-500",
+          )}>
+            {resolvedProduct.status === "healthy" ? "Estable" : resolvedProduct.status === "warning" ? "Bajo" : "Crítico"}
+          </span>
+          {can("inventory.adjust") && (
+            <button
+              onClick={() => (editOpen ? setEditOpen(false) : openEdit())}
+              className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
+            >
+              <Edit2 className="h-3.5 w-3.5" /> Editar
+            </button>
+          )}
+        </div>
       </div>
+
+      {editOpen && (
+        <form onSubmit={handleSaveEdit} className="rounded border border-[#DCE0E2] bg-white p-5 space-y-3">
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Editar producto</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre</label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Categoría</label>
+              <Select value={editForm.category} onValueChange={(v) => setEditForm({ ...editForm, category: v })}>
+                <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bebidas">Bebidas</SelectItem>
+                  <SelectItem value="galletas">Galletas</SelectItem>
+                  <SelectItem value="dulces">Dulces</SelectItem>
+                  <SelectItem value="otros">Otros</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio venta $</label>
+              <Input type="number" min={0} value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio compra $</label>
+              <Input type="number" min={0} value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
+              <Select value={editForm.supplierId || "none"} onValueChange={(v) => setEditForm({ ...editForm, supplierId: v === "none" ? "" : v })}>
+                <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin proveedor</SelectItem>
+                  {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad de medida</label>
+              <Select value={editForm.unitOfMeasure} onValueChange={(v) => setEditForm({ ...editForm, unitOfMeasure: v })}>
+                <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unidad">Unidad</SelectItem>
+                  <SelectItem value="kg">Kilogramo</SelectItem>
+                  <SelectItem value="g">Gramo</SelectItem>
+                  <SelectItem value="l">Litro</SelectItem>
+                  <SelectItem value="ml">Mililitro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">IVA %</label>
+              <Input type="number" min={0} max={100} value={editForm.taxRate} onChange={(e) => setEditForm({ ...editForm, taxRate: parseFloat(e.target.value) || 0 })} className="h-9 text-sm" />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-medium text-[#112b4a]">
+            <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} className="h-4 w-4 rounded border-[#DCE0E2]" />
+            Producto activo
+          </label>
+          {editError && <p className="text-xs text-red-500">{editError}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" disabled={editSaving}>{editSaving ? "Guardando..." : "Guardar"}</Button>
+          </div>
+        </form>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Stock gauge */}

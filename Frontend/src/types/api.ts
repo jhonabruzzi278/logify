@@ -27,6 +27,37 @@ export interface ApiCustomer {
   email: string | null;
   createdAt: string | null;
   rut?: string | null;
+  province?: string | null;
+}
+
+export interface ApiSupplier {
+  id: number;
+  name: string;
+  rut: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  active: boolean;
+  created_at?: string | null;
+}
+
+export interface ApiBusinessSettings {
+  name: string;
+  contactEmail: string | null;
+  businessRut: string | null;
+  businessCountry: string | null;
+  businessIndustry: string | null;
+  businessPhone: string | null;
+}
+
+export type ApiSystemSettings = Record<string, boolean | string | number>;
+
+export interface ApiInvitation {
+  id: number;
+  email: string;
+  role: string;
+  status: string;
+  expires_at: string;
 }
 
 export interface ApiCreateOrderRequest {
@@ -52,6 +83,13 @@ export interface ApiInventory {
   cost: number;
   category: string;
   image_url?: string | null;
+  supplier_id?: number | null;
+  unit_of_measure?: string | null;
+  tax_rate?: number | null;
+  price_includes_tax?: boolean | null;
+  active?: boolean | null;
+  parent_sku?: string | null;
+  variant_label?: string | null;
 }
 
 export interface ApiShipment {

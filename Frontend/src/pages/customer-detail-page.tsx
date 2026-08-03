@@ -96,7 +96,7 @@ export function CustomerDetailPage() {
             {customer.address && (
               <div className="flex items-center gap-2 text-sm text-[#6B7280]">
                 <MapPin className="h-4 w-4 text-[#4B98CF]" />
-                <span>{customer.address}</span>
+                <span>{customer.address}{customer.province ? `, ${customer.province}` : ""}</span>
               </div>
             )}
           </div>

@@ -14,7 +14,10 @@ export type AppPermission =
   | "users.view"
   | "users.manage"
   | "sales.create"
-  | "sales.view";
+  | "sales.view"
+  | "settings.manage"
+  | "suppliers.manage"
+  | "products.import";
 
 export interface RoleAccessProfile {
   label: string;
@@ -31,7 +34,7 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
     label: "Administrador",
     summary: "Control completo de la operacion, seguimiento transversal y gestion de usuarios del negocio.",
     defaultPath: "/dashboard",
-    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/shipments", "/deliveries", "/alerts", "/users", ...basePaths],
+    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/shipments", "/deliveries", "/alerts", "/users", "/settings", "/suppliers", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",
@@ -46,7 +49,10 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
       "users.view",
       "users.manage",
       "sales.create",
-      "sales.view"
+      "sales.view",
+      "settings.manage",
+      "suppliers.manage",
+      "products.import"
     ]
   },
   ops: {
@@ -71,14 +77,16 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
     label: "Bodega",
     summary: "Controla stock, confirma disponibilidad y responde a quiebres o ajustes de inventario.",
     defaultPath: "/inventory",
-    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/alerts", ...basePaths],
+    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/alerts", "/suppliers", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",
       "inventory.adjust",
       "orders.view",
       "orders.review",
-      "alerts.view"
+      "alerts.view",
+      "suppliers.manage",
+      "products.import"
     ]
   },
   support: {

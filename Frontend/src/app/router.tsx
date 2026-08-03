@@ -19,6 +19,8 @@ import { ReportsPage } from "@/pages/reports-page";
 import { ShipmentsPage } from "@/pages/shipments-page";
 import { ShipperDeliveryPage } from "@/pages/shipper-delivery-page";
 import { ShipmentDetailPage } from "@/pages/shipment-detail-page";
+import { SettingsPage } from "@/pages/settings-page";
+import { SuppliersPage } from "@/pages/suppliers-page";
 import { TrackingPage } from "@/pages/tracking-page";
 import { UsersPage } from "@/pages/users-page";
 
@@ -63,6 +65,8 @@ export const router = createBrowserRouter([
           { path: "/notifications", element: <NotificationsPage /> },
           { path: "/profile", element: <ProfilePage /> },
           { path: "/users", element: <UsersPage /> },
+          { path: "/suppliers", element: <SuppliersPage /> },
+          { path: "/settings", element: <SettingsPage /> },
           { path: "/access-denied", element: <AccessDeniedPage /> }
         ]
       }

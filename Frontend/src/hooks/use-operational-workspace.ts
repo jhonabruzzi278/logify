@@ -105,7 +105,10 @@ export function useOperationalWorkspace({
     });
   }
 
-  async function addProduct(data: { sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory; imageUrl?: string }) {
+  async function addProduct(data: {
+    sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory; imageUrl?: string;
+    supplierId?: number | null; unitOfMeasure?: string; taxRate?: number; active?: boolean;
+  }) {
     const response = await apiFetch("/api/inventory", {
       method: "POST",
       body: JSON.stringify({
@@ -116,6 +119,10 @@ export function useOperationalWorkspace({
         cost: data.cost,
         category: data.category,
         imageUrl: data.imageUrl || null,
+        supplierId: data.supplierId ?? null,
+        unitOfMeasure: data.unitOfMeasure ?? "unidad",
+        taxRate: data.taxRate ?? 0,
+        active: data.active ?? true,
       }),
     });
     return response;

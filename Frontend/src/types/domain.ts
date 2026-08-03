@@ -19,6 +19,23 @@ export interface Product {
   status: HealthState;
   updatedAt: string;
   imageUrl?: string | null;
+  supplierId?: number | null;
+  unitOfMeasure?: string;
+  taxRate?: number;
+  priceIncludesTax?: boolean;
+  active?: boolean;
+  parentSku?: string | null;
+  variantLabel?: string | null;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  rut?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  active: boolean;
 }
 
 export interface OrderItem {
@@ -60,6 +77,7 @@ export interface Customer {
   email?: string;
   createdAt: string;
   rut?: string | null;
+  province?: string | null;
 }
 
 export interface Shipment {

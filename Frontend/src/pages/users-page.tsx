@@ -1,8 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, Edit2, MoreHorizontal, Search, Trash2, UserPlus, X } from "lucide-react";
+import { Check, ChevronDown, Edit2, Mail, Search, Trash2, UserPlus, X } from "lucide-react";
 import { getRoleProfile } from "@/app/access";
 import { useAuth } from "@/app/auth";
-import { fetchUsers, registerUser, updateUser, deleteUser } from "@/lib/local-jwt-auth";
+import { fetchUsers, registerUser, updateUser, deleteUser, inviteUser } from "@/lib/local-jwt-auth";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/domain";
 
@@ -15,6 +15,7 @@ interface UserRecord {
   role: Role;
   created_at: string;
   updated_at: string;
+  last_login_at: string | null;
 }
 
 export function UsersPage() {
@@ -28,6 +29,9 @@ export function UsersPage() {
   const [editingUser, setEditingUser] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", username: "", password: "", role: "ops" as Role });
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ email: "", role: "ops" as Role });
+  const [inviting, setInviting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
@@ -93,12 +97,32 @@ export function UsersPage() {
         name: newUser.name.trim(),
         role: newUser.role,
       });
-      setUsers((prev) => [...prev, { ...created, role: created.role as Role, created_at: "", updated_at: "" }]);
+      setUsers((prev) => [...prev, { ...created, role: created.role as Role, created_at: "", updated_at: "", last_login_at: null }]);
       setNewUser({ name: "", username: "", password: "", role: "ops" });
       setShowAdd(false);
       setFeedback("Usuario creado");
     } catch (e: any) {
       setFeedback(e.message || "Error al crear usuario");
+    }
+    setTimeout(() => setFeedback(null), 3000);
+  }
+
+  async function handleInvite() {
+    if (!inviteForm.email.trim()) {
+      setFeedback("El email es requerido");
+      setTimeout(() => setFeedback(null), 3000);
+      return;
+    }
+    setInviting(true);
+    try {
+      await inviteUser(token, { email: inviteForm.email.trim().toLowerCase(), role: inviteForm.role });
+      setInviteForm({ email: "", role: "ops" });
+      setShowInvite(false);
+      setFeedback("Invitación enviada");
+    } catch (e: any) {
+      setFeedback(e.message || "Error al invitar");
+    } finally {
+      setInviting(false);
     }
     setTimeout(() => setFeedback(null), 3000);
   }
@@ -152,14 +176,44 @@ export function UsersPage() {
           <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Administración</p>
           <h1 className="text-xl font-bold text-[#112b4a]">Usuarios y roles</h1>
         </div>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-1.5 rounded bg-[#4B98CF] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#346384]"
-        >
-          <UserPlus className="h-3.5 w-3.5" />
-          Agregar usuario
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowInvite(!showInvite); setShowAdd(false); }}
+            className="flex items-center gap-1.5 rounded border border-[#4B98CF] px-3 py-1.5 text-xs font-bold text-[#4B98CF] hover:bg-[#4B98CF]/5"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            Invitar
+          </button>
+          <button
+            onClick={() => { setShowAdd(!showAdd); setShowInvite(false); }}
+            className="flex items-center gap-1.5 rounded bg-[#4B98CF] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#346384]"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            Agregar usuario
+          </button>
+        </div>
       </div>
+
+      {showInvite && (
+        <div className="rounded border border-[#DCE0E2] bg-white p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Email</label>
+              <input value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="empleado@empresa.com" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Rol</label>
+              <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as Role })} className="h-9 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-sm">
+                {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleInvite} disabled={inviting} className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384] disabled:opacity-50">{inviting ? "Enviando..." : "Enviar invitación"}</button>
+              <button onClick={() => setShowInvite(false)} className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="rounded border border-[#DCE0E2] bg-white p-4">
@@ -237,6 +291,7 @@ export function UsersPage() {
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs text-[#6B7280]">
                   <span className="font-semibold text-[#4B98CF]">{getRoleProfile(user.role).label}</span>
+                  <span>Último acceso: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString("es-CL") : "Nunca"}</span>
                 </div>
                 <div className="flex gap-2 mt-2">
                   <button
@@ -270,6 +325,7 @@ export function UsersPage() {
                 <th className="px-4 py-3">Usuario</th>
                 <th className="px-4 py-3">Rol</th>
                 <th className="px-4 py-3 hidden md:table-cell">Creado</th>
+                <th className="px-4 py-3 hidden md:table-cell">Último acceso</th>
                 <th className="px-4 py-3 w-10"></th>
               </tr>
             </thead>
@@ -322,13 +378,16 @@ export function UsersPage() {
                   <td className="px-4 py-3 text-xs text-[#6B7280] hidden md:table-cell">
                     {user.created_at ? new Date(user.created_at).toLocaleDateString("es-CL") : "-"}
                   </td>
+                  <td className="px-4 py-3 text-xs text-[#6B7280] hidden md:table-cell">
+                    {user.last_login_at ? new Date(user.last_login_at).toLocaleString("es-CL") : "Nunca"}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => handleDelete(user.id)} className="rounded p-1 text-[#6B7280] hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-xs text-[#6B7280]">Sin usuarios que coincidan</td></tr>
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-xs text-[#6B7280]">Sin usuarios que coincidan</td></tr>
               )}
             </tbody>
           </table>

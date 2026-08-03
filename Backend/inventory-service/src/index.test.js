@@ -196,6 +196,44 @@ describe('inventory-service', () => {
       const res = await request(app).post('/api/inventory').send({ sku: 'NUEVO', stock: 10 });
       expect(res.status).toBe(500);
     });
+
+    it('acepta proveedor, unidad de medida, IVA y variante al crear', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ ...mockProduct, sku: 'POLERA-M', supplier_id: 3, unit_of_measure: 'unidad', tax_rate: 19, parent_sku: 'POLERA', variant_label: 'Talla M' }] });
+      const res = await request(app).post('/api/inventory').send({
+        sku: 'POLERA-M', stock: 10, supplierId: 3, unitOfMeasure: 'unidad', taxRate: 19,
+        parentSku: 'POLERA', variantLabel: 'Talla M'
+      });
+      expect(res.status).toBe(201);
+      const [, params] = mockQuery.mock.calls[1];
+      expect(params).toContain(3);
+      expect(params).toContain('Talla M');
+    });
+  });
+
+  describe('PUT /api/inventory/:sku/details', () => {
+    it('actualiza los datos ampliados del producto → 200', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockProduct, name: 'Coca Cola 2L', supplier_id: 3, active: false }] });
+      const res = await request(app).put('/api/inventory/COCA-2L/details').send({
+        name: 'Coca Cola 2L', category: 'bebidas', price: 2500, cost: 1500,
+        supplierId: 3, unitOfMeasure: 'unidad', taxRate: 19, active: false
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Coca Cola 2L');
+      expect(res.body.active).toBe(false);
+    });
+
+    it('retorna 404 si el SKU no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).put('/api/inventory/NO-EXISTE/details').send({ name: 'X' });
+      expect(res.status).toBe(404);
+    });
+
+    it('rechaza sin nombre → 400', async () => {
+      const res = await request(app).put('/api/inventory/COCA-2L/details').send({ category: 'bebidas' });
+      expect(res.status).toBe(400);
+    });
   });
 
   // ─── PUT /api/inventory/:sku ────────────────────────────────────────────────
@@ -417,6 +455,164 @@ describe('inventory-service', () => {
         .mockRejectedValueOnce(new Error('DB crash'));
       const res = await request(app).post('/api/sales').send({ sku: 'COCA-2L', quantity: 5 });
       expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── PROVEEDORES ────────────────────────────────────────────────────────────
+
+  const mockSupplier = { id: 1, name: 'Distribuidora Andes', rut: '76.123.456-7', phone: '+56912345678', email: 'ventas@andes.cl', address: 'Ruta 5 Km 10', active: true };
+
+  describe('GET /api/suppliers', () => {
+    it('retorna lista de proveedores', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockSupplier] });
+      const res = await request(app).get('/api/suppliers');
+      expect(res.status).toBe(200);
+      expect(res.body[0].name).toBe('Distribuidora Andes');
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).get('/api/suppliers');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('POST /api/suppliers', () => {
+    it('crea proveedor válido → 201', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockSupplier] });
+      const res = await request(app).post('/api/suppliers').send({ name: 'Distribuidora Andes', rut: '76.123.456-7' });
+      expect(res.status).toBe(201);
+      expect(res.body.name).toBe('Distribuidora Andes');
+    });
+
+    it('rechaza sin nombre → 400', async () => {
+      const res = await request(app).post('/api/suppliers').send({ rut: '76.123.456-7' });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('GET /api/suppliers/:id', () => {
+    it('retorna proveedor por id', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockSupplier] });
+      const res = await request(app).get('/api/suppliers/1');
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Distribuidora Andes');
+    });
+
+    it('retorna 404 si no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/suppliers/999');
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('PUT /api/suppliers/:id', () => {
+    it('actualiza proveedor → 200', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockSupplier, name: 'Andes SPA' }] });
+      const res = await request(app).put('/api/suppliers/1').send({ name: 'Andes SPA' });
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Andes SPA');
+    });
+
+    it('retorna 404 si no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).put('/api/suppliers/999').send({ name: 'X' });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('DELETE /api/suppliers/:id', () => {
+    it('elimina proveedor → 200', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockSupplier] });
+      const res = await request(app).delete('/api/suppliers/1');
+      expect(res.status).toBe(200);
+    });
+
+    it('retorna 404 si no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).delete('/api/suppliers/999');
+      expect(res.status).toBe(404);
+    });
+  });
+
+  // ─── IMPORTACIÓN CSV DE PRODUCTOS ───────────────────────────────────────────
+
+  describe('GET /api/inventory/import/template', () => {
+    it('retorna un CSV con las columnas esperadas', async () => {
+      const res = await request(app).get('/api/inventory/import/template');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/text\/csv/);
+      expect(res.text).toMatch(/sku/i);
+      expect(res.text).toMatch(/nombre/i);
+    });
+  });
+
+  describe('POST /api/inventory/import', () => {
+    const csv = 'sku,nombre,stock,precio,costo,categoria\nCOCA-2L,Coca Cola 2L,20,2500,1500,bebidas';
+
+    it('modo dry-run: valida sin escribir en BD', async () => {
+      const res = await request(app).post('/api/inventory/import').send({ csv, commit: false });
+      expect(res.status).toBe(200);
+      expect(res.body.rows).toHaveLength(1);
+      expect(res.body.rows[0].sku).toBe('COCA-2L');
+      expect(res.body.errors).toEqual([]);
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('modo commit: upsert por fila vía fn_upsert_product dentro de una transacción', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // BEGIN
+      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', created: true }] }); // upsert
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const res = await request(app).post('/api/inventory/import').send({ csv, commit: true });
+      expect(res.status).toBe(200);
+      expect(res.body.imported).toBe(1);
+      expect(mockQuery).toHaveBeenCalledWith('BEGIN');
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('fn_upsert_product'), expect.any(Array));
+      expect(mockQuery).toHaveBeenCalledWith('COMMIT');
+    });
+
+    it('pasa unidad de medida, IVA y activo a fn_upsert_product', async () => {
+      const csvConExtras = 'sku,nombre,stock,precio,costo,categoria,unidad,iva,activo\nCOCA-2L,Coca Cola 2L,20,2500,1500,bebidas,unidad,19,SI';
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // BEGIN
+      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', created: true }] }); // upsert
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // COMMIT
+      const res = await request(app).post('/api/inventory/import').send({ csv: csvConExtras, commit: true });
+      expect(res.status).toBe(200);
+      const upsertCall = mockQuery.mock.calls.find(([sql]) => typeof sql === 'string' && sql.includes('fn_upsert_product'));
+      expect(upsertCall[1]).toContain(19);
+      expect(upsertCall[1]).toContain(true);
+      expect(upsertCall[1]).toContain('unidad');
+    });
+
+    it('revierte la transacción completa (ROLLBACK) si una fila falla durante el commit', async () => {
+      const csvDosFilas = 'sku,nombre,stock,precio,costo,categoria\nCOCA-2L,Coca Cola 2L,20,2500,1500,bebidas\nSPRITE-2L,Sprite 2L,10,2000,1200,bebidas';
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // BEGIN
+      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', created: true }] }); // fila 1 ok
+      mockQuery.mockRejectedValueOnce(new Error('DB crash')); // fila 2 falla
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+      const res = await request(app).post('/api/inventory/import').send({ csv: csvDosFilas, commit: true });
+      expect(res.status).toBe(500);
+      expect(mockQuery).toHaveBeenCalledWith('ROLLBACK');
+    });
+
+    it('rechaza CSV con más de 2000 filas → 400', async () => {
+      const header = 'sku,nombre,stock,precio,costo,categoria';
+      const filas = Array.from({ length: 2001 }, (_, i) => `SKU-${i},Producto ${i},1,100,50,otros`).join('\n');
+      const csvGigante = `${header}\n${filas}`;
+      const res = await request(app).post('/api/inventory/import').send({ csv: csvGigante, commit: true });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/filas/i);
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('rechaza CSV sin columna nombre → 400', async () => {
+      const res = await request(app).post('/api/inventory/import').send({ csv: 'sku,stock\nCOCA-2L,20', commit: false });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza sin csv en el body → 400', async () => {
+      const res = await request(app).post('/api/inventory/import').send({});
+      expect(res.status).toBe(400);
     });
   });
 });

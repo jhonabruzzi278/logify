@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  adaptOrder, adaptInventory, adaptShipment, adaptNotifications, adaptCustomer,
+  adaptOrder, adaptInventory, adaptShipment, adaptNotifications, adaptCustomer, adaptSupplier,
   normalizeOrderStage, normalizeShipmentStage, calculateHealthFromStock, normalizeIntegrationHealth
 } from "@/lib/api-adapters";
 import type { ApiOrder, ApiInventory, ApiShipment, ApiNotificationRecord, ApiCustomer } from "@/types/api";
@@ -181,6 +181,46 @@ describe("adaptCustomer", () => {
     const r = adaptCustomer({ id: 2, name: "Kiosco", phone: null, address: null, email: null, createdAt: null });
     expect(r.phone).toBeUndefined();
     expect(r.email).toBeUndefined();
+    expect(r.province).toBeNull();
+  });
+  it("convierte provincia cuando viene informada", () => {
+    const r = adaptCustomer({ ...api, province: "Santiago" });
+    expect(r.province).toBe("Santiago");
+  });
+});
+
+describe("adaptSupplier", () => {
+  it("convierte campos de proveedor", () => {
+    const r = adaptSupplier({ id: 1, name: "Distribuidora Andes", rut: "76.123.456-7", phone: "+56912345678", email: "ventas@andes.cl", address: "Ruta 5 Km 10", active: true });
+    expect(r.id).toBe("1");
+    expect(r.name).toBe("Distribuidora Andes");
+    expect(r.active).toBe(true);
+  });
+  it("campos opcionales nulos", () => {
+    const r = adaptSupplier({ id: 2, name: "Proveedor X", rut: null, phone: null, email: null, address: null, active: false });
+    expect(r.rut).toBeNull();
+    expect(r.active).toBe(false);
+  });
+});
+
+describe("adaptInventory campos ampliados", () => {
+  it("incluye proveedor, unidad, IVA y variante", () => {
+    const r = adaptInventory({
+      id: 1, sku: "POLERA-M", name: "Polera Talla M", stock: 10, price: 9990, cost: 4000, category: "otros",
+      supplier_id: 3, unit_of_measure: "unidad", tax_rate: 19, price_includes_tax: true, active: true,
+      parent_sku: "POLERA", variant_label: "Talla M"
+    });
+    expect(r.supplierId).toBe(3);
+    expect(r.unitOfMeasure).toBe("unidad");
+    expect(r.taxRate).toBe(19);
+    expect(r.parentSku).toBe("POLERA");
+    expect(r.variantLabel).toBe("Talla M");
+  });
+  it("valores por defecto cuando no vienen", () => {
+    const r = adaptInventory({ id: 2, sku: "SKU-2", name: "X", stock: 1, price: 100, cost: 50, category: "otros" });
+    expect(r.unitOfMeasure).toBe("unidad");
+    expect(r.active).toBe(true);
+    expect(r.parentSku).toBeNull();
   });
 });
 

@@ -1,5 +1,5 @@
-﻿import { useEffect, useMemo, useState } from "react";
-import { Check, Download, FileText, ImageOff, Minus, PackagePlus, Plus, Search, Trash2, X } from "lucide-react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Download, FileText, ImageOff, Minus, PackagePlus, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -8,10 +8,12 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
 import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
-import { adaptInventory } from "@/lib/api-adapters";
+import { adaptInventory, adaptSupplier } from "@/lib/api-adapters";
 import { apiFetch } from "@/lib/api-client";
 import { downloadFile } from "@/lib/api-blob";
 import { exportInventoryCSV } from "@/lib/export-csv";
+import type { ApiSupplier } from "@/types/api";
+import type { Supplier } from "@/types/domain";
 
 interface ImageResult {
   id: string;
@@ -33,12 +35,25 @@ export function InventoryPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "critical" | "warning" | "healthy">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0, imageUrl: "" });
+  const [form, setForm] = useState({
+    sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0, imageUrl: "",
+    supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true,
+  });
   const [formError, setFormError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{ sku: string; name: string } | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [imageResults, setImageResults] = useState<ImageResult[]>([]);
   const [imageSearching, setImageSearching] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState<{ rows: Array<{ sku: string; name: string }>; errors: string[] } | null>(null);
+  const [importCsvText, setImportCsvText] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: suppliers } = useApiQuery<ApiSupplier[], Supplier[]>({
+    path: "/api/suppliers", transform: (r) => r.map(adaptSupplier)
+  });
   const { can, role } = usePermissions();
   const { uf, dolar } = useIndicadores();
 
@@ -73,9 +88,55 @@ export function InventoryPage() {
     refresh();
   }
 
-  async function handleAdd(data: { sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory }) {
+  async function handleAdd(data: {
+    sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory;
+    supplierId?: number | null; unitOfMeasure?: string; taxRate?: number; active?: boolean;
+  }) {
     await addProduct(data);
     refresh();
+  }
+
+  async function handleImportPreview(csv: string) {
+    setImportBusy(true);
+    setImportResult(null);
+    try {
+      const preview = await apiFetch<{ rows: Array<{ sku: string; name: string }>; errors: string[] }>("/api/inventory/import", {
+        method: "POST",
+        body: JSON.stringify({ csv, commit: false }),
+      });
+      setImportPreview(preview);
+    } catch (err) {
+      setImportResult(err instanceof Error ? err.message : "No se pudo leer el CSV");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function handleImportCommit() {
+    setImportBusy(true);
+    try {
+      const result = await apiFetch<{ imported: number; errors: string[] }>("/api/inventory/import", {
+        method: "POST",
+        body: JSON.stringify({ csv: importCsvText, commit: true }),
+      });
+      setImportResult(`${result.imported} productos importados correctamente`);
+      setImportPreview(null);
+      refresh();
+    } catch (err) {
+      setImportResult(err instanceof Error ? err.message : "No se pudo importar el CSV");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  function handleFileSelected(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result ?? "");
+      setImportCsvText(text);
+      handleImportPreview(text);
+    };
+    reader.readAsText(file);
   }
 
   async function handleDelete(sku: string) {
@@ -150,6 +211,53 @@ export function InventoryPage() {
           >
             <FileText className="h-3.5 w-3.5" /> {pdfLoading ? "Generando..." : "PDF"}
           </button>
+          <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportPreview(null); setImportCsvText(""); setImportResult(null); } }}>
+            <DialogTrigger render={<Button variant="outline" className="flex items-center gap-1 h-9 px-3 text-xs font-semibold"><Upload className="h-3.5 w-3.5" />Importar CSV</Button>} />
+            <DialogContent showCloseButton={false}>
+              <DialogHeader>
+                <DialogTitle>Importar productos desde CSV</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => downloadFile("/api/inventory/import/template", "plantilla-productos.csv")}
+                  className="text-xs text-[#4B98CF] hover:underline"
+                >
+                  Descargar plantilla de ejemplo
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); }}
+                  className="block w-full text-xs text-[#6B7280] file:mr-3 file:rounded file:border-0 file:bg-[#4B98CF] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                />
+                {importBusy && <p className="text-xs text-[#6B7280]">Procesando...</p>}
+                {importPreview && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-[#112b4a]">{importPreview.rows.length} productos listos para importar</p>
+                    {importPreview.errors.length > 0 && (
+                      <ul className="list-disc pl-4 text-xs text-red-500">
+                        {importPreview.errors.map((err, i) => <li key={i}>{err}</li>)}
+                      </ul>
+                    )}
+                    <div className="max-h-40 overflow-y-auto rounded border border-[#ECEEF0]">
+                      {importPreview.rows.map((row, i) => (
+                        <div key={i} className="flex justify-between border-b border-[#F5F7F9] px-3 py-1.5 text-xs last:border-b-0">
+                          <span className="font-mono text-[#112b4a]">{row.sku}</span>
+                          <span className="text-[#6B7280]">{row.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" disabled={importBusy} onClick={handleImportCommit}>
+                      Confirmar importación
+                    </Button>
+                  </div>
+                )}
+                {importResult && <p className="text-xs font-semibold text-[#4EB4A5]">{importResult}</p>}
+              </div>
+            </DialogContent>
+          </Dialog>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setImageResults([]); } }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><PackagePlus className="h-3.5 w-3.5" />Agregar producto</Button>} />
             <DialogContent showCloseButton={false}>
@@ -161,8 +269,11 @@ export function InventoryPage() {
                 setFormError("");
                 if (!form.sku.trim() || !form.name.trim()) { setFormError("SKU y Nombre son obligatorios"); return; }
                 if (form.stock < 0 || form.price < 0 || form.cost < 0) { setFormError("Stock, Precio y Costo no pueden ser negativos"); return; }
-                await handleAdd({ sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost, imageUrl: form.imageUrl });
-                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, imageUrl: "" });
+                await handleAdd({
+                  sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost, imageUrl: form.imageUrl,
+                  supplierId: form.supplierId ? Number(form.supplierId) : null, unitOfMeasure: form.unitOfMeasure, taxRate: form.taxRate, active: form.active,
+                });
+                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, imageUrl: "", supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true });
                 setImageResults([]);
                 setDialogOpen(false);
               }} className="space-y-3">
@@ -188,6 +299,40 @@ export function InventoryPage() {
                   <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre</label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Coca-Cola 2L" className="h-9 text-sm" />
                 </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
+                    <Select value={form.supplierId || "none"} onValueChange={(v) => setForm({ ...form, supplierId: v === "none" ? "" : v })}>
+                      <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin proveedor</SelectItem>
+                        {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad</label>
+                    <Select value={form.unitOfMeasure} onValueChange={(v) => setForm({ ...form, unitOfMeasure: v })}>
+                      <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unidad">Unidad</SelectItem>
+                        <SelectItem value="kg">Kilogramo</SelectItem>
+                        <SelectItem value="g">Gramo</SelectItem>
+                        <SelectItem value="l">Litro</SelectItem>
+                        <SelectItem value="ml">Mililitro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">IVA %</label>
+                    <Input type="number" min={0} max={100} value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: parseFloat(e.target.value) || 0 })} className="h-9 text-sm" />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-[#112b4a]">
+                  <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="h-4 w-4 rounded border-[#DCE0E2]" />
+                  Producto activo
+                </label>
 
                 {(imageSearching || imageResults.length > 0 || form.imageUrl) && (
                   <div className="space-y-1.5">

@@ -1,4 +1,4 @@
-import { BarChart3, Boxes, Calendar, Gauge, Package, ShieldCheck, ShoppingCart, Truck, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, Boxes, Building2, Calendar, Gauge, Package, Settings, ShieldCheck, ShoppingCart, Truck, Users, type LucideIcon } from "lucide-react";
 import { hasPermission, type AppPermission } from "@/app/access";
 import type { Role } from "@/types/domain";
 
@@ -21,7 +21,9 @@ export const navItems: NavItem[] = [
   { title: "Entregas", path: "/deliveries", icon: Truck, permission: "shipments.update" },
   { title: "Calendario", path: "/calendar", icon: Calendar, permission: "shipments.view" },
   { title: "Reportes", path: "/reports", icon: BarChart3, permission: "dashboard.view" },
-  { title: "Usuarios", path: "/users", icon: ShieldCheck, permission: "users.view" }
+  { title: "Proveedores", path: "/suppliers", icon: Building2, permission: "suppliers.manage" },
+  { title: "Usuarios", path: "/users", icon: ShieldCheck, permission: "users.view" },
+  { title: "Configuración", path: "/settings", icon: Settings, permission: "settings.manage" }
 ];
 
 export function getVisibleNavItems(role: Role) {

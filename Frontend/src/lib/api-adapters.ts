@@ -1,5 +1,5 @@
-import type { ApiCustomer, ApiInventory, ApiNotificationRecord, ApiOrder, ApiShipment } from "@/types/api";
-import type { Customer, HealthState, Order, OrderStage, Product, Shipment, ShipmentStage, TimelineEvent } from "@/types/domain";
+import type { ApiCustomer, ApiInventory, ApiNotificationRecord, ApiOrder, ApiShipment, ApiSupplier } from "@/types/api";
+import type { Customer, HealthState, Order, OrderStage, Product, Shipment, ShipmentStage, Supplier, TimelineEvent } from "@/types/domain";
 
 type StatusMap<T extends string> = readonly (readonly [string, T])[];
 
@@ -198,7 +198,26 @@ export function adaptInventory(apiInventory: ApiInventory): Product {
     category: cat,
     status: calculateHealthFromStock(inv.stock),
     updatedAt: new Date().toISOString(),
-    imageUrl: (inv.image_url as string) || null
+    imageUrl: (inv.image_url as string) || null,
+    supplierId: apiInventory.supplier_id ?? null,
+    unitOfMeasure: apiInventory.unit_of_measure ?? "unidad",
+    taxRate: apiInventory.tax_rate ?? 0,
+    priceIncludesTax: apiInventory.price_includes_tax ?? true,
+    active: apiInventory.active ?? true,
+    parentSku: apiInventory.parent_sku ?? null,
+    variantLabel: apiInventory.variant_label ?? null,
+  };
+}
+
+export function adaptSupplier(apiSupplier: ApiSupplier): Supplier {
+  return {
+    id: String(apiSupplier.id),
+    name: apiSupplier.name,
+    rut: apiSupplier.rut ?? null,
+    phone: apiSupplier.phone ?? null,
+    email: apiSupplier.email ?? null,
+    address: apiSupplier.address ?? null,
+    active: apiSupplier.active ?? true,
   };
 }
 
@@ -302,5 +321,6 @@ export function adaptCustomer(apiCustomer: ApiCustomer): Customer {
     email: (c.email as string) ?? undefined,
     createdAt: ((c.createdAt ?? c.created_at ?? new Date().toISOString()) as string),
     rut: (c.rut as string) ?? null,
+    province: (c.province as string) ?? null,
   };
 }

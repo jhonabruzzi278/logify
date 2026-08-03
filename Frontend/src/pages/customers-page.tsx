@@ -39,7 +39,7 @@ export function CustomersPage() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", address: "", email: "", rut: "" });
+  const [form, setForm] = useState({ name: "", phone: "", address: "", email: "", rut: "", province: "" });
   const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
   const [rutStatus, setRutStatus] = useState<RutValidation | null>(null);
@@ -98,15 +98,15 @@ export function CustomersPage() {
       if (editCustomer) {
         await apiFetch(`/api/customers/${editCustomer.id}`, {
           method: "PUT",
-          body: JSON.stringify({ name: form.name, phone: form.phone, address: form.address, email: form.email, rut: form.rut || null })
+          body: JSON.stringify({ name: form.name, phone: form.phone, address: form.address, email: form.email, rut: form.rut || null, province: form.province || null })
         });
       } else {
         await apiFetch("/api/customers", {
           method: "POST",
-          body: JSON.stringify({ name: form.name, phone: form.phone, address: form.address, email: form.email, rut: form.rut || null })
+          body: JSON.stringify({ name: form.name, phone: form.phone, address: form.address, email: form.email, rut: form.rut || null, province: form.province || null })
         });
       }
-      setForm({ name: "", phone: "", address: "", email: "", rut: "" });
+      setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "" });
       setEditCustomer(null);
       setDialogOpen(false);
       refresh();
@@ -119,7 +119,7 @@ export function CustomersPage() {
 
   function openEdit(c: Customer) {
     setEditCustomer(c);
-    setForm({ name: c.name, phone: c.phone ?? "", address: c.address ?? "", email: c.email ?? "", rut: c.rut ?? "" });
+    setForm({ name: c.name, phone: c.phone ?? "", address: c.address ?? "", email: c.email ?? "", rut: c.rut ?? "", province: c.province ?? "" });
     setDialogOpen(true);
   }
 
@@ -137,7 +137,7 @@ export function CustomersPage() {
           <h1 className="text-xl font-bold text-[#112b4a]">Gestión de clientes</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "", rut: "" }); setRutStatus(null); setAddressSuggestions([]); } }}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "" }); setRutStatus(null); setAddressSuggestions([]); } }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><UserPlus className="h-3.5 w-3.5" />Nuevo cliente</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
@@ -199,6 +199,10 @@ export function CustomersPage() {
                       </div>
                     )}
                   </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Provincia / Región</label>
+                  <Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Región Metropolitana" className="h-9 text-sm" />
                 </div>
                 {formError && <p className="text-xs text-red-500">{formError}</p>}
                 <div className="flex justify-end gap-2 pt-1">

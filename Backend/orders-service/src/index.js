@@ -4,6 +4,7 @@ const { sendEmail, buildOrderConfirmationEmail } = require('../shared/email');
 const { signToken, authMiddleware, requireRole, requireTenant, extractRoleFromRequest } = require('../shared/auth');
 const { registerSecurityModule } = require('./security-module');
 const log = require('../shared/logger');
+const crypto = require('crypto');
 
 const { app, pool, sendError, start } = createApp('orders_db', process.env.PORT || 8081);
 
@@ -32,6 +33,7 @@ async function ensureTables() {
     id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, phone VARCHAR(30),
     address VARCHAR(300), email VARCHAR(200), created_at TIMESTAMP DEFAULT NOW())`);
   await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS rut VARCHAR(20)`);
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS province VARCHAR(100)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(200) NOT NULL, role VARCHAR(50) NOT NULL,
@@ -42,6 +44,12 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_question VARCHAR(200)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_answer_hash VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS user_invitations (
+    id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, email VARCHAR(200) NOT NULL,
+    role VARCHAR(50) NOT NULL, token VARCHAR(64) NOT NULL UNIQUE, status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    invited_by VARCHAR(100), expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT NOW())`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_invitations_tenant ON user_invitations (tenant_id)`);
   await ensureTenants();
 }
 
@@ -61,6 +69,14 @@ async function ensureTenants() {
     VALUES (1, 'logify', 'Logify', 'active', 'enterprise')
     ON CONFLICT (id) DO NOTHING`);
   await pool.query(`SELECT setval('tenants_id_seq', GREATEST((SELECT MAX(id) FROM tenants), 1))`);
+  // Configuración del negocio (Fase 1 del roadmap de expansión comercial, ver
+  // aidlc-docs/): datos que aparecen en tickets/reportes. Los toggles de
+  // sistema (caja, redondeo, etc.) no necesitan tabla propia, viven en el
+  // JSONB `settings` que ya existía sin uso.
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_rut VARCHAR(20)`);
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_country VARCHAR(100)`);
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_industry VARCHAR(100)`);
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_phone VARCHAR(30)`);
 
   for (const table of ['users', 'customers', 'orders']) {
     await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
@@ -193,6 +209,7 @@ app.post('/api/auth/login', async (req, res) => {
     const user = r.rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Credenciales invalidas' });
+    await pool.query('UPDATE users SET last_login_at=NOW() WHERE id=$1', [user.id]);
     const token = signToken({ ...user, tenant_slug: tenant.slug });
     res.json({ token, role: user.role, name: user.name, username: user.username, rut: user.rut || null, email: user.email || null });
   } catch (err) { sendError(res, 500, 'Login failed', err); }
@@ -224,7 +241,7 @@ app.post('/api/auth/register', authMiddleware, requireTenant, requireRole('owner
 
 app.get('/api/auth/users', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const rows = (await pool.query('SELECT id, username, name, role, rut, email, secret_question, created_at, updated_at FROM users WHERE tenant_id=$1 ORDER BY username', [req.tenantId])).rows;
+    const rows = (await pool.query('SELECT id, username, name, role, rut, email, secret_question, created_at, updated_at, last_login_at FROM users WHERE tenant_id=$1 ORDER BY username', [req.tenantId])).rows;
     res.json(rows);
   } catch (err) { sendError(res, 500, 'Failed to list users', err); }
 });
@@ -537,22 +554,22 @@ app.get('/api/customers/:id', authMiddleware, requireTenant, async (req, res) =>
 
 app.post('/api/customers', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const { name, phone, address, email, rut } = req.body;
+    const { name, phone, address, email, rut, province } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
     const c = (await pool.query(
-      'INSERT INTO customers (name, phone, address, email, rut, tenant_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [name.trim(), phone || null, address || null, email || null, rut || null, req.tenantId])).rows[0];
+      'INSERT INTO customers (name, phone, address, email, rut, province, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [name.trim(), phone || null, address || null, email || null, rut || null, province || null, req.tenantId])).rows[0];
     res.status(201).json(c);
   } catch (err) { sendError(res, 500, 'Failed to create customer', err); }
 });
 
 app.put('/api/customers/:id', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const { name, phone, address, email, rut } = req.body;
+    const { name, phone, address, email, rut, province } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
     const r = await pool.query(
-      'UPDATE customers SET name=$1, phone=$2, address=$3, email=$4, rut=$5 WHERE id=$6 AND tenant_id=$7 RETURNING *',
-      [name.trim(), phone || null, address || null, email || null, rut || null, req.params.id, req.tenantId]);
+      'UPDATE customers SET name=$1, phone=$2, address=$3, email=$4, rut=$5, province=$6 WHERE id=$7 AND tenant_id=$8 RETURNING *',
+      [name.trim(), phone || null, address || null, email || null, rut || null, province || null, req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update customer', err); }
@@ -564,6 +581,115 @@ app.delete('/api/customers/:id', authMiddleware, requireTenant, async (req, res)
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json({ message: 'Cliente eliminado correctamente' });
   } catch (err) { sendError(res, 500, 'Failed to delete customer', err); }
+});
+
+// ═══ CONFIGURACIÓN DEL NEGOCIO Y DEL SISTEMA ══════════════════════════════════
+
+function toBusinessSettingsDto(tenant) {
+  return {
+    name: tenant.name,
+    contactEmail: tenant.contact_email,
+    businessRut: tenant.business_rut,
+    businessCountry: tenant.business_country,
+    businessIndustry: tenant.business_industry,
+    businessPhone: tenant.business_phone,
+  };
+}
+
+app.get('/api/settings/business', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM tenants WHERE id=$1', [req.tenantId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
+    res.json(toBusinessSettingsDto(r.rows[0]));
+  } catch (err) { sendError(res, 500, 'Failed to get business settings', err); }
+});
+
+app.put('/api/settings/business', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { name, contactEmail, businessRut, businessCountry, businessIndustry, businessPhone } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre del negocio es obligatorio' });
+    const r = await pool.query(
+      `UPDATE tenants SET name=$1, contact_email=$2, business_rut=$3, business_country=$4,
+        business_industry=$5, business_phone=$6, updated_at=NOW() WHERE id=$7 RETURNING *`,
+      [name.trim(), contactEmail || null, businessRut || null, businessCountry || null,
+       businessIndustry || null, businessPhone || null, req.tenantId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
+    res.json(toBusinessSettingsDto(r.rows[0]));
+  } catch (err) { sendError(res, 500, 'Failed to update business settings', err); }
+});
+
+app.get('/api/settings/system', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const r = await pool.query('SELECT settings FROM tenants WHERE id=$1', [req.tenantId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
+    res.json(r.rows[0].settings || {});
+  } catch (err) { sendError(res, 500, 'Failed to get system settings', err); }
+});
+
+app.put('/api/settings/system', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const current = await pool.query('SELECT settings FROM tenants WHERE id=$1', [req.tenantId]);
+    if (!current.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
+    const merged = { ...(current.rows[0].settings || {}), ...req.body };
+    const r = await pool.query('UPDATE tenants SET settings=$1, updated_at=NOW() WHERE id=$2 RETURNING settings', [JSON.stringify(merged), req.tenantId]);
+    res.json(r.rows[0].settings || {});
+  } catch (err) { sendError(res, 500, 'Failed to update system settings', err); }
+});
+
+// ═══ INVITACIONES DE USUARIO ══════════════════════════════════════════════════
+
+const VALID_ROLES = ['owner', 'ops', 'warehouse', 'shipper', 'vendor', 'support', 'customer'];
+const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+app.post('/api/auth/invite', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { email, role } = req.body;
+    if (!email || !email.trim()) return res.status(400).json({ error: 'El email es obligatorio' });
+    if (!role || !VALID_ROLES.includes(role.toLowerCase())) {
+      return res.status(400).json({ error: 'Rol invalido. Validos: ' + VALID_ROLES.join(', ') });
+    }
+    const token = crypto.randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_MS);
+    const invitation = (await pool.query(
+      `INSERT INTO user_invitations (tenant_id, email, role, token, invited_by, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, email, role, status, expires_at`,
+      [req.tenantId, email.trim().toLowerCase(), role.toLowerCase(), token, req.user?.sub || req.user?.name || null, expiresAt])).rows[0];
+
+    const acceptUrl = `${process.env.APP_URL || 'https://logify.cl'}/invite/${token}`;
+    sendEmail({
+      to: invitation.email,
+      subject: 'Te invitaron a unirte a Logify',
+      html: `<p>Te invitaron a unirte con el rol <b>${invitation.role}</b>. Acepta la invitación aquí: <a href="${acceptUrl}">${acceptUrl}</a></p>`
+    }).catch(() => {});
+
+    res.status(201).json(invitation);
+  } catch (err) { sendError(res, 500, 'Failed to create invitation', err); }
+});
+
+app.post('/api/auth/invite/:token/accept', async (req, res) => {
+  try {
+    const { username, password, name } = req.body;
+    if (!username || !password || !name) {
+      return res.status(400).json({ error: 'username, password y name son requeridos' });
+    }
+    const invitation = (await pool.query(
+      `SELECT * FROM user_invitations WHERE token=$1 AND status='pending' AND expires_at > NOW()`,
+      [req.params.token])).rows[0];
+    if (!invitation) return res.status(404).json({ error: 'Invitación inválida o expirada' });
+
+    const exists = await pool.query('SELECT 1 FROM users WHERE username=$1 AND tenant_id=$2', [username.trim().toLowerCase(), invitation.tenant_id]);
+    if (exists.rows.length) return res.status(409).json({ error: 'El usuario ya existe' });
+
+    bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(password, 10);
+    const user = (await pool.query(
+      `INSERT INTO users (username, password_hash, name, role, email, tenant_id)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, username, name, role, created_at`,
+      [username.trim().toLowerCase(), hash, name.trim(), invitation.role, invitation.email, invitation.tenant_id])).rows[0];
+
+    await pool.query(`UPDATE user_invitations SET status='accepted' WHERE id=$1`, [invitation.id]);
+    res.status(201).json(user);
+  } catch (err) { sendError(res, 500, 'Failed to accept invitation', err); }
 });
 
 if (require.main === module) {

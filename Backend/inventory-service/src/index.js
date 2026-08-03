@@ -1,6 +1,6 @@
 const { createApp } = require('../shared/app');
 const { validateInventoryBody, validateSaleBody } = require('../shared/validate');
-const { authMiddleware, requireTenant } = require('../shared/auth');
+const { authMiddleware, requireTenant, requireRole } = require('../shared/auth');
 const log = require('../shared/logger');
 
 const { app, pool, sendError, start } = createApp('inventory_db', process.env.PORT || 8082);
@@ -24,6 +24,23 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS vendor_name VARCHAR(200)`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS unit_price INTEGER DEFAULT 0`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS total INTEGER DEFAULT 0`).catch(() => {});
+
+  // Fase 1 del roadmap de expansión comercial (ver aidlc-docs/): proveedores
+  // y productos ampliados. Las "variantes" (talla/color/presentación) se
+  // modelan como otra fila de inventory con parent_sku apuntando al SKU base,
+  // en vez de una tabla product_variants separada — mismo modelo flat que ya
+  // usa el proyecto, evita mantener dos entidades de catálogo en paralelo.
+  await pool.query(`CREATE TABLE IF NOT EXISTS suppliers (
+    id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, rut VARCHAR(20), phone VARCHAR(30),
+    email VARCHAR(200), address VARCHAR(300), active BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW())`);
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS supplier_id INTEGER`).catch(() => {});
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS unit_of_measure VARCHAR(20) DEFAULT 'unidad'`).catch(() => {});
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5,2) DEFAULT 0`).catch(() => {});
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS price_includes_tax BOOLEAN DEFAULT true`).catch(() => {});
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`).catch(() => {});
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS parent_sku VARCHAR(100)`).catch(() => {});
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS variant_label VARCHAR(100)`).catch(() => {});
+
   await ensureTenantColumns();
 }
 
@@ -31,7 +48,7 @@ async function ensureTables() {
 // tenant id=1 "logify", el mismo id fijo usado en las migraciones de los
 // otros 3 servicios (no hay FK cross-database entre las 4 bases).
 async function ensureTenantColumns() {
-  for (const table of ['inventory', 'sales', 'processed_events']) {
+  for (const table of ['inventory', 'sales', 'processed_events', 'suppliers']) {
     await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
     await pool.query(`UPDATE ${table} SET tenant_id = 1 WHERE tenant_id IS NULL`);
     await pool.query(`ALTER TABLE ${table} ALTER COLUMN tenant_id SET NOT NULL`);
@@ -70,6 +87,26 @@ async function ensureProcedures() {
       ELSE
         RETURN QUERY SELECT p_sku, NULL::INT, p_delta, FALSE, 'Stock insuficiente'::TEXT;
       END IF;
+    END;
+    $fn$ LANGUAGE plpgsql;
+  `);
+  await pool.query(`DROP FUNCTION IF EXISTS fn_upsert_product(TEXT, TEXT, INT, INT, INT, TEXT, INT)`).catch(() => {});
+  await pool.query(`DROP FUNCTION IF EXISTS fn_upsert_product(TEXT, TEXT, INT, INT, INT, TEXT, TEXT, NUMERIC, BOOLEAN, INT)`).catch(() => {});
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION fn_upsert_product(
+      p_sku TEXT, p_name TEXT, p_stock INT, p_price INT, p_cost INT, p_category TEXT,
+      p_unit_of_measure TEXT, p_tax_rate NUMERIC, p_active BOOLEAN, p_tenant_id INT
+    )
+    RETURNS TABLE(sku_out TEXT, created BOOLEAN) AS $fn$
+    BEGIN
+      RETURN QUERY
+        INSERT INTO inventory (sku, name, stock, price, cost, category, unit_of_measure, tax_rate, active, tenant_id)
+        VALUES (p_sku, p_name, p_stock, p_price, p_cost, p_category, p_unit_of_measure, p_tax_rate, p_active, p_tenant_id)
+        ON CONFLICT (tenant_id, sku) DO UPDATE SET
+          name = EXCLUDED.name, stock = EXCLUDED.stock, price = EXCLUDED.price,
+          cost = EXCLUDED.cost, category = EXCLUDED.category, unit_of_measure = EXCLUDED.unit_of_measure,
+          tax_rate = EXCLUDED.tax_rate, active = EXCLUDED.active
+        RETURNING sku::TEXT, (xmax = 0);
     END;
     $fn$ LANGUAGE plpgsql;
   `);
@@ -252,8 +289,13 @@ app.post('/api/inventory', authMiddleware, requireTenant, async (req, res) => {
     if ((await pool.query('SELECT 1 FROM inventory WHERE sku=$1 AND tenant_id=$2', [req.body.sku, req.tenantId])).rows.length)
       return res.status(409).json({ error: 'SKU ya existe' });
     const result = await pool.query(
-      'INSERT INTO inventory (sku, stock, name, price, cost, category, image_url, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-      [req.body.sku, req.body.stock || 0, req.body.name || null, req.body.price || 0, req.body.cost || 0, req.body.category || 'otros', req.body.imageUrl || null, req.tenantId]);
+      `INSERT INTO inventory (sku, stock, name, price, cost, category, image_url, tenant_id,
+        supplier_id, unit_of_measure, tax_rate, price_includes_tax, active, parent_sku, variant_label)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+      [req.body.sku, req.body.stock || 0, req.body.name || null, req.body.price || 0, req.body.cost || 0,
+       req.body.category || 'otros', req.body.imageUrl || null, req.tenantId,
+       req.body.supplierId || null, req.body.unitOfMeasure || 'unidad', req.body.taxRate || 0,
+       req.body.priceIncludesTax !== false, req.body.active !== false, req.body.parentSku || null, req.body.variantLabel || null]);
     res.status(201).json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to create inventory', err); }
 });
@@ -266,6 +308,24 @@ app.put('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) =
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update inventory', err); }
+});
+
+// Edición de metadata del producto (no de stock — ver PUT /:sku arriba, que
+// mantiene su contrato estrecho porque ya lo usa el flujo de ajuste rápido).
+app.put('/api/inventory/:sku/details', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
+  try {
+    const { name, category, price, cost, supplierId, unitOfMeasure, taxRate, priceIncludesTax, active } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    const r = await pool.query(
+      `UPDATE inventory SET name=$1, category=$2, price=$3, cost=$4, supplier_id=$5,
+        unit_of_measure=$6, tax_rate=$7, price_includes_tax=$8, active=$9
+       WHERE sku=$10 AND tenant_id=$11 RETURNING *`,
+      [name.trim(), category || 'otros', price || 0, cost || 0, supplierId || null,
+       unitOfMeasure || 'unidad', taxRate || 0, priceIncludesTax !== false, active !== false,
+       req.params.sku, req.tenantId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
+    res.json(r.rows[0]);
+  } catch (err) { sendError(res, 500, 'Failed to update product details', err); }
 });
 
 app.delete('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) => {
@@ -421,6 +481,132 @@ app.post('/api/sales', authMiddleware, requireTenant, async (req, res) => {
     client.release();
     sendError(res, 500, 'Failed to record sale', err);
   }
+});
+
+// ═══ PROVEEDORES ═══════════════════════════════════════════════════════════════
+
+app.get('/api/suppliers', authMiddleware, requireTenant, async (req, res) => {
+  try { res.json((await pool.query('SELECT * FROM suppliers WHERE tenant_id=$1 ORDER BY name', [req.tenantId])).rows); }
+  catch (err) { sendError(res, 500, 'Failed to list suppliers', err); }
+});
+
+app.get('/api/suppliers/:id', authMiddleware, requireTenant, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM suppliers WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Proveedor no encontrado' });
+    res.json(r.rows[0]);
+  } catch (err) { sendError(res, 500, 'Failed to get supplier', err); }
+});
+
+app.post('/api/suppliers', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
+  try {
+    const { name, rut, phone, email, address } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    const r = await pool.query(
+      'INSERT INTO suppliers (name, rut, phone, email, address, tenant_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [name.trim(), rut || null, phone || null, email || null, address || null, req.tenantId]);
+    res.status(201).json(r.rows[0]);
+  } catch (err) { sendError(res, 500, 'Failed to create supplier', err); }
+});
+
+app.put('/api/suppliers/:id', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
+  try {
+    const { name, rut, phone, email, address, active } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    const r = await pool.query(
+      'UPDATE suppliers SET name=$1, rut=$2, phone=$3, email=$4, address=$5, active=$6 WHERE id=$7 AND tenant_id=$8 RETURNING *',
+      [name.trim(), rut || null, phone || null, email || null, address || null, active !== false, req.params.id, req.tenantId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Proveedor no encontrado' });
+    res.json(r.rows[0]);
+  } catch (err) { sendError(res, 500, 'Failed to update supplier', err); }
+});
+
+app.delete('/api/suppliers/:id', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
+  try {
+    const r = await pool.query('DELETE FROM suppliers WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Proveedor no encontrado' });
+    res.json({ message: 'Proveedor eliminado correctamente' });
+  } catch (err) { sendError(res, 500, 'Failed to delete supplier', err); }
+});
+
+// ═══ IMPORTACIÓN CSV DE PRODUCTOS ═══════════════════════════════════════════════
+
+const CSV_TEMPLATE_HEADERS = ['sku', 'nombre', 'categoria', 'stock', 'precio', 'costo', 'unidad', 'iva', 'activo'];
+const CSV_REQUIRED_HEADERS = ['sku', 'nombre'];
+
+// Parser simple: no soporta comas dentro de campos entre comillas (el
+// template no las necesita: sku/nombre/categoria/etc. son valores simples).
+function parseInventoryCsv(csvText) {
+  const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return { headers: [], rows: [], errors: ['El CSV está vacío'] };
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const missing = CSV_REQUIRED_HEADERS.filter(h => !headers.includes(h));
+  if (missing.length) return { headers, rows: [], errors: [`Faltan columnas requeridas: ${missing.join(', ')}`] };
+
+  const rows = [];
+  const errors = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i].split(',').map(c => c.trim());
+    const raw = Object.fromEntries(headers.map((h, idx) => [h, cells[idx] ?? '']));
+    if (!raw.sku || !raw.nombre) {
+      errors.push(`Fila ${i + 1}: sku y nombre son obligatorios`);
+      continue;
+    }
+    rows.push({
+      sku: raw.sku,
+      name: raw.nombre,
+      category: raw.categoria || 'otros',
+      stock: raw.stock ? parseInt(raw.stock, 10) || 0 : 0,
+      price: raw.precio ? parseInt(raw.precio, 10) || 0 : 0,
+      cost: raw.costo ? parseInt(raw.costo, 10) || 0 : 0,
+      unitOfMeasure: raw.unidad || 'unidad',
+      taxRate: raw.iva ? parseFloat(raw.iva) || 0 : 0,
+      active: raw.activo ? /^(si|sí|true|1)$/i.test(raw.activo) : true,
+    });
+  }
+  return { headers, rows, errors };
+}
+
+app.get('/api/inventory/import/template', authMiddleware, requireTenant, (_req, res) => {
+  const example = 'COCA-2L,Coca Cola 2L,bebidas,20,2500,1500,unidad,19,SI';
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename=plantilla-productos.csv');
+  res.send(`${CSV_TEMPLATE_HEADERS.join(',')}\n${example}\n`);
+});
+
+const MAX_IMPORT_ROWS = 2000;
+
+app.post('/api/inventory/import', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
+  try {
+    const { csv, commit } = req.body;
+    if (!csv || !csv.trim()) return res.status(400).json({ error: 'csv es requerido' });
+    const { rows, errors } = parseInventoryCsv(csv);
+    if (errors.length && !rows.length) return res.status(400).json({ error: errors.join('; ') });
+    if (rows.length > MAX_IMPORT_ROWS) {
+      return res.status(400).json({ error: `El CSV tiene ${rows.length} filas; el máximo permitido por importación es ${MAX_IMPORT_ROWS}` });
+    }
+
+    if (!commit) return res.json({ rows, errors });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      let imported = 0;
+      for (const row of rows) {
+        await client.query(
+          'SELECT * FROM fn_upsert_product($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+          [row.sku, row.name, row.stock, row.price, row.cost, row.category, row.unitOfMeasure, row.taxRate, row.active, req.tenantId]);
+        imported++;
+      }
+      await client.query('COMMIT');
+      res.json({ imported, errors });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) { sendError(res, 500, 'Failed to import CSV', err); }
 });
 
 if (require.main === module) {
