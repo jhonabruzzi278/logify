@@ -5,23 +5,24 @@ const DEFAULT_TITLE = "Logify - POS e Inventario para tu Negocio"
 const DEFAULT_DESCRIPTION =
     "Logify: plataforma todo-en-uno para pequeños comercios. POS, control de inventario, pedidos, despachos y dashboard en un solo lugar."
 
+const JSON_LD = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Logify",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    description: DEFAULT_DESCRIPTION,
+    offers: {
+        "@type": "Offer",
+        category: "SaaS"
+    }
+}
+const JSON_LD_STRING = JSON.stringify(JSON_LD)
+
 export default function PageHead({ headTitle, description, path = "/" }) {
     const title = headTitle || DEFAULT_TITLE
     const desc = description || DEFAULT_DESCRIPTION
     const canonicalUrl = `${SITE_URL}${path}`
-
-    const jsonLd = {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        name: "Logify",
-        applicationCategory: "BusinessApplication",
-        operatingSystem: "Web",
-        description: DEFAULT_DESCRIPTION,
-        offers: {
-            "@type": "Offer",
-            category: "SaaS"
-        }
-    }
 
     return (
         <Head>
@@ -42,7 +43,7 @@ export default function PageHead({ headTitle, description, path = "/" }) {
 
             <script
                 type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                dangerouslySetInnerHTML={{ __html: JSON_LD_STRING }}
             />
         </Head>
     )
