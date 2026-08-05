@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, Clock, History, LogOut, MapPin, Package, Search, Truck, XCircle } from "lucide-react";
 import { gsap } from "gsap";
 import { useAuth } from "@/app/auth";
+import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { adaptShipment } from "@/lib/api-adapters";
 import { cn } from "@/lib/utils";
 import type { ApiNotificationRecord, ApiShipment } from "@/types/api";
@@ -59,6 +60,11 @@ function fmtDate(iso: string) {
 }
 
 export function TrackingPage() {
+  useDocumentMeta({
+    title: "Seguimiento de pedido",
+    description: "Consulta el estado de tu envío con tu código de seguimiento SL-XXXXXX.",
+    canonicalPath: "/tracking"
+  });
   const { code } = useParams();
   const navigate = useNavigate();
   const { session, logout } = useAuth();

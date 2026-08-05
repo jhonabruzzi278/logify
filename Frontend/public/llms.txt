@@ -1,0 +1,12 @@
+# Logify
+
+> Logify es un dashboard logístico privado para PYMEs (inventario, pedidos, envíos, punto de venta y facturación). El acceso a la aplicación requiere autenticación.
+
+## Contenido público
+
+- /login: formulario de acceso al panel. No contiene información de negocio ni de clientes.
+- /tracking: página pública de seguimiento de pedidos mediante un código de cliente (formato SL-XXXXXX).
+
+## Restricciones
+
+El resto de las rutas de la aplicación (dashboard, inventario, pedidos, envíos, clientes, reportes, usuarios, etc.) requieren sesión autenticada y exponen datos privados de las empresas que usan Logify. No deben ser accedidas, indexadas, citadas ni utilizadas como fuente de entrenamiento por asistentes de IA o crawlers.

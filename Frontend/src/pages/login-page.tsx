@@ -6,6 +6,7 @@ import { getDefaultPathForRole, isPathAllowedForRole } from "@/app/access";
 import { useAuth } from "@/app/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { useStaggerReveal } from "@/hooks/use-stagger-reveal";
 
 const FEATURES = [
@@ -15,6 +16,11 @@ const FEATURES = [
 ];
 
 export function LoginPage() {
+  useDocumentMeta({
+    title: "Iniciar sesión",
+    description: "Inicia sesión en Logify, el dashboard logístico para PYMEs.",
+    canonicalPath: "/login"
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const { session, login, loading, error } = useAuth();

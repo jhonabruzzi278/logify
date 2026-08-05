@@ -6,6 +6,7 @@ import { getVisibleNavItems } from "@/components/layout/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { useBusinessMode } from "@/hooks/use-business-mode";
+import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 
 export function AppShell() {
@@ -20,6 +21,8 @@ export function AppShell() {
   const currentTitle = useMemo(() => {
     return visibleItems.find((item) => pathname.startsWith(item.path))?.title ?? "Dashboard";
   }, [pathname, visibleItems]);
+
+  useDocumentMeta({ title: currentTitle });
 
   useEffect(() => {
     setOpen(false);
