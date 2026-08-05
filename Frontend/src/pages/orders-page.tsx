@@ -5,6 +5,7 @@ import { useAuth } from "@/app/auth";
 import { managedUsers } from "@/app/user-directory";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
+import { CUSTOMER_TYPE_BY_MODE } from "@/hooks/use-business-mode";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptCustomer, adaptInventory, adaptOrder } from "@/lib/api-adapters";
@@ -51,7 +52,7 @@ export function OrdersPage() {
   const customerScope = useCustomerScope();
 
   const { data: customers, loading: cLoading } = useApiQuery<ApiCustomer[], Customer[]>({
-    path: "/api/customers", transform: (r) => r.map(adaptCustomer)
+    path: "/api/customers", transform: (r) => r.map(adaptCustomer).filter((c) => c.customerType === CUSTOMER_TYPE_BY_MODE.b2b)
   });
 
   const { data: products } = useApiQuery<ApiInventory[], Product[]>({

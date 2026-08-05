@@ -158,3 +158,21 @@ body {
     display: none;
   }
 }
+
+/* Etiqueta de producto: oculta toda la app y muestra solo #product-label-print al imprimir. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #product-label-print,
+  #product-label-print * {
+    visibility: visible;
+  }
+
+  #product-label-print {
+    position: absolute;
+    inset: 0;
+    display: flex !important;
+  }
+}

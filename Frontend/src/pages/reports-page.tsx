@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, BarChart3, Boxes, CalendarDays, Clock, Download, Package, PiggyBank, Search, ShoppingBag, ShoppingCart, Table2, Truck } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, Banknote, Boxes, CalendarDays, Clock, Download, Package, PiggyBank, Search, ShoppingBag, ShoppingCart, Table2, Truck } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { type BusinessMode, useBusinessMode } from "@/hooks/use-business-mode";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { adaptCashSession, adaptInventory, adaptOrder, adaptShipment } from "@/lib/api-adapters";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -19,12 +20,13 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: "all", label: "Todo" },
 ];
 
-const TABS: { value: ActiveTab; label: string; icon: typeof BarChart3 }[] = [
-  { value: "orders", label: "Pedidos", icon: ShoppingBag },
-  { value: "shipments", label: "Envíos", icon: Truck },
-  { value: "stock", label: "Stock", icon: Boxes },
-  { value: "sales", label: "Ventas", icon: ShoppingCart },
-  { value: "cash", label: "Historial de Caja", icon: PiggyBank },
+/** Pedidos/Envíos son datos B2B, Ventas/Caja son B2C — nunca se mezclan. Stock es lo único que cruza ambos modos. */
+const TABS: { value: ActiveTab; label: string; icon: typeof BarChart3; modes: BusinessMode[] }[] = [
+  { value: "orders", label: "Pedidos", icon: ShoppingBag, modes: ["b2b"] },
+  { value: "shipments", label: "Envíos", icon: Truck, modes: ["b2b"] },
+  { value: "stock", label: "Stock", icon: Boxes, modes: ["b2b", "b2c"] },
+  { value: "sales", label: "Ventas", icon: ShoppingCart, modes: ["b2c"] },
+  { value: "cash", label: "Historial de Caja", icon: PiggyBank, modes: ["b2c"] },
 ];
 
 const BAR_COLORS = ["#4B98CF", "#4EB4A5", "#E3AA75", "#5163C5", "#CF4B4B", "#16BA71", "#E3AA75"];
@@ -197,11 +199,21 @@ function ProgressBar({ label, value, max, color, detail }: { label: string; valu
 }
 
 export function ReportsPage() {
+  const { mode } = useBusinessMode();
+  const visibleTabs = useMemo(() => TABS.filter((t) => t.modes.includes(mode)), [mode]);
+
   const [period, setPeriod] = useState<Period>("30d");
   const [viewMode, setViewMode] = useState<ViewMode>("charts");
-  const [activeTab, setActiveTab] = useState<ActiveTab>("orders");
+  const [activeTab, setActiveTab] = useState<ActiveTab>(mode === "b2b" ? "orders" : "sales");
   const [filterQuery, setFilterQuery] = useState("");
   const [selectedBar, setSelectedBar] = useState<{ label: string; value: number } | null>(null);
+
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.value === activeTab)) {
+      setActiveTab(visibleTabs[0]?.value ?? "stock");
+      setSelectedBar(null);
+    }
+  }, [visibleTabs, activeTab]);
 
   const { data: orders } = useApiQuery<ApiOrder[], Order[]>({
     path: "/api/orders", transform: (r) => r.map((o) => adaptOrder(o))
@@ -296,6 +308,8 @@ export function ReportsPage() {
       ? Math.round((filteredShipments.filter((s) => s.stage === "entregado").length / filteredShipments.length) * 100)
       : 0;
     const lowStock = operationalInventory.filter((p) => p.stock <= 5).length;
+    const inventoryValue = (inventory ?? []).reduce((sum, p) => sum + p.stock * p.price, 0);
+    const inventoryCost = (inventory ?? []).reduce((sum, p) => sum + p.stock * p.cost, 0);
 
     return {
       ordersByStage,
@@ -307,6 +321,8 @@ export function ReportsPage() {
       deliveryRate,
       lowStock,
       totalProducts: inventory?.length ?? 0,
+      inventoryValue,
+      inventoryCost,
     };
   }, [filteredOrders, filteredShipments, inventory, operationalInventory]);
 
@@ -453,14 +469,21 @@ export function ReportsPage() {
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — dependen de la pestaña activa, nunca mezclan datos B2B con B2C */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {(activeTab === "sales"
+        {(activeTab === "sales" || activeTab === "cash"
           ? [
               { label: "Ingresos totales", value: formatCurrency(salesReport.totalRevenue), icon: ShoppingCart, color: "#4B98CF", trend: `${salesReport.totalSalesCount} transacciones`, trendUp: true },
               { label: "Ticket promedio", value: formatCurrency(salesReport.avgTicket), icon: ShoppingBag, color: "#4EB4A5", trend: "por venta", trendUp: true },
               { label: "Ganancia estimada", value: formatCurrency(salesReport.totalProfit), icon: BarChart3, color: "#5163C5", trend: "margen real por costo", trendUp: true },
               { label: "Top vendedor", value: salesReport.topVendor?.name ?? "N/A", icon: Package, color: "#E3AA75", trend: salesReport.topVendor ? formatCurrency(salesReport.topVendor.value) : "", trendUp: true },
+            ]
+          : activeTab === "stock"
+          ? [
+              { label: "Valor de inventario", value: formatCurrency(reportData.inventoryValue), icon: Banknote, color: "#4B98CF", trend: "a precio de venta", trendUp: true },
+              { label: "Costo de inventario", value: formatCurrency(reportData.inventoryCost), icon: PiggyBank, color: "#5163C5", trend: "capital inmovilizado", trendUp: true },
+              { label: "Stock bajo", value: `${reportData.lowStock}/${reportData.totalProducts}`, icon: Package, color: "#E3AA75", trend: "Crítico", trendUp: false },
+              { label: "Margen potencial", value: formatCurrency(reportData.inventoryValue - reportData.inventoryCost), icon: BarChart3, color: "#4EB4A5", trend: "si se vende todo el stock", trendUp: true },
             ]
           : [
               { label: "Pedidos totales", value: reportData.totalOrders, icon: ShoppingBag, color: "#4B98CF", trend: "+12%", trendUp: true },
@@ -498,7 +521,7 @@ export function ReportsPage() {
 
       {/* Tab switcher */}
       <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-1 w-fit">
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.value}
             onClick={() => { setActiveTab(tab.value); setSelectedBar(null); }}

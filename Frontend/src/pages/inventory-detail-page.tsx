@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Box, Check, Edit2, ImageOff, ImagePlus, Package, QrCode, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeft, Box, Check, Edit2, ImageOff, ImagePlus, Package, Printer, QrCode, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuthImage } from "@/hooks/use-auth-image";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -11,7 +11,7 @@ import { apiFetch, ApiRequestError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import type { ApiInventory, ApiOrder, ApiSupplier } from "@/types/api";
 import type { Order, Product, Supplier } from "@/types/domain";
 
@@ -400,9 +400,19 @@ export function InventoryDetailPage() {
 
       {/* QR code */}
       <div className="rounded border border-[#DCE0E2] bg-white p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <QrCode className="h-4 w-4 text-[#4B98CF]" />
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Código QR del producto</p>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <QrCode className="h-4 w-4 text-[#4B98CF]" />
+            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Código QR del producto</p>
+          </div>
+          {qrRequested && qrImage.url && (
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
+            >
+              <Printer className="h-3.5 w-3.5" /> Imprimir QR
+            </button>
+          )}
         </div>
 
         {!qrRequested && (
@@ -427,13 +437,32 @@ export function InventoryDetailPage() {
 
         {qrRequested && qrImage.url && (
           <div className="flex flex-col items-center gap-3">
-            <div className="rounded-xl border-2 border-dashed border-[#4B98CF] p-4">
+            <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[#4B98CF] p-4">
               <img src={qrImage.url} alt={`QR de ${resolvedProduct.sku}`} className="h-40 w-40" />
+              <div className="w-full max-w-[220px] space-y-0.5 border-t border-[#ECEEF0] pt-2 text-center">
+                <p className="text-sm font-bold text-[#112b4a]">{resolvedProduct.name}</p>
+                <p className="font-mono text-xs text-[#6B7280]">SKU {resolvedProduct.sku}</p>
+                <p className="text-sm font-bold text-[#4B98CF]">{formatCurrency(resolvedProduct.price)}</p>
+                <p className="text-[10px] uppercase tracking-wide text-[#6B7280]">{resolvedProduct.category} · Stock {resolvedProduct.stock}</p>
+              </div>
             </div>
-            <p className="text-xs text-[#6B7280]">Escanea para identificar el SKU {resolvedProduct.sku} en bodega</p>
+            <p className="text-xs text-[#6B7280]">
+              El QR incluye SKU, nombre, precio, categoría y stock — se puede escanear con la cámara de cualquier celular o, a futuro, con un lector dedicado.
+            </p>
           </div>
         )}
       </div>
+
+      {/* Nodo aislado solo visible al imprimir (ver @media print en styles/index.css) */}
+      {qrRequested && qrImage.url && (
+        <div id="product-label-print" className="hidden flex-col items-center justify-center gap-3 p-8 text-center">
+          <img src={qrImage.url} alt={`QR de ${resolvedProduct.sku}`} className="h-56 w-56" />
+          <p className="text-lg font-bold text-black">{resolvedProduct.name}</p>
+          <p className="font-mono text-sm text-black">SKU {resolvedProduct.sku}</p>
+          <p className="text-xl font-bold text-black">{formatCurrency(resolvedProduct.price)}</p>
+          <p className="text-xs uppercase tracking-wide text-black">{resolvedProduct.category} · Stock {resolvedProduct.stock}</p>
+        </div>
+      )}
     </div>
   );
 }
