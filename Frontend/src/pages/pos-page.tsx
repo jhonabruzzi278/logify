@@ -1,15 +1,22 @@
-﻿import { useState, useMemo } from "react";
-import { Banknote, Check, CreditCard, Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { Banknote, Camera, Check, CreditCard, DollarSign, Landmark, Lock, Minus, PiggyBank, Plus, Receipt, Search, ShoppingCart, Tag, Trash2, User, X } from "lucide-react";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { usePosCart } from "@/hooks/use-pos-cart";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
-import { adaptInventory } from "@/lib/api-adapters";
+import { adaptCashSession, adaptCustomer, adaptInventory } from "@/lib/api-adapters";
+import { apiFetch, ApiRequestError } from "@/lib/api-client";
 import { ApiErrorBanner } from "@/components/common/api-error-banner";
+import { AddAmountModal } from "@/components/pos/add-amount-modal";
+import { BarcodeScannerModal } from "@/components/pos/barcode-scanner-modal";
+import { CloseRegisterModal } from "@/components/pos/close-register-modal";
+import { ExtrasModal } from "@/components/pos/extras-modal";
+import { OpenRegisterModal } from "@/components/pos/open-register-modal";
+import { PriceCheckModal } from "@/components/pos/price-check-modal";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { ApiInventory } from "@/types/api";
-import type { PaymentMethod, Product, ProductCategory, Sale } from "@/types/domain";
+import type { ApiCashSession, ApiCustomer, ApiInventory } from "@/types/api";
+import type { Customer, PaymentMethod, Product, ProductCategory, Sale } from "@/types/domain";
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
   bebidas: "Bebidas",
@@ -22,7 +29,14 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cash: "Efectivo",
   transfer: "Transferencia",
   debit: "Débito",
-  credit: "Crédito",
+  credit: "Fiado",
+};
+
+const PAYMENT_ICONS: Record<PaymentMethod, typeof Banknote> = {
+  cash: Banknote,
+  transfer: Landmark,
+  debit: CreditCard,
+  credit: Lock,
 };
 
 export function PosPage() {
@@ -32,15 +46,42 @@ export function PosPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [successSale, setSuccessSale] = useState<Sale | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [closeRegisterOpen, setCloseRegisterOpen] = useState(false);
+  const [openRegisterOpen, setOpenRegisterOpen] = useState(false);
+  const [priceCheckOpen, setPriceCheckOpen] = useState(false);
+  const [addAmountOpen, setAddAmountOpen] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const lastEnterAtRef = useRef(0);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [creditWarning, setCreditWarning] = useState<string | null>(null);
+  const customerDropdownRef = useRef<HTMLDivElement>(null);
 
   const { data: inventory, loading, error, refresh } = useApiQuery<ApiInventory[], Product[]>({
     path: "/api/inventory",
     transform: (r) => r.map(adaptInventory),
   });
 
+  const { data: customers } = useApiQuery<ApiCustomer[], Customer[]>({
+    path: "/api/customers", transform: (r) => r.map(adaptCustomer)
+  });
+
+  const { data: activeCashSession, refresh: refreshCashSession } = useApiQuery<ApiCashSession | null, boolean>({
+    path: "/api/cash-sessions/active", transform: (r) => Boolean(r && adaptCashSession(r).status === "open"),
+  });
+
+  const filteredCustomers = useMemo(() => {
+    if (!customers) return [];
+    if (!customerSearch) return customers.slice(0, 8);
+    const q = customerSearch.toLowerCase();
+    return customers.filter((c) => `${c.name} ${c.phone ?? ""}`.toLowerCase().includes(q)).slice(0, 8);
+  }, [customers, customerSearch]);
+
   const { operationalInventory, recordSale } = useOperationalWorkspace({ inventory });
 
-  const { items, addToCart, removeFromCart, updateQuantity, clearCart, total, itemCount, saleItems } = usePosCart();
+  const { items, addToCart, addManualAmount, removeFromCart, updateQuantity, clearCart, total, itemCount, saleItems } = usePosCart();
   const { uf, dolar } = useIndicadores();
 
   const filteredProducts = useMemo(() => {
@@ -53,6 +94,16 @@ export function PosPage() {
     return list;
   }, [operationalInventory, category, search]);
 
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)) {
+        setShowCustomerDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const categories = useMemo(() => {
     const set = new Set<ProductCategory>();
     operationalInventory.forEach((p) => set.add(p.category));
@@ -64,11 +115,17 @@ export function PosPage() {
   async function handleCheckout() {
     if (items.length === 0) return;
     setCheckoutError(null);
+    setCreditWarning(null);
 
     const oversold = items.filter((entry) => entry.quantity > entry.product.stock);
     if (oversold.length > 0) {
       const msgs = oversold.map((e) => `${e.product.name}: hay ${e.product.stock} disponibles, intentas vender ${e.quantity}`);
       setCheckoutError(msgs.join(". "));
+      return;
+    }
+
+    if (paymentMethod === "credit" && !selectedCustomer) {
+      setCheckoutError("Selecciona un cliente para registrar una venta a fiado");
       return;
     }
 
@@ -79,14 +136,34 @@ export function PosPage() {
       paymentMethod,
       vendorId: session?.username ?? "unknown",
       vendorName: session?.name ?? "Desconocido",
+      customerId: selectedCustomer?.id ?? null,
+      customerName: selectedCustomer?.name ?? null,
       createdAt: new Date().toISOString(),
     };
 
     await recordSale(sale);
     refresh();
+
+    if (paymentMethod === "credit" && selectedCustomer) {
+      try {
+        await apiFetch(`/api/customers/${selectedCustomer.id}/credit/charge`, {
+          method: "POST",
+          body: JSON.stringify({ amount: total, referenceType: "sale", note: "Venta POS a fiado" }),
+        });
+      } catch (err) {
+        setCreditWarning(
+          `La venta se registró, pero no se pudo cargar a la cuenta corriente de ${selectedCustomer.name}: ${
+            err instanceof ApiRequestError ? err.message : "error desconocido"
+          }. Registra el cargo manualmente desde la ficha del cliente.`
+        );
+      }
+    }
+
     setSuccessSale(sale);
     clearCart();
     setCartOpen(false);
+    setSelectedCustomer(null);
+    setCustomerSearch("");
 
     setTimeout(() => setSuccessSale(null), 3000);
   }
@@ -96,6 +173,46 @@ export function PosPage() {
     const currentQty = inCart ? inCart.quantity : 0;
     if (currentQty >= product.stock) return;
     addToCart(product, 1);
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter" || !search.trim()) return;
+    e.preventDefault();
+    const q = search.trim().toLowerCase();
+    const exactSku = filteredProducts.find((p) => p.sku.toLowerCase() === q);
+    const target = exactSku ?? (filteredProducts.length === 1 ? filteredProducts[0] : null);
+    if (target) {
+      handleQuickAdd(target);
+      setSearch("");
+    }
+  }
+
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Enter") return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      const now = Date.now();
+      if (now - lastEnterAtRef.current < 600 && items.length > 0) {
+        lastEnterAtRef.current = 0;
+        handleCheckout();
+      } else {
+        lastEnterAtRef.current = now;
+      }
+    }
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, paymentMethod, selectedCustomer, total, saleItems]);
+
+  function handleBarcodeDetected(code: string) {
+    setScannerOpen(false);
+    const product = operationalInventory.find((p) => p.sku.toLowerCase() === code.toLowerCase());
+    if (product) {
+      handleQuickAdd(product);
+    } else {
+      setSearch(code);
+    }
   }
 
   const cartContent = (
@@ -124,47 +241,51 @@ export function PosPage() {
         <>
           <div className="flex-1 overflow-y-auto divide-y divide-border">
             {items.map((entry) => (
-              <div key={entry.product.sku} className="flex items-center gap-3 px-4 py-3">
+              <div key={entry.cartId} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground truncate">{entry.product.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatCurrency(entry.product.price)} c/u
-                    {entry.quantity >= entry.product.stock && (
+                    {formatCurrency(entry.product.price)}{!entry.isManualAmount && " c/u"}
+                    {!entry.isManualAmount && entry.quantity >= entry.product.stock && (
                       <span className="ml-1 text-red-500 font-semibold">Stock max</span>
                     )}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => updateQuantity(entry.product.sku, entry.quantity - 1)}
-                    className="flex h-8 w-8 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted active:scale-[0.95]"
-                  >
-                    {entry.quantity === 1 ? <Trash2 className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
-                  </button>
+                {entry.isManualAmount ? (
                   <span className="flex h-8 min-w-[32px] items-center justify-center text-sm font-bold text-foreground">{entry.quantity}</span>
-                  <button
-                    onClick={() => {
-                      if (entry.quantity < entry.product.stock) {
-                        updateQuantity(entry.product.sku, entry.quantity + 1);
-                      }
-                    }}
-                    disabled={entry.quantity >= entry.product.stock}
-                    className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted active:scale-[0.95]",
-                      entry.quantity >= entry.product.stock && "opacity-30 cursor-not-allowed"
-                    )}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => updateQuantity(entry.cartId, entry.quantity - 1)}
+                      className="flex h-8 w-8 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted active:scale-[0.95]"
+                    >
+                      {entry.quantity === 1 ? <Trash2 className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
+                    </button>
+                    <span className="flex h-8 min-w-[32px] items-center justify-center text-sm font-bold text-foreground">{entry.quantity}</span>
+                    <button
+                      onClick={() => {
+                        if (entry.quantity < entry.product.stock) {
+                          updateQuantity(entry.cartId, entry.quantity + 1);
+                        }
+                      }}
+                      disabled={entry.quantity >= entry.product.stock}
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted active:scale-[0.95]",
+                        entry.quantity >= entry.product.stock && "opacity-30 cursor-not-allowed"
+                      )}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
 
                 <p className="min-w-[70px] text-right text-sm font-bold text-foreground">
                   {formatCurrency(entry.product.price * entry.quantity)}
                 </p>
 
                 <button
-                  onClick={() => removeFromCart(entry.product.sku)}
+                  onClick={() => removeFromCart(entry.cartId)}
                   className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground/40 hover:text-red-500"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -186,26 +307,80 @@ export function PosPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Cliente</span>
+              <span className="font-semibold text-foreground">{selectedCustomer ? selectedCustomer.name : "Consumidor Final"}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setExtrasOpen(true)}
+              className="flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-border py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted"
+            >
+              <Tag className="h-3.5 w-3.5" />
+              Gestionar Extras
+            </button>
+
+            <div className="space-y-1.5">
               <span className="text-xs text-muted-foreground">Método de pago</span>
-              <div className="flex gap-1">
-                {(["cash", "transfer"] as PaymentMethod[]).map((pm) => (
-                  <button
-                    key={pm}
-                    onClick={() => setPaymentMethod(pm)}
-                    className={cn(
-                      "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition-colors",
-                      paymentMethod === pm
-                        ? "bg-[#4B98CF] text-white"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {pm === "cash" ? <Banknote className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
-                    {PAYMENT_LABELS[pm]}
-                  </button>
-                ))}
+              <div className="flex flex-wrap gap-1">
+                {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((pm) => {
+                  const Icon = PAYMENT_ICONS[pm];
+                  return (
+                    <button
+                      key={pm}
+                      onClick={() => setPaymentMethod(pm)}
+                      className={cn(
+                        "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition-colors",
+                        paymentMethod === pm
+                          ? "bg-[#4B98CF] text-white"
+                          : "bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {PAYMENT_LABELS[pm]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
+            {paymentMethod === "credit" && (
+              <div className="relative" ref={customerDropdownRef}>
+                <span className="text-xs text-muted-foreground">Cliente (fiado)</span>
+                <div className="relative mt-1">
+                  <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    value={selectedCustomer ? selectedCustomer.name : customerSearch}
+                    onChange={(e) => { setCustomerSearch(e.target.value); setSelectedCustomer(null); }}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    placeholder="Buscar cliente..."
+                    className="h-9 w-full rounded border border-input bg-[#F8FBFD] pl-8 pr-3 text-sm"
+                  />
+                </div>
+                {showCustomerDropdown && !selectedCustomer && (
+                  <div className="absolute z-50 mt-1 w-full rounded border border-border bg-white shadow-lg max-h-40 overflow-y-auto">
+                    {filteredCustomers.length === 0 && (
+                      <p className="px-3 py-2 text-xs text-muted-foreground">Sin resultados</p>
+                    )}
+                    {filteredCustomers.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { setSelectedCustomer(c); setCustomerSearch(c.name); setShowCustomerDropdown(false); }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                      >
+                        <User className="h-3.5 w-3.5 text-[#4B98CF] shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{c.name}</p>
+                          {c.creditBalance ? <p className="text-[10px] text-amber-600">Debe {formatCurrency(c.creditBalance)}</p> : null}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {checkoutError && (
               <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
@@ -238,9 +413,15 @@ export function PosPage() {
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {PAYMENT_LABELS[successSale.paymentMethod]} - {successSale.vendorName}
+          {successSale.customerName ? ` - ${successSale.customerName}` : ""}
         </p>
+        {creditWarning && (
+          <p className="mt-3 max-w-sm rounded border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-700">
+            {creditWarning}
+          </p>
+        )}
         <button
-          onClick={() => setSuccessSale(null)}
+          onClick={() => { setSuccessSale(null); setCreditWarning(null); }}
           className="btn-touch-primary mt-6"
         >
           Nueva venta
@@ -261,6 +442,31 @@ export function PosPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setScannerOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted"
+            title="Escanear código de barras"
+          >
+            <Camera className="h-5 w-5" />
+          </button>
+          {!activeCashSession && (
+            <button
+              onClick={() => setOpenRegisterOpen(true)}
+              className="hidden items-center gap-1.5 rounded-lg border border-[#4EB4A5]/30 bg-[#4EB4A5]/10 px-3 py-2 text-sm font-semibold text-[#3a9184] hover:bg-[#4EB4A5]/20 sm:flex"
+              title="Abrir caja"
+            >
+              <PiggyBank className="h-4 w-4" />
+              Abrir caja
+            </button>
+          )}
+          <button
+            onClick={() => setCloseRegisterOpen(true)}
+            className="hidden items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted sm:flex"
+            title="Cierre de caja"
+          >
+            <Receipt className="h-4 w-4" />
+            Cierre de caja
+          </button>
           <button
             onClick={() => setCartOpen(true)}
             className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted lg:hidden"
@@ -318,9 +524,29 @@ export function PosPage() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar producto..."
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Escanee código de barras o escriba el nombre del producto (Enter para agregar)"
                 className="h-9 w-full rounded border border-input bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground"
               />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPriceCheckOpen(true)}
+                className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded border border-border bg-card px-3 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              >
+                <Search className="h-3.5 w-3.5" />
+                Consultar Precio
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddAmountOpen(true)}
+                className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded border border-border bg-card px-3 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              >
+                <DollarSign className="h-3.5 w-3.5" />
+                Agregar Monto
+              </button>
             </div>
           </div>
 
@@ -399,6 +625,29 @@ export function PosPage() {
             <div className="flex-1 overflow-hidden">{cartContent}</div>
           </div>
         </div>
+      )}
+
+      {scannerOpen && <BarcodeScannerModal onDetected={handleBarcodeDetected} onClose={() => setScannerOpen(false)} />}
+      {closeRegisterOpen && <CloseRegisterModal onClose={() => setCloseRegisterOpen(false)} />}
+      {openRegisterOpen && (
+        <OpenRegisterModal
+          onOpened={() => { setOpenRegisterOpen(false); refreshCashSession(); }}
+          onClose={() => setOpenRegisterOpen(false)}
+        />
+      )}
+      {priceCheckOpen && <PriceCheckModal products={operationalInventory} onClose={() => setPriceCheckOpen(false)} />}
+      {addAmountOpen && (
+        <AddAmountModal
+          onAdd={(label, amount) => { addManualAmount(label, amount); setAddAmountOpen(false); }}
+          onClose={() => setAddAmountOpen(false)}
+        />
+      )}
+      {extrasOpen && (
+        <ExtrasModal
+          subtotal={total}
+          onApply={(label, amount) => { addManualAmount(label, amount); setExtrasOpen(false); }}
+          onClose={() => setExtrasOpen(false)}
+        />
       )}
     </div>
   );

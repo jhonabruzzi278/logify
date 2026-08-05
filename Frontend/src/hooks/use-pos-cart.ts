@@ -2,11 +2,37 @@ import { useCallback, useMemo, useState } from "react";
 import type { Product, SaleItem } from "@/types/domain";
 
 export interface CartEntry {
+  /** Identidad única de la línea en el carrito (para React keys y edición) — no siempre igual a product.sku. */
+  cartId: string;
   product: Product;
   quantity: number;
+  /** Línea manual (Agregar Monto, Descuento, Recargo) — sin SKU real, no descuenta stock. */
+  isManualAmount?: boolean;
 }
 
 const CART_KEY = "logify-pos-cart:v1";
+let manualAmountSeq = 0;
+
+/**
+ * Producto sintético para una línea manual del carrito (monto libre, descuento
+ * o recargo). El `sku` es la etiqueta legible (ej. "Descuento") — es lo que
+ * queda guardado en `sales.sku` en el backend, ya que esas líneas no tienen
+ * `name` propio ahí (solo se resuelve por join contra inventory).
+ */
+export function createManualAmountProduct(label: string, amount: number): Product {
+  manualAmountSeq += 1;
+  return {
+    id: `manual-${manualAmountSeq}`,
+    sku: label,
+    name: label,
+    stock: 1,
+    price: amount,
+    cost: 0,
+    category: "otros",
+    status: "healthy",
+    updatedAt: new Date().toISOString(),
+  };
+}
 
 function readCart(): CartEntry[] {
   try {
@@ -17,9 +43,10 @@ function readCart(): CartEntry[] {
       if (!entry?.product?.sku || typeof entry?.product?.price !== "number" || isNaN(entry.product.price)) {
         return false;
       }
-      entry.product.price = Math.max(0, entry.product.price);
+      if (!entry.isManualAmount) entry.product.price = Math.max(0, entry.product.price);
       entry.product.stock = Math.max(0, entry.product.stock ?? 0);
       entry.quantity = Math.max(1, entry.quantity ?? 1);
+      if (!entry.cartId) entry.cartId = entry.product.sku;
       return true;
     });
   } catch {
@@ -38,34 +65,45 @@ export function usePosCart() {
 
   const addToCart = useCallback((product: Product, quantity = 1) => {
     setItems((prev) => {
-      const existing = prev.find((e) => e.product.sku === product.sku);
+      const existing = prev.find((e) => e.cartId === product.sku);
       let next: CartEntry[];
       if (existing) {
         next = prev.map((e) =>
-          e.product.sku === product.sku
+          e.cartId === product.sku
             ? { ...e, quantity: e.quantity + quantity }
             : e
         );
       } else {
-        next = [...prev, { product, quantity }];
+        next = [...prev, { cartId: product.sku, product, quantity }];
       }
       persistCart(next);
       return next;
     });
   }, []);
 
-  const removeFromCart = useCallback((sku: string) => {
+  const addManualAmount = useCallback((label: string, amount: number) => {
+    manualAmountSeq += 1;
+    const cartId = `manual-line-${Date.now()}-${manualAmountSeq}`;
+    const product = createManualAmountProduct(label, amount);
     setItems((prev) => {
-      const next = prev.filter((e) => e.product.sku !== sku);
+      const next = [...prev, { cartId, product, quantity: 1, isManualAmount: true }];
       persistCart(next);
       return next;
     });
   }, []);
 
-  const updateQuantity = useCallback((sku: string, quantity: number) => {
+  const removeFromCart = useCallback((cartId: string) => {
+    setItems((prev) => {
+      const next = prev.filter((e) => e.cartId !== cartId);
+      persistCart(next);
+      return next;
+    });
+  }, []);
+
+  const updateQuantity = useCallback((cartId: string, quantity: number) => {
     if (quantity <= 0) {
       setItems((prev) => {
-        const next = prev.filter((e) => e.product.sku !== sku);
+        const next = prev.filter((e) => e.cartId !== cartId);
         persistCart(next);
         return next;
       });
@@ -73,7 +111,7 @@ export function usePosCart() {
     }
     setItems((prev) => {
       const next = prev.map((e) =>
-        e.product.sku === sku ? { ...e, quantity } : e
+        e.cartId === cartId ? { ...e, quantity } : e
       );
       persistCart(next);
       return next;
@@ -103,6 +141,7 @@ export function usePosCart() {
         quantity: e.quantity,
         unitPrice: e.product.price,
         subtotal: e.product.price * e.quantity,
+        isManualAmount: e.isManualAmount,
       })),
     [items]
   );
@@ -110,6 +149,7 @@ export function usePosCart() {
   return {
     items,
     addToCart,
+    addManualAmount,
     removeFromCart,
     updateQuantity,
     clearCart,

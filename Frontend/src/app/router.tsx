@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { RequireAuth } from "@/app/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { AccessDeniedPage } from "@/pages/access-denied-page";
+import { BillingPage } from "@/pages/billing-page";
 import { CalendarPage } from "@/pages/calendar-page";
 import { CustomersPage } from "@/pages/customers-page";
 import { CustomerDetailPage } from "@/pages/customer-detail-page";
@@ -15,6 +16,7 @@ import { OrderDetailPage } from "@/pages/order-detail-page";
 import { OrdersPage } from "@/pages/orders-page";
 import { PosPage } from "@/pages/pos-page";
 import { ProfilePage } from "@/pages/profile-page";
+import { PurchasesPage } from "@/pages/purchases-page";
 import { ReportsPage } from "@/pages/reports-page";
 import { ShipmentsPage } from "@/pages/shipments-page";
 import { ShipperDeliveryPage } from "@/pages/shipper-delivery-page";
@@ -66,7 +68,9 @@ export const router = createBrowserRouter([
           { path: "/profile", element: <ProfilePage /> },
           { path: "/users", element: <UsersPage /> },
           { path: "/suppliers", element: <SuppliersPage /> },
+          { path: "/purchases", element: <PurchasesPage /> },
           { path: "/settings", element: <SettingsPage /> },
+          { path: "/billing", element: <BillingPage /> },
           { path: "/access-denied", element: <AccessDeniedPage /> }
         ]
       }

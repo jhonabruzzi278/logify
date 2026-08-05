@@ -1,16 +1,16 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, BarChart3, Boxes, CalendarDays, Clock, Download, Package, Search, ShoppingBag, ShoppingCart, Table2, Truck } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, Boxes, CalendarDays, Clock, Download, Package, PiggyBank, Search, ShoppingBag, ShoppingCart, Table2, Truck } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
-import { adaptInventory, adaptOrder, adaptShipment } from "@/lib/api-adapters";
+import { adaptCashSession, adaptInventory, adaptOrder, adaptShipment } from "@/lib/api-adapters";
 import { cn, formatCurrency } from "@/lib/utils";
 import { exportInventoryCSV, exportOrdersCSV, exportSalesCSV, exportShipmentsCSV } from "@/lib/export-csv";
-import type { ApiInventory, ApiOrder, ApiShipment } from "@/types/api";
-import type { Order, Product, Sale, Shipment } from "@/types/domain";
+import type { ApiCashSession, ApiInventory, ApiOrder, ApiShipment } from "@/types/api";
+import type { CashSession, Order, Product, Sale, Shipment } from "@/types/domain";
 
 type Period = "7d" | "30d" | "90d" | "all";
 type ViewMode = "charts" | "table";
-type ActiveTab = "orders" | "shipments" | "stock" | "sales";
+type ActiveTab = "orders" | "shipments" | "stock" | "sales" | "cash";
 
 const PERIODS: { value: Period; label: string }[] = [
   { value: "7d", label: "7 días" },
@@ -24,6 +24,7 @@ const TABS: { value: ActiveTab; label: string; icon: typeof BarChart3 }[] = [
   { value: "shipments", label: "Envíos", icon: Truck },
   { value: "stock", label: "Stock", icon: Boxes },
   { value: "sales", label: "Ventas", icon: ShoppingCart },
+  { value: "cash", label: "Historial de Caja", icon: PiggyBank },
 ];
 
 const BAR_COLORS = ["#4B98CF", "#4EB4A5", "#E3AA75", "#5163C5", "#CF4B4B", "#16BA71", "#E3AA75"];
@@ -41,21 +42,41 @@ function InteractiveBarChart({
   title,
   height = 160,
   onBarClick,
+  series2,
+  series2Label,
+  series2Color = "#4EB4A5",
 }: {
   data: { label: string; value: number; color: string; detail?: string }[];
   title: string;
   height?: number;
   onBarClick?: (item: { label: string; value: number }) => void;
+  /** Segunda serie superpuesta (ej. ganancia sobre ingresos), misma escala que `data`. */
+  series2?: { label: string; value: number }[];
+  series2Label?: string;
+  series2Color?: string;
 }) {
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const max = Math.max(...data.map((d) => d.value), 1);
   const barW = 44;
   const gap = 16;
   const totalW = data.length * (barW + gap) + 16;
+  const linePoints = series2?.map((d, i) => {
+    const x = i * (barW + gap) + 8 + barW / 2;
+    const y = height - 28 - Math.max((d.value / max) * (height - 48), 0);
+    return { x, y, value: d.value };
+  });
 
   return (
     <div>
-      <p className="mb-2 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">{title}</p>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">{title}</p>
+        {series2 && (
+          <div className="flex items-center gap-3 text-[10px] font-semibold text-[#6B7280]">
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: data[0]?.color ?? "#4B98CF" }} />Ingresos</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: series2Color }} />{series2Label ?? "Ganancia"}</span>
+          </div>
+        )}
+      </div>
       <div className="overflow-x-auto">
         <svg
           viewBox={`0 0 ${Math.max(totalW, 200)} ${height}`}
@@ -115,6 +136,22 @@ function InteractiveBarChart({
               </g>
             );
           })}
+
+          {/* Segunda serie (ganancia) superpuesta como línea */}
+          {linePoints && linePoints.length > 0 && (
+            <g>
+              <polyline
+                points={linePoints.map((p) => `${p.x},${p.y}`).join(" ")}
+                fill="none"
+                stroke={series2Color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+              />
+              {linePoints.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r={3} fill={series2Color} />
+              ))}
+            </g>
+          )}
         </svg>
       </div>
 
@@ -273,6 +310,10 @@ export function ReportsPage() {
     };
   }, [filteredOrders, filteredShipments, inventory, operationalInventory]);
 
+  const { data: cashSessions } = useApiQuery<ApiCashSession[], CashSession[]>({
+    path: "/api/cash-sessions", transform: (r) => r.map(adaptCashSession), enabled: activeTab === "cash",
+  });
+
   const [allSales, setAllSales] = useState<Sale[]>([]);
 
   useEffect(() => {
@@ -292,15 +333,35 @@ export function ReportsPage() {
 
     const dayNames = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
     const dayRevMap = new Map<string, number>();
+    const dayProfitMap = new Map<string, number>();
+    let totalProfit = 0;
+    const profitBySku = new Map<string, { name: string; profit: number }>();
     sales.forEach((s) => {
       const day = dayNames[new Date(s.createdAt).getDay()] ?? "Dom";
       dayRevMap.set(day, (dayRevMap.get(day) ?? 0) + s.total);
+      s.items.forEach((item) => {
+        if (item.unitCost == null) return;
+        const profit = (item.unitPrice - item.unitCost) * item.quantity;
+        totalProfit += profit;
+        dayProfitMap.set(day, (dayProfitMap.get(day) ?? 0) + profit);
+        const entry = profitBySku.get(item.sku) ?? { name: item.name, profit: 0 };
+        entry.profit += profit;
+        profitBySku.set(item.sku, entry);
+      });
     });
     const revenueByDay = dayNames.map((day) => ({
       label: day,
       value: Math.round(dayRevMap.get(day) ?? 0),
       color: "#4B98CF",
     }));
+    const profitByDay = dayNames.map((day) => ({
+      label: day,
+      value: Math.round(dayProfitMap.get(day) ?? 0),
+    }));
+    const topProductsByProfit = Array.from(profitBySku.entries())
+      .map(([sku, v]) => ({ sku, name: v.name, profit: Math.round(v.profit) }))
+      .sort((a, b) => b.profit - a.profit)
+      .slice(0, 5);
 
     const vendorMap = new Map<string, number>();
     const vendorCountMap = new Map<string, number>();
@@ -324,8 +385,11 @@ export function ReportsPage() {
 
     return {
       revenueByDay,
+      profitByDay,
       revenueByVendor,
+      topProductsByProfit,
       totalRevenue,
+      totalProfit: Math.round(totalProfit),
       totalSalesCount,
       avgTicket,
       topVendor: topVendorEntry ? { name: topVendorEntry[0], value: Math.round(topVendorEntry[1]) } : null,
@@ -395,7 +459,7 @@ export function ReportsPage() {
           ? [
               { label: "Ingresos totales", value: formatCurrency(salesReport.totalRevenue), icon: ShoppingCart, color: "#4B98CF", trend: `${salesReport.totalSalesCount} transacciones`, trendUp: true },
               { label: "Ticket promedio", value: formatCurrency(salesReport.avgTicket), icon: ShoppingBag, color: "#4EB4A5", trend: "por venta", trendUp: true },
-              { label: "Transacciones", value: String(salesReport.totalSalesCount), icon: BarChart3, color: "#5163C5", trend: "en el periodo", trendUp: true },
+              { label: "Ganancia estimada", value: formatCurrency(salesReport.totalProfit), icon: BarChart3, color: "#5163C5", trend: "margen real por costo", trendUp: true },
               { label: "Top vendedor", value: salesReport.topVendor?.name ?? "N/A", icon: Package, color: "#E3AA75", trend: salesReport.topVendor ? formatCurrency(salesReport.topVendor.value) : "", trendUp: true },
             ]
           : [
@@ -449,7 +513,50 @@ export function ReportsPage() {
         ))}
       </div>
 
-      {viewMode === "charts" ? (
+      {activeTab === "cash" ? (
+        <div className="overflow-hidden rounded border border-[#DCE0E2] bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#ECEEF0] text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">
+                  <th className="px-4 py-2.5">Apertura</th>
+                  <th className="px-4 py-2.5">Usuario</th>
+                  <th className="px-4 py-2.5">Cierre</th>
+                  <th className="px-4 py-2.5">Monto inicial</th>
+                  <th className="px-4 py-2.5 hidden sm:table-cell">Monto final</th>
+                  <th className="px-4 py-2.5 hidden sm:table-cell">Diferencia</th>
+                  <th className="px-4 py-2.5">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(cashSessions ?? []).map((s) => (
+                  <tr key={s.id} className="border-b border-[#F5F7F9] hover:bg-[#F5F7F9]">
+                    <td className="px-4 py-2.5">
+                      <p className="font-medium text-[#112b4a]">{new Date(s.openedAt).toLocaleDateString("es-CL")}</p>
+                      <p className="text-[10px] text-[#6B7280]">{new Date(s.openedAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</p>
+                    </td>
+                    <td className="px-4 py-2.5">{s.vendorName}</td>
+                    <td className="px-4 py-2.5 text-xs text-[#6B7280]">{s.closedAt ? new Date(s.closedAt).toLocaleString("es-CL") : "No cerrada"}</td>
+                    <td className="px-4 py-2.5">{formatCurrency(s.openingAmount)}</td>
+                    <td className="hidden px-4 py-2.5 sm:table-cell">{s.countedAmount != null ? formatCurrency(s.countedAmount) : "-"}</td>
+                    <td className={cn("hidden px-4 py-2.5 font-semibold sm:table-cell", s.difference == null ? "" : s.difference === 0 ? "text-[#4EB4A5]" : "text-amber-600")}>
+                      {s.difference != null ? `${s.difference > 0 ? "+" : ""}${formatCurrency(s.difference)}` : "-"}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className={cn("rounded px-2 py-0.5 text-[10px] font-bold", s.status === "open" ? "bg-[#4B98CF]/10 text-[#4B98CF]" : "bg-[#F5F7F9] text-[#6B7280]")}>
+                        {s.status === "open" ? "Abierta" : "Cerrada"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {(cashSessions ?? []).length === 0 && (
+                  <tr><td colSpan={7} className="py-12 text-center text-xs text-[#6B7280]">Sin sesiones de caja registradas</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : viewMode === "charts" ? (
         <>
           {/* Charts */}
           <div className="grid gap-5 lg:grid-cols-2">
@@ -518,7 +625,12 @@ export function ReportsPage() {
             {activeTab === "sales" && (
               <>
                 <div className="rounded border border-[#DCE0E2] bg-white p-5">
-                  <InteractiveBarChart data={salesReport.revenueByDay} title="Ventas por dia de la semana" />
+                  <InteractiveBarChart
+                    data={salesReport.revenueByDay}
+                    title="Ingresos y ganancia por dia"
+                    series2={salesReport.profitByDay}
+                    series2Label="Ganancia"
+                  />
                 </div>
                 <div className="rounded border border-[#DCE0E2] bg-white p-5">
                   <p className="mb-3 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Ventas por vendedor</p>
@@ -528,6 +640,23 @@ export function ReportsPage() {
                           <ProgressBar key={v.label} label={v.label} value={v.value} max={salesReport.totalRevenue} color={v.color} detail={v.detail ?? ""} />
                         ))
                       : <p className="py-8 text-center text-xs text-[#6B7280]">Sin datos para el periodo seleccionado</p>}
+                  </div>
+                </div>
+                <div className="rounded border border-[#DCE0E2] bg-white p-5">
+                  <p className="mb-3 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Top productos por ganancia</p>
+                  <div className="space-y-3">
+                    {salesReport.topProductsByProfit.length > 0
+                      ? salesReport.topProductsByProfit.map((p, i) => (
+                          <ProgressBar
+                            key={p.sku}
+                            label={p.name}
+                            value={p.profit}
+                            max={salesReport.topProductsByProfit[0]?.profit ?? 1}
+                            color={BAR_COLORS[i % BAR_COLORS.length] ?? "#6B7280"}
+                            detail={formatCurrency(p.profit)}
+                          />
+                        ))
+                      : <p className="py-8 text-center text-xs text-[#6B7280]">Sin ventas con costo registrado en el periodo</p>}
                   </div>
                 </div>
               </>

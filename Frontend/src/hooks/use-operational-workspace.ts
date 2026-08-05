@@ -143,6 +143,8 @@ export function useOperationalWorkspace({
         paymentMethod: sale.paymentMethod,
         vendorId: sale.vendorId,
         vendorName: sale.vendorName,
+        customerId: sale.customerId ?? null,
+        customerName: sale.customerName ?? null,
         createdAt: new Date(sale.createdAt),
       }),
     });
@@ -150,7 +152,7 @@ export function useOperationalWorkspace({
 
   async function getAllSales(): Promise<Sale[]> {
     try {
-      const raw = await apiFetch<Array<{ id: number; items: string; total: number; paymentMethod: string; vendorId: string; vendorName: string; createdAt: string }>>("/api/sales");
+      const raw = await apiFetch<Array<{ id: number; items: string; total: number; paymentMethod: string; vendorId: string; vendorName: string; customerId?: number | null; customerName?: string | null; createdAt: string }>>("/api/sales");
       return raw.map((s) => ({
         id: `sale-${s.id}`,
         items: JSON.parse(s.items),
@@ -158,6 +160,8 @@ export function useOperationalWorkspace({
         paymentMethod: s.paymentMethod as Sale["paymentMethod"],
         vendorId: s.vendorId,
         vendorName: s.vendorName,
+        customerId: s.customerId != null ? String(s.customerId) : null,
+        customerName: s.customerName ?? null,
         createdAt: s.createdAt,
       }));
     } catch {
