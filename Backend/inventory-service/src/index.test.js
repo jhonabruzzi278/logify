@@ -406,6 +406,22 @@ describe('inventory-service', () => {
       const res = await request(app).get('/api/sales');
       expect(res.status).toBe(500);
     });
+
+    it('expone unitCost por item cuando la venta tiene costo guardado', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [
+        { id: 1, sku: 'COCA-2L', quantity: 1, unit_price: 2500, total: 2500, cost: 1500, sale_date: new Date().toISOString() },
+      ] });
+      const res = await request(app).get('/api/sales');
+      const items = JSON.parse(res.body[0].items);
+      expect(items[0].unitCost).toBe(1500);
+    });
+
+    it('unitCost queda null en ventas antiguas sin costo guardado', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockSale] });
+      const res = await request(app).get('/api/sales');
+      const items = JSON.parse(res.body[0].items);
+      expect(items[0].unitCost).toBeNull();
+    });
   });
 
   // ─── POST /api/sales ────────────────────────────────────────────────────────
@@ -454,6 +470,101 @@ describe('inventory-service', () => {
         .mockResolvedValueOnce({ rows: [{ ...mockProduct, stock: 45 }] })
         .mockRejectedValueOnce(new Error('DB crash'));
       const res = await request(app).post('/api/sales').send({ sku: 'COCA-2L', quantity: 5 });
+      expect(res.status).toBe(500);
+    });
+
+    it('persiste customerId/customerName cuando la venta es a fiado', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ stock: 10 }] }) // FOR UPDATE lock (flujo multi-item)
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE stock
+        .mockResolvedValueOnce({ rows: [{ ...mockSale, customer_id: 7, customer_name: 'Consumidor Final' }] }); // INSERT venta
+      const res = await request(app).post('/api/sales').send({
+        items: [{ sku: 'COCA-2L', quantity: 1, unitPrice: 2500, subtotal: 2500 }],
+        paymentMethod: 'credit', customerId: 7, customerName: 'Consumidor Final', total: 2500,
+      });
+      expect(res.status).toBe(201);
+      const insertCall = mockQuery.mock.calls.find(([sql]) => sql.includes('INSERT INTO sales'));
+      expect(insertCall[1]).toContain(7);
+      expect(insertCall[1]).toContain('Consumidor Final');
+    });
+
+    it('guarda el costo del producto vigente al momento de la venta (para ganancia real en Reportes)', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ stock: 10, cost: 1500 }] }) // FOR UPDATE lock, incluye cost
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE stock
+        .mockResolvedValueOnce({ rows: [{ ...mockSale, unit_price: 2500, cost: 1500 }] }); // INSERT venta
+      const res = await request(app).post('/api/sales').send({
+        items: [{ sku: 'COCA-2L', quantity: 1, unitPrice: 2500, subtotal: 2500 }],
+        paymentMethod: 'cash', total: 2500,
+      });
+      expect(res.status).toBe(201);
+      const insertCall = mockQuery.mock.calls.find(([sql]) => sql.includes('INSERT INTO sales'));
+      expect(insertCall[1]).toContain(1500);
+    });
+
+    it('acepta una línea manual (Agregar Monto/Descuento) sin validar stock ni requerir un SKU real', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ ...mockSale, sku: 'Descuento', unit_price: -500, total: -500 }] }); // INSERT venta (sin SELECT/UPDATE de inventory)
+      const res = await request(app).post('/api/sales').send({
+        items: [{ sku: 'Descuento', quantity: 1, unitPrice: -500, subtotal: -500, isManualAmount: true }],
+        paymentMethod: 'cash', total: -500,
+      });
+      expect(res.status).toBe(201);
+      const calls = mockQuery.mock.calls.map(([sql]) => sql);
+      expect(calls.some((sql) => sql.includes('FOR UPDATE'))).toBe(false);
+      expect(calls.some((sql) => sql.includes('UPDATE inventory SET stock'))).toBe(false);
+    });
+
+    it('combina un producto real con una línea manual en la misma venta', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ stock: 10, cost: 1500 }] }) // FOR UPDATE del producto real
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE stock del producto real
+        .mockResolvedValueOnce({ rows: [{ ...mockSale, unit_price: 2500 }] }) // INSERT producto real
+        .mockResolvedValueOnce({ rows: [{ ...mockSale, sku: 'Recargo', unit_price: 200 }] }); // INSERT línea manual
+      const res = await request(app).post('/api/sales').send({
+        items: [
+          { sku: 'COCA-2L', quantity: 1, unitPrice: 2500, subtotal: 2500 },
+          { sku: 'Recargo', quantity: 1, unitPrice: 200, subtotal: 200, isManualAmount: true },
+        ],
+        paymentMethod: 'cash', total: 2700,
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.items).toHaveLength(2);
+    });
+  });
+
+  // ─── GET /api/sales/close-summary (cierre de caja) ─────────────────────────
+
+  describe('GET /api/sales/close-summary', () => {
+    it('retorna el desglose por método de pago y el total general', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [
+        { payment_method: 'cash', count: '3', total: '9000' },
+        { payment_method: 'credit', count: '1', total: '2500' },
+      ] });
+      const res = await request(app).get('/api/sales/close-summary');
+      expect(res.status).toBe(200);
+      expect(res.body.summary).toEqual([
+        { paymentMethod: 'cash', count: 3, total: 9000 },
+        { paymentMethod: 'credit', count: 1, total: 2500 },
+      ]);
+      expect(res.body.grandTotal).toBe(11500);
+    });
+
+    it('retorna un desglose vacío y grandTotal 0 si no hubo ventas', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/sales/close-summary');
+      expect(res.status).toBe(200);
+      expect(res.body.summary).toEqual([]);
+      expect(res.body.grandTotal).toBe(0);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).get('/api/sales/close-summary');
       expect(res.status).toBe(500);
     });
   });
@@ -532,6 +643,176 @@ describe('inventory-service', () => {
       mockQuery.mockResolvedValueOnce({ rows: [] });
       const res = await request(app).delete('/api/suppliers/999');
       expect(res.status).toBe(404);
+    });
+  });
+
+  // ─── COMPRAS A PROVEEDOR ────────────────────────────────────────────────────
+
+  const mockPurchase = { id: 1, tenant_id: 1, sku: 'COCA-2L', supplier_id: 1, unit_cost: '1500', quantity: 10, subtotal: '15000', update_prices: true, purchased_at: new Date().toISOString(), created_by: 'admin' };
+
+  describe('GET /api/purchases', () => {
+    it('retorna el historial de compras', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockPurchase, product_name: 'Coca-Cola 2L', unit_of_measure: 'unidad', supplier_name: 'Distribuidora Andes' }] });
+      const res = await request(app).get('/api/purchases');
+      expect(res.status).toBe(200);
+      expect(res.body[0].product_name).toBe('Coca-Cola 2L');
+    });
+
+    it('filtra por texto de búsqueda (producto/unidad/usuario)', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/purchases?q=coca');
+      expect(res.status).toBe(200);
+      const [sql, params] = mockQuery.mock.calls[0];
+      expect(sql).toMatch(/ILIKE/);
+      expect(params).toContain('%coca%');
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).get('/api/purchases');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('POST /api/purchases', () => {
+    it('registra una compra válida → 201, sube stock y actualiza costo si updatePrices=true', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L' }] }) // SELECT ... FOR UPDATE
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE stock
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE cost
+        .mockResolvedValueOnce({ rows: [mockPurchase] }); // INSERT purchases
+      const res = await request(app).post('/api/purchases').send({
+        sku: 'COCA-2L', supplierId: 1, unitCost: 1500, quantity: 10, updatePrices: true,
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.subtotal).toBe('15000');
+      const updateCostCall = mockQuery.mock.calls.find(([sql]) => sql.includes('SET cost='));
+      expect(updateCostCall).toBeDefined();
+      expect(updateCostCall[1]).toContain(1500);
+    });
+
+    it('no actualiza el costo cuando updatePrices no viene o es false', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L' }] }) // SELECT ... FOR UPDATE
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE stock
+        .mockResolvedValueOnce({ rows: [mockPurchase] }); // INSERT purchases
+      const res = await request(app).post('/api/purchases').send({ sku: 'COCA-2L', unitCost: 1500, quantity: 10 });
+      expect(res.status).toBe(201);
+      const updateCostCall = mockQuery.mock.calls.find(([sql]) => sql.includes('SET cost='));
+      expect(updateCostCall).toBeUndefined();
+    });
+
+    it('rechaza sin sku → 400', async () => {
+      const res = await request(app).post('/api/purchases').send({ unitCost: 1500, quantity: 10 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/sku/i);
+    });
+
+    it('rechaza unitCost <= 0 → 400', async () => {
+      const res = await request(app).post('/api/purchases').send({ sku: 'COCA-2L', unitCost: 0, quantity: 10 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza quantity < 1 → 400', async () => {
+      const res = await request(app).post('/api/purchases').send({ sku: 'COCA-2L', unitCost: 1500, quantity: 0 });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 404 si el SKU no existe (y hace rollback)', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }); // SELECT ... FOR UPDATE -> no existe
+      const res = await request(app).post('/api/purchases').send({ sku: 'NO-EXISTE', unitCost: 1500, quantity: 10 });
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 y hace rollback si BD falla a mitad de la transacción', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L' }] }) // SELECT ... FOR UPDATE
+        .mockRejectedValueOnce(new Error('DB crash')); // UPDATE stock falla
+      const res = await request(app).post('/api/purchases').send({ sku: 'COCA-2L', unitCost: 1500, quantity: 10 });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── SESIONES DE CAJA ───────────────────────────────────────────────────────
+
+  const mockCashSession = { id: 1, tenant_id: 1, vendor_id: 'admin', vendor_name: 'admin', opening_amount: '50000', opened_at: new Date().toISOString(), status: 'open' };
+
+  describe('GET /api/cash-sessions/active', () => {
+    it('retorna la sesión abierta del vendedor actual', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockCashSession] });
+      const res = await request(app).get('/api/cash-sessions/active');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('open');
+    });
+
+    it('retorna null si no hay sesión abierta', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/cash-sessions/active');
+      expect(res.status).toBe(200);
+      expect(res.body).toBeNull();
+    });
+  });
+
+  describe('POST /api/cash-sessions (abrir caja)', () => {
+    it('abre una caja válida → 201', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // no hay sesión abierta
+        .mockResolvedValueOnce({ rows: [mockCashSession] }); // INSERT
+      const res = await request(app).post('/api/cash-sessions').send({ openingAmount: 50000 });
+      expect(res.status).toBe(201);
+      expect(res.body.opening_amount).toBe('50000');
+    });
+
+    it('rechaza openingAmount negativo → 400', async () => {
+      const res = await request(app).post('/api/cash-sessions').send({ openingAmount: -1 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza abrir una segunda caja mientras hay una abierta → 409', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // ya hay una abierta
+      const res = await request(app).post('/api/cash-sessions').send({ openingAmount: 50000 });
+      expect(res.status).toBe(409);
+    });
+  });
+
+  describe('PUT /api/cash-sessions/:id/close', () => {
+    it('cierra la caja y calcula la diferencia correctamente', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [mockCashSession] }) // sesión abierta
+        .mockResolvedValueOnce({ rows: [{ total: '20000' }] }) // ventas en efectivo desde apertura
+        .mockResolvedValueOnce({ rows: [{ ...mockCashSession, status: 'closed', counted_amount: '69000', expected_amount: '70000', difference: '-1000' }] }); // UPDATE
+      const res = await request(app).put('/api/cash-sessions/1/close').send({ countedAmount: 69000 });
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('closed');
+      const updateCall = mockQuery.mock.calls.find(([sql]) => sql.includes('UPDATE cash_sessions'));
+      expect(updateCall[1]).toContain(69000); // counted
+      expect(updateCall[1]).toContain(70000); // expected = 50000 + 20000
+      expect(updateCall[1]).toContain(-1000); // difference
+    });
+
+    it('rechaza countedAmount negativo → 400', async () => {
+      const res = await request(app).put('/api/cash-sessions/1/close').send({ countedAmount: -5 });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 404 si la sesión no existe o ya está cerrada', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).put('/api/cash-sessions/999/close').send({ countedAmount: 1000 });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('GET /api/cash-sessions', () => {
+    it('retorna el historial de sesiones de caja', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockCashSession] });
+      const res = await request(app).get('/api/cash-sessions');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
     });
   });
 

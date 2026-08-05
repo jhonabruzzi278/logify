@@ -24,6 +24,37 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS vendor_name VARCHAR(200)`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS unit_price INTEGER DEFAULT 0`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS total INTEGER DEFAULT 0`).catch(() => {});
+  // Fase 2 del roadmap de expansión comercial: vincular ventas POS a un
+  // cliente (para fiado/cuenta corriente, cuyo dueño es orders-service).
+  // Sin FK física — mismo patrón de snapshot cross-servicio que vendor_name.
+  await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id INTEGER`).catch(() => {});
+  await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_name VARCHAR(200)`).catch(() => {});
+  // Fase 3 del roadmap de expansión comercial: snapshot del costo unitario al
+  // momento de la venta, para poder calcular ganancia real en Reportes (antes
+  // solo se podía cruzar contra el costo actual de inventory, que cambia con
+  // el tiempo). Ventas anteriores a este cambio quedan con cost=NULL.
+  await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS cost NUMERIC`).catch(() => {});
+
+  // Fase 3: Compras a proveedor. Sube stock y, opcionalmente, actualiza el
+  // costo del producto; queda un historial completo (a diferencia del ajuste
+  // manual de stock, que hoy no guarda motivo ni referencia).
+  await pool.query(`CREATE TABLE IF NOT EXISTS purchases (
+    id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, sku VARCHAR(100) NOT NULL,
+    supplier_id INTEGER, unit_cost NUMERIC NOT NULL, quantity INTEGER NOT NULL,
+    subtotal NUMERIC NOT NULL, update_prices BOOLEAN NOT NULL DEFAULT false,
+    purchased_at TIMESTAMP NOT NULL DEFAULT NOW(), created_by VARCHAR(100),
+    created_at TIMESTAMP DEFAULT NOW())`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id)`);
+
+  // Fase 3: sesiones de caja (apertura/cierre por vendedor). No es un candado
+  // que bloquee el POS — si no hay sesión abierta, se sigue pudiendo vender
+  // (ver cierre-de-caja actual, que ya funciona sin sesión).
+  await pool.query(`CREATE TABLE IF NOT EXISTS cash_sessions (
+    id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, vendor_id VARCHAR(100) NOT NULL,
+    vendor_name VARCHAR(200), opening_amount NUMERIC NOT NULL, opened_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    closed_at TIMESTAMP, counted_amount NUMERIC, expected_amount NUMERIC, difference NUMERIC,
+    status VARCHAR(10) NOT NULL DEFAULT 'open', created_at TIMESTAMP DEFAULT NOW())`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_cash_sessions_tenant ON cash_sessions (tenant_id)`);
 
   // Fase 1 del roadmap de expansión comercial (ver aidlc-docs/): proveedores
   // y productos ampliados. Las "variantes" (talla/color/presentación) se
@@ -385,16 +416,44 @@ app.get('/api/sales', authMiddleware, requireTenant, async (req, res) => {
           paymentMethod: r.payment_method || 'cash',
           vendorId: r.vendor_id || '',
           vendorName: r.vendor_name || '',
+          customerId: r.customer_id || null,
+          customerName: r.customer_name || null,
           createdAt: r.sale_date,
         });
       }
       const g = groups.get(key);
       const subtotal = r.total || (r.unit_price || 0) * r.quantity;
-      g.items.push({ sku: r.sku, name: r.product_name || r.sku, quantity: r.quantity, unitPrice: r.unit_price || 0, subtotal });
+      g.items.push({
+        sku: r.sku, name: r.product_name || r.sku, quantity: r.quantity, unitPrice: r.unit_price || 0, subtotal,
+        unitCost: r.cost != null ? Number(r.cost) : null,
+      });
       g.total += subtotal;
     }
     res.json(Array.from(groups.values()).map(g => ({ ...g, items: JSON.stringify(g.items) })));
   } catch (err) { sendError(res, 500, 'Failed to list sales', err); }
+});
+
+// Cierre de caja: desglose de ventas por método de pago para un día (por
+// defecto hoy) y, opcionalmente, un vendedor. No requiere stored procedure —
+// agregación simple sobre `sales`, mismo enfoque que GET /api/sales.
+app.get('/api/sales/close-summary', authMiddleware, requireTenant, async (req, res) => {
+  try {
+    const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const params = [req.tenantId, date];
+    let query = `
+      SELECT COALESCE(payment_method, 'cash') AS payment_method, COUNT(*) AS count, COALESCE(SUM(total), 0) AS total
+      FROM sales
+      WHERE tenant_id = $1 AND sale_date::date = $2`;
+    if (req.query.vendorId) {
+      query += ' AND vendor_id = $3';
+      params.push(req.query.vendorId);
+    }
+    query += ` GROUP BY COALESCE(payment_method, 'cash') ORDER BY payment_method`;
+    const rows = (await pool.query(query, params)).rows;
+    const summary = rows.map(r => ({ paymentMethod: r.payment_method, count: Number(r.count), total: Number(r.total) }));
+    const grandTotal = summary.reduce((sum, r) => sum + r.total, 0);
+    res.json({ date, summary, grandTotal });
+  } catch (err) { sendError(res, 500, 'Failed to get close summary', err); }
 });
 
 app.post('/api/sales', authMiddleware, requireTenant, async (req, res) => {
@@ -419,19 +478,26 @@ app.post('/api/sales', authMiddleware, requireTenant, async (req, res) => {
 
       // lock all rows first to prevent race conditions
       const insufficient = [];
+      const costBySku = new Map();
       for (const item of saleItems) {
         if (!item.sku || !item.quantity || item.quantity < 1) {
           insufficient.push(`Item invalido: sku=${item.sku} qty=${item.quantity}`);
           continue;
         }
+        // Líneas manuales (Agregar Monto, Descuento, Recargo del POS) no
+        // corresponden a un producto real — no descuentan stock ni requieren
+        // que el SKU exista en inventory.
+        if (item.isManualAmount) continue;
         const r = await client.query(
-          'SELECT stock FROM inventory WHERE sku=$1 AND tenant_id=$2 FOR UPDATE',
+          'SELECT stock, cost FROM inventory WHERE sku=$1 AND tenant_id=$2 FOR UPDATE',
           [item.sku, tenantId]
         );
         if (!r.rows.length) {
           insufficient.push(`SKU no encontrado: ${item.sku}`);
         } else if (r.rows[0].stock < item.quantity) {
           insufficient.push(`Stock insuficiente: ${item.sku} (disponible: ${r.rows[0].stock}, solicitado: ${item.quantity})`);
+        } else {
+          costBySku.set(item.sku, r.rows[0].cost);
         }
       }
 
@@ -445,13 +511,19 @@ app.post('/api/sales', authMiddleware, requireTenant, async (req, res) => {
       const results = [];
 
       for (const item of saleItems) {
-        await client.query(
-          'UPDATE inventory SET stock=stock-$1 WHERE sku=$2 AND tenant_id=$3',
-          [item.quantity, item.sku, tenantId]
-        );
+        if (!item.isManualAmount) {
+          await client.query(
+            'UPDATE inventory SET stock=stock-$1 WHERE sku=$2 AND tenant_id=$3',
+            [item.quantity, item.sku, tenantId]
+          );
+        }
         const sale = (await client.query(
-          'INSERT INTO sales (sku, quantity, sale_group, payment_method, vendor_id, vendor_name, unit_price, total, sale_date, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),$9) RETURNING *',
-          [item.sku, item.quantity, saleGroup, req.body.paymentMethod || 'cash', req.body.vendorId || 'unknown', req.body.vendorName || '', item.unitPrice || 0, item.subtotal || 0, tenantId]
+          `INSERT INTO sales (sku, quantity, sale_group, payment_method, vendor_id, vendor_name,
+            unit_price, total, customer_id, customer_name, cost, sale_date, tenant_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),$12) RETURNING *`,
+          [item.sku, item.quantity, saleGroup, req.body.paymentMethod || 'cash', req.body.vendorId || 'unknown', req.body.vendorName || '',
+           item.unitPrice || 0, item.subtotal || 0, req.body.customerId || null, req.body.customerName || null,
+           costBySku.get(item.sku) ?? null, tenantId]
         )).rows[0];
         results.push(sale);
       }
@@ -527,6 +599,140 @@ app.delete('/api/suppliers/:id', authMiddleware, requireTenant, requireRole('own
     if (!r.rows.length) return res.status(404).json({ error: 'Proveedor no encontrado' });
     res.json({ message: 'Proveedor eliminado correctamente' });
   } catch (err) { sendError(res, 500, 'Failed to delete supplier', err); }
+});
+
+// ═══ COMPRAS A PROVEEDOR ═══════════════════════════════════════════════════════
+
+app.get('/api/purchases', authMiddleware, requireTenant, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    const params = [req.tenantId];
+    let query = `
+      SELECT p.*, i.name AS product_name, i.unit_of_measure, s.name AS supplier_name
+      FROM purchases p
+      LEFT JOIN inventory i ON i.sku = p.sku AND i.tenant_id = p.tenant_id
+      LEFT JOIN suppliers s ON s.id = p.supplier_id AND s.tenant_id = p.tenant_id
+      WHERE p.tenant_id = $1`;
+    if (q) {
+      params.push(`%${q}%`);
+      query += ` AND (i.name ILIKE $2 OR p.sku ILIKE $2 OR i.unit_of_measure ILIKE $2 OR p.created_by ILIKE $2)`;
+    }
+    query += ' ORDER BY p.purchased_at DESC';
+    const rows = (await pool.query(query, params)).rows;
+    res.json(rows);
+  } catch (err) { sendError(res, 500, 'Failed to list purchases', err); }
+});
+
+app.post('/api/purchases', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { sku, supplierId, unitCost, quantity, purchasedAt, updatePrices } = req.body;
+    if (!sku) return res.status(400).json({ error: 'sku es requerido' });
+    if (!unitCost || Number(unitCost) <= 0) return res.status(400).json({ error: 'unitCost debe ser mayor a 0' });
+    if (!quantity || Number(quantity) < 1) return res.status(400).json({ error: 'quantity debe ser mayor o igual a 1' });
+
+    await client.query('BEGIN');
+    const product = (await client.query(
+      'SELECT sku FROM inventory WHERE sku=$1 AND tenant_id=$2 FOR UPDATE', [sku, req.tenantId]
+    )).rows[0];
+    if (!product) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(404).json({ error: 'SKU no encontrado' });
+    }
+
+    const subtotal = Number(unitCost) * Number(quantity);
+    await client.query('UPDATE inventory SET stock = stock + $1 WHERE sku=$2 AND tenant_id=$3', [Number(quantity), sku, req.tenantId]);
+    if (updatePrices) {
+      await client.query('UPDATE inventory SET cost=$1 WHERE sku=$2 AND tenant_id=$3', [Number(unitCost), sku, req.tenantId]);
+    }
+    const purchase = (await client.query(
+      `INSERT INTO purchases (tenant_id, sku, supplier_id, unit_cost, quantity, subtotal, update_prices, purchased_at, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [req.tenantId, sku, supplierId || null, Number(unitCost), Number(quantity), subtotal, updatePrices === true,
+       purchasedAt ? new Date(purchasedAt) : new Date(), req.user?.sub || null]
+    )).rows[0];
+
+    await client.query('COMMIT');
+    res.status(201).json(purchase);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    sendError(res, 500, 'Failed to record purchase', err);
+  } finally {
+    client.release();
+  }
+});
+
+// ═══ SESIONES DE CAJA ═══════════════════════════════════════════════════════
+
+app.get('/api/cash-sessions/active', authMiddleware, requireTenant, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT * FROM cash_sessions WHERE tenant_id=$1 AND vendor_id=$2 AND status='open' ORDER BY opened_at DESC LIMIT 1`,
+      [req.tenantId, req.user?.sub]
+    );
+    res.json(r.rows[0] || null);
+  } catch (err) { sendError(res, 500, 'Failed to get active cash session', err); }
+});
+
+app.get('/api/cash-sessions', authMiddleware, requireTenant, async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT * FROM cash_sessions WHERE tenant_id=$1 ORDER BY opened_at DESC LIMIT 100', [req.tenantId]
+    );
+    res.json(r.rows);
+  } catch (err) { sendError(res, 500, 'Failed to list cash sessions', err); }
+});
+
+app.post('/api/cash-sessions', authMiddleware, requireTenant, async (req, res) => {
+  try {
+    const openingAmount = Number(req.body.openingAmount);
+    if (!Number.isFinite(openingAmount) || openingAmount < 0) {
+      return res.status(400).json({ error: 'openingAmount debe ser un número mayor o igual a 0' });
+    }
+    const existing = await pool.query(
+      `SELECT 1 FROM cash_sessions WHERE tenant_id=$1 AND vendor_id=$2 AND status='open'`,
+      [req.tenantId, req.user?.sub]
+    );
+    if (existing.rows.length) return res.status(409).json({ error: 'Ya tienes una caja abierta' });
+
+    const session = (await pool.query(
+      `INSERT INTO cash_sessions (tenant_id, vendor_id, vendor_name, opening_amount, opened_at, status)
+       VALUES ($1,$2,$3,$4,NOW(),'open') RETURNING *`,
+      [req.tenantId, req.user?.sub, req.user?.name || req.user?.sub, openingAmount]
+    )).rows[0];
+    res.status(201).json(session);
+  } catch (err) { sendError(res, 500, 'Failed to open cash session', err); }
+});
+
+app.put('/api/cash-sessions/:id/close', authMiddleware, requireTenant, async (req, res) => {
+  try {
+    const countedAmount = Number(req.body.countedAmount);
+    if (!Number.isFinite(countedAmount) || countedAmount < 0) {
+      return res.status(400).json({ error: 'countedAmount debe ser un número mayor o igual a 0' });
+    }
+    const session = (await pool.query(
+      `SELECT * FROM cash_sessions WHERE id=$1 AND tenant_id=$2 AND status='open'`,
+      [req.params.id, req.tenantId]
+    )).rows[0];
+    if (!session) return res.status(404).json({ error: 'Sesión de caja no encontrada o ya cerrada' });
+
+    const cashSales = (await pool.query(
+      `SELECT COALESCE(SUM(total), 0) AS total FROM sales
+       WHERE tenant_id=$1 AND vendor_id=$2 AND payment_method='cash' AND sale_date >= $3`,
+      [req.tenantId, session.vendor_id, session.opened_at]
+    )).rows[0];
+
+    const expectedAmount = Number(session.opening_amount) + Number(cashSales.total);
+    const difference = countedAmount - expectedAmount;
+
+    const closed = (await pool.query(
+      `UPDATE cash_sessions SET closed_at=NOW(), counted_amount=$1, expected_amount=$2, difference=$3, status='closed'
+       WHERE id=$4 AND tenant_id=$5 RETURNING *`,
+      [countedAmount, expectedAmount, difference, req.params.id, req.tenantId]
+    )).rows[0];
+    res.json(closed);
+  } catch (err) { sendError(res, 500, 'Failed to close cash session', err); }
 });
 
 // ═══ IMPORTACIÓN CSV DE PRODUCTOS ═══════════════════════════════════════════════
