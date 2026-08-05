@@ -5,14 +5,16 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { getVisibleNavItems } from "@/components/layout/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { useBusinessMode } from "@/hooks/use-business-mode";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 
 export function AppShell() {
   const { pathname } = useLocation();
   const { session, logout } = useAuth();
+  const { mode } = useBusinessMode();
   const isOnline = useOnlineStatus();
   const [open, setOpen] = useState(false);
-  const visibleItems = useMemo(() => (session ? getVisibleNavItems(session.role) : []), [session]);
+  const visibleItems = useMemo(() => (session ? getVisibleNavItems(session.role, mode) : []), [session, mode]);
 
   const currentTitle = useMemo(() => {
     return visibleItems.find((item) => pathname.startsWith(item.path))?.title ?? "Dashboard";

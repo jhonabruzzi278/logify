@@ -1,7 +1,8 @@
 ﻿import { useEffect, useRef, useState } from "react";
-import { Bell, LogOut, Menu, MoreVertical, Truck, User } from "lucide-react";
+import { Bell, CreditCard, LogOut, Menu, MoreVertical, Truck, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getDefaultPathForRole } from "@/app/access";
+import { useBusinessMode } from "@/hooks/use-business-mode";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/domain";
 
@@ -44,6 +45,7 @@ interface Notification {
 }
 
 export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUsername }: TopbarProps) {
+  const { mode, toggleMode } = useBusinessMode();
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const notifyRef = useRef<HTMLDivElement>(null);
@@ -108,6 +110,17 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
       </div>
 
       <div className="flex items-center gap-1">
+        {/* Toggle modo de negocio */}
+        <button
+          type="button"
+          onClick={toggleMode}
+          title={mode === "b2b" ? "Cambiar a modo B2C (venta al público)" : "Cambiar a modo B2B (pedidos empresariales)"}
+          className="mr-0.5 flex items-center gap-0.5 rounded-full bg-white/10 p-0.5 text-[10px] font-bold sm:mr-1 sm:text-[11px]"
+        >
+          <span className={cn("rounded-full px-1.5 py-1 transition-colors sm:px-2.5", mode === "b2b" ? "bg-[#4B98CF] text-white" : "text-white/60")}>B2B</span>
+          <span className={cn("rounded-full px-1.5 py-1 transition-colors sm:px-2.5", mode === "b2c" ? "bg-[#4EB4A5] text-white" : "text-white/60")}>B2C</span>
+        </button>
+
         {/* Notifications */}
         <div className="relative" ref={notifyRef}>
           <button
@@ -188,6 +201,15 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
               >
                 <User className="h-4 w-4 text-[#6B7280]" />
                 Mi perfil
+              </Link>
+
+              <Link
+                to="/billing"
+                onClick={() => setProfileOpen(false)}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#112b4a] hover:bg-[#F5F7F9]"
+              >
+                <CreditCard className="h-4 w-4 text-[#6B7280]" />
+                Plan y facturación
               </Link>
 
               <div className="border-t border-[#ECEEF0]" />

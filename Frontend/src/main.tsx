@@ -6,6 +6,7 @@ import { router } from "@/app/router";
 import { AuthProvider } from "@/app/auth";
 import { ErrorBoundary } from "@/components/common/error-boundary";
 import { ToastProvider } from "@/components/common/toast-provider";
+import { BusinessModeProvider } from "@/hooks/use-business-mode";
 import "@/styles/index.css";
 
 const isLocalEnvironment = ["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -25,7 +26,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
-          <RouterProvider router={router} />
+          <BusinessModeProvider>
+            <RouterProvider router={router} />
+          </BusinessModeProvider>
         </AuthProvider>
       </ToastProvider>
     </ErrorBoundary>

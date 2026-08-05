@@ -1,10 +1,12 @@
 import { NavLink, useMatch } from "react-router-dom";
 import { getVisibleNavItems } from "@/components/layout/navigation";
+import { useBusinessMode } from "@/hooks/use-business-mode";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/domain";
 
 export function MobileNav({ role }: { role: Role }) {
-  const items = getVisibleNavItems(role).filter((item) => item.mobile);
+  const { mode } = useBusinessMode();
+  const items = getVisibleNavItems(role, mode).filter((item) => item.mobile);
 
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card shadow-[0_-2px_12px_rgba(0,0,0,0.06)] lg:hidden">

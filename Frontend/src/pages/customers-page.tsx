@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ApiCustomer } from "@/types/api";
-import type { Customer } from "@/types/domain";
+import type { Customer, CustomerType } from "@/types/domain";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
+
+const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = { individual: "Persona natural", company: "Empresa" };
 
 interface RutValidation {
   valid: boolean;
@@ -39,7 +41,8 @@ export function CustomersPage() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", address: "", email: "", rut: "", province: "" });
+  const [form, setForm] = useState({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: "company" as CustomerType, creditLimit: "" });
+  const [typeFilter, setTypeFilter] = useState<"all" | CustomerType>("all");
   const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
   const [rutStatus, setRutStatus] = useState<RutValidation | null>(null);
@@ -81,12 +84,15 @@ export function CustomersPage() {
   const filtered = useMemo(() => {
     if (!customers) return [];
     let list = customers;
+    if (typeFilter !== "all") {
+      list = list.filter((c) => c.customerType === typeFilter);
+    }
     if (query) {
       const q = query.toLowerCase();
       list = list.filter((c) => `${c.name} ${c.phone ?? ""} ${c.address ?? ""} ${c.email ?? ""} ${c.rut ?? ""}`.toLowerCase().includes(q));
     }
     return list;
-  }, [customers, query]);
+  }, [customers, query, typeFilter]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,18 +101,17 @@ export function CustomersPage() {
 
     setCreating(true);
     try {
+      const body = JSON.stringify({
+        name: form.name, phone: form.phone, address: form.address, email: form.email,
+        rut: form.rut || null, province: form.province || null,
+        customerType: form.customerType, creditLimit: form.creditLimit || null,
+      });
       if (editCustomer) {
-        await apiFetch(`/api/customers/${editCustomer.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ name: form.name, phone: form.phone, address: form.address, email: form.email, rut: form.rut || null, province: form.province || null })
-        });
+        await apiFetch(`/api/customers/${editCustomer.id}`, { method: "PUT", body });
       } else {
-        await apiFetch("/api/customers", {
-          method: "POST",
-          body: JSON.stringify({ name: form.name, phone: form.phone, address: form.address, email: form.email, rut: form.rut || null, province: form.province || null })
-        });
+        await apiFetch("/api/customers", { method: "POST", body });
       }
-      setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "" });
+      setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: "company", creditLimit: "" });
       setEditCustomer(null);
       setDialogOpen(false);
       refresh();
@@ -119,7 +124,10 @@ export function CustomersPage() {
 
   function openEdit(c: Customer) {
     setEditCustomer(c);
-    setForm({ name: c.name, phone: c.phone ?? "", address: c.address ?? "", email: c.email ?? "", rut: c.rut ?? "", province: c.province ?? "" });
+    setForm({
+      name: c.name, phone: c.phone ?? "", address: c.address ?? "", email: c.email ?? "", rut: c.rut ?? "", province: c.province ?? "",
+      customerType: c.customerType, creditLimit: c.creditLimit != null ? String(c.creditLimit) : "",
+    });
     setDialogOpen(true);
   }
 
@@ -137,7 +145,7 @@ export function CustomersPage() {
           <h1 className="text-xl font-bold text-[#112b4a]">Gestión de clientes</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "" }); setRutStatus(null); setAddressSuggestions([]); } }}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: "company", creditLimit: "" }); setRutStatus(null); setAddressSuggestions([]); } }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><UserPlus className="h-3.5 w-3.5" />Nuevo cliente</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
@@ -145,12 +153,30 @@ export function CustomersPage() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Tipo de cliente</label>
+                  <div className="inline-flex rounded border border-[#DCE0E2] p-0.5">
+                    {(Object.keys(CUSTOMER_TYPE_LABELS) as CustomerType[]).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setForm({ ...form, customerType: t })}
+                        className={cn(
+                          "rounded px-3 py-1.5 text-xs font-semibold transition-colors",
+                          form.customerType === t ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]"
+                        )}
+                      >
+                        {CUSTOMER_TYPE_LABELS[t]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre *</label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Bar El Rincon" className="h-9 text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT *</label>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT{form.customerType === "company" ? " *" : " (opcional)"}</label>
                     <Input value={form.rut} onChange={(e) => setForm({ ...form, rut: formatRut(e.target.value) })} placeholder="12.345.678-9" className="h-9 text-sm" maxLength={12} />
                     {rutStatus && (
                       <p className={cn("flex items-center gap-1 text-[10px] font-semibold", rutStatus.valid ? "text-[#4EB4A5]" : "text-red-500")}>
@@ -200,9 +226,15 @@ export function CustomersPage() {
                     )}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Provincia / Región</label>
-                  <Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Región Metropolitana" className="h-9 text-sm" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Provincia / Región</label>
+                    <Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Región Metropolitana" className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Límite de crédito (fiado)</label>
+                    <Input type="number" min="0" value={form.creditLimit} onChange={(e) => setForm({ ...form, creditLimit: e.target.value })} placeholder="Sin límite" className="h-9 text-sm" />
+                  </div>
                 </div>
                 {formError && <p className="text-xs text-red-500">{formError}</p>}
                 <div className="flex justify-end gap-2 pt-1">
@@ -216,14 +248,31 @@ export function CustomersPage() {
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por nombre, telefono, direccion..."
-          className="h-10 w-full rounded border border-input bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground"
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por nombre, telefono, direccion..."
+            className="h-10 w-full rounded border border-input bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <div className="inline-flex shrink-0 rounded border border-[#DCE0E2] bg-white p-0.5">
+          {([["all", "Todos"], ["individual", "Personas"], ["company", "Empresas"]] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTypeFilter(value)}
+              className={cn(
+                "rounded px-3 py-1.5 text-xs font-semibold transition-colors",
+                typeFilter === value ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -234,7 +283,20 @@ export function CustomersPage() {
                 <User className="h-5 w-5 text-[#4B98CF]" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-[#112b4a]">{customer.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-[#112b4a]">{customer.name}</p>
+                  <span className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                    customer.customerType === "individual" ? "bg-[#4EB4A5]/10 text-[#4EB4A5]" : "bg-[#4B98CF]/10 text-[#4B98CF]"
+                  )}>
+                    {CUSTOMER_TYPE_LABELS[customer.customerType]}
+                  </span>
+                  {!!customer.creditBalance && (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600">
+                      Debe ${customer.creditBalance.toLocaleString("es-CL")}
+                    </span>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#6B7280] mt-0.5">
                   {customer.rut && <span className="font-mono font-semibold text-[#112b4a]">RUT {customer.rut}</span>}
                   {customer.phone && <span>{customer.phone}</span>}

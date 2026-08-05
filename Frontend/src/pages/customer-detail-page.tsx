@@ -1,12 +1,16 @@
-﻿import { useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Package, ShoppingBag, Truck, User, Phone, Mail, MapPin, Check, X, AlertTriangle, Clock } from "lucide-react";
+import { ArrowLeft, ArrowDownCircle, ArrowUpCircle, CreditCard, Package, ShoppingBag, Truck, User, Phone, Mail, MapPin, Check, X, AlertTriangle, Clock } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { adaptCustomer, adaptOrder } from "@/lib/api-adapters";
+import { adaptCustomer, adaptCustomerCredit, adaptOrder } from "@/lib/api-adapters";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
+import { apiFetch, ApiRequestError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-import type { ApiCustomer, ApiOrder } from "@/types/api";
-import type { Customer, Order } from "@/types/domain";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { ApiCustomer, ApiCustomerCredit, ApiOrder } from "@/types/api";
+import type { Customer, CustomerCredit, Order } from "@/types/domain";
 
 export function CustomerDetailPage() {
   const { customerId } = useParams();
@@ -20,7 +24,36 @@ export function CustomerDetailPage() {
     path: "/api/orders", transform: (r) => r.map((o) => adaptOrder(o))
   });
 
+  const { data: credit, refresh: refreshCredit } = useApiQuery<ApiCustomerCredit, CustomerCredit>({
+    path: `/api/customers/${customerId}/credit`, transform: adaptCustomerCredit, enabled: Boolean(customerId)
+  });
+
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [payingBack, setPayingBack] = useState(false);
+
   const customer = useMemo(() => (customers ?? []).find((c) => c.id === customerId) ?? null, [customers, customerId]);
+
+  async function handleRegisterPayment(e: React.FormEvent) {
+    e.preventDefault();
+    setPaymentError("");
+    const amount = Number(paymentAmount);
+    if (!amount || amount <= 0) { setPaymentError("Ingresa un monto válido"); return; }
+    setPayingBack(true);
+    try {
+      await apiFetch(`/api/customers/${customerId}/credit/payment`, {
+        method: "POST", body: JSON.stringify({ amount })
+      });
+      setPaymentAmount("");
+      setPaymentOpen(false);
+      refreshCredit();
+    } catch (err) {
+      setPaymentError(err instanceof ApiRequestError ? err.message : "No se pudo registrar el abono");
+    } finally {
+      setPayingBack(false);
+    }
+  }
 
   const { operationalOrders } = useOperationalWorkspace({ orders });
 
@@ -116,6 +149,63 @@ export function CustomerDetailPage() {
           <p className="text-2xl font-bold text-[#4B98CF]">{stats.activos}</p>
           <p className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-[0.92px]">Activos</p>
         </div>
+      </div>
+
+      <div className="rounded border border-[#DCE0E2] bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50">
+              <CreditCard className="h-5 w-5 text-amber-500" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Cuenta corriente (fiado)</p>
+              <p className={cn("text-lg font-bold", (credit?.creditBalance ?? 0) > 0 ? "text-amber-600" : "text-[#112b4a]")}>
+                ${(credit?.creditBalance ?? 0).toLocaleString("es-CL")}
+                {credit?.creditLimit != null && (
+                  <span className="ml-1 text-xs font-medium text-[#6B7280]">/ ${credit.creditLimit.toLocaleString("es-CL")} límite</span>
+                )}
+              </p>
+            </div>
+          </div>
+          <Dialog open={paymentOpen} onOpenChange={(open) => { setPaymentOpen(open); if (!open) { setPaymentAmount(""); setPaymentError(""); } }}>
+            <DialogTrigger render={<Button size="sm" className="bg-[#4EB4A5] hover:bg-[#3a9184] text-white">Registrar abono</Button>} />
+            <DialogContent showCloseButton={false}>
+              <DialogHeader>
+                <DialogTitle>Registrar abono</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleRegisterPayment} className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Monto</label>
+                  <Input type="number" min="1" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="10000" className="h-9 text-sm" autoFocus />
+                </div>
+                {paymentError && <p className="text-xs text-red-500">{paymentError}</p>}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setPaymentOpen(false)}>Cancelar</Button>
+                  <Button type="submit" size="sm" className="bg-[#4EB4A5] hover:bg-[#3a9184] text-white" disabled={payingBack}>{payingBack ? "Guardando..." : "Guardar"}</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {credit && credit.movements.length > 0 && (
+          <div className="mt-3 space-y-1.5 border-t border-[#F5F7F9] pt-3">
+            {credit.movements.map((m) => (
+              <div key={m.id} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  {m.type === "charge"
+                    ? <ArrowUpCircle className="h-3.5 w-3.5 text-amber-500" />
+                    : <ArrowDownCircle className="h-3.5 w-3.5 text-[#4EB4A5]" />}
+                  <span className="text-[#6B7280]">{m.type === "charge" ? "Fiado" : "Abono"}</span>
+                  <span className="text-[10px] text-[#6B7280]/70">{new Date(m.createdAt).toLocaleDateString("es-CL")}</span>
+                </div>
+                <span className={cn("font-semibold", m.type === "charge" ? "text-amber-600" : "text-[#4EB4A5]")}>
+                  {m.type === "charge" ? "+" : "-"}${m.amount.toLocaleString("es-CL")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>

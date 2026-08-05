@@ -17,7 +17,8 @@ export type AppPermission =
   | "sales.view"
   | "settings.manage"
   | "suppliers.manage"
-  | "products.import";
+  | "products.import"
+  | "purchases.manage";
 
 export interface RoleAccessProfile {
   label: string;
@@ -27,14 +28,14 @@ export interface RoleAccessProfile {
   permissions: AppPermission[];
 }
 
-const basePaths = ["/access-denied", "/profile", "/notifications", "/calendar", "/reports", "/pos"];
+const basePaths = ["/access-denied", "/profile", "/billing", "/notifications", "/calendar", "/reports", "/pos"];
 
 export const roleProfiles: Record<Role, RoleAccessProfile> = {
   owner: {
     label: "Administrador",
     summary: "Control completo de la operacion, seguimiento transversal y gestion de usuarios del negocio.",
     defaultPath: "/dashboard",
-    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/shipments", "/deliveries", "/alerts", "/users", "/settings", "/suppliers", ...basePaths],
+    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/shipments", "/deliveries", "/alerts", "/users", "/settings", "/suppliers", "/purchases", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",
@@ -52,7 +53,8 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
       "sales.view",
       "settings.manage",
       "suppliers.manage",
-      "products.import"
+      "products.import",
+      "purchases.manage"
     ]
   },
   ops: {
@@ -77,7 +79,7 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
     label: "Bodega",
     summary: "Controla stock, confirma disponibilidad y responde a quiebres o ajustes de inventario.",
     defaultPath: "/inventory",
-    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/alerts", "/suppliers", ...basePaths],
+    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/alerts", "/suppliers", "/purchases", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",
@@ -86,7 +88,8 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
       "orders.review",
       "alerts.view",
       "suppliers.manage",
-      "products.import"
+      "products.import",
+      "purchases.manage"
     ]
   },
   support: {
