@@ -71,6 +71,11 @@ function InteractiveBarChart({
     return { x, y, value: d.value };
   });
 
+  // Firma estable de los valores: `data` es un array nuevo en cada render del
+  // padre (por el polling), así que depender del array directamente dispararía
+  // el efecto en cada refresco aunque los valores no cambien.
+  const dataSignature = data.map((d) => `${d.label}:${d.value}`).join("|") + (series2?.map((d) => d.value).join(",") ?? "");
+
   useLayoutEffect(() => {
     if (!svgRef.current) return;
     // Solo anima la primera vez que llegan datos reales: el polling de refresco
@@ -113,8 +118,8 @@ function InteractiveBarChart({
     }, svgRef);
 
     return () => ctx.revert();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- guard interno (hasAnimatedRef) decide si corre; solo debe re-evaluar cuando cambia la forma de los datos
-  }, [data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se ancla a `dataSignature` (valor estable) en vez de `data`/`max`/`height` para no recrear el contexto GSAP en cada render del padre
+  }, [dataSignature]);
 
   return (
     <div>

@@ -273,7 +273,7 @@ export function DashboardPage() {
         <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-3">Acciones rapidas</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {visibleQuickActions.map((action) => (
-            <Link key={action.label} to={action.href} className="group flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-transparent hover:bg-muted hover:shadow-md">
+            <Link key={action.label} to={action.href} className="group flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 transition-[transform,background-color,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-transparent hover:bg-muted hover:shadow-md">
               <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110", action.color)}>
                 <action.icon className="h-4 w-4 text-white" />
               </div>
@@ -296,7 +296,7 @@ function MetricCard({ label, value, sub, icon: Icon, color, iconColor }: {
 }) {
   const animatedValue = useCountUp(value);
   return (
-    <div className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-xl border border-border bg-card p-4 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center gap-2 mb-3">
         <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", color)}>
           <Icon className={cn("h-4 w-4", iconColor)} />
