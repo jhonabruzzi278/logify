@@ -387,18 +387,23 @@ paso intermedio.
 
 ## Pruebas
 
-**347 pruebas** en total (backend 252 con Jest + Supertest, frontend 95 con Vitest + RTL). Ver detalle y cobertura en [wiki/Pruebas.md](wiki/Pruebas.md).
+**464 pruebas unitarias/integración** (backend 369 con Jest + Supertest, cobertura 80%+ en los 4 servicios; frontend 95 con Vitest + RTL) **+ 15 E2E** con Playwright (regresión visual + flujos críticos) **+ pruebas de carga** con k6. Ver detalle completo en [wiki/Pruebas.md](wiki/Pruebas.md).
 
 ```bash
 # Backend — npm test ya incluye cobertura (jest --coverage)
-cd Backend/orders-service && npm test        # 102 pruebas (incluye cuenta corriente)
-cd Backend/inventory-service && npm test     # 96 pruebas (POS, compras, caja, ganancia real)
-cd Backend/shipping-service && npm test      # 28 pruebas
-cd Backend/notification-service && npm test  # 26 pruebas
+cd Backend/orders-service && npm test        # 139 pruebas — 81.8% cobertura
+cd Backend/inventory-service && npm test     # 116 pruebas — 84.6% cobertura
+cd Backend/shipping-service && npm test      # 53 pruebas — 87.9% cobertura
+cd Backend/notification-service && npm test  # 61 pruebas — 84.2% cobertura
 
 # Frontend
-cd Frontend && npm test                      # 95 pruebas
-npm run test:coverage   # Reporte en Frontend/coverage/index.html
+cd Frontend && npm test                      # 95 pruebas unitarias (Vitest)
+npm run test:coverage                        # Reporte en Frontend/coverage/index.html
+npm run test:e2e                             # 15 pruebas E2E (Playwright) — requiere `npm run dev` corriendo
+
+# Carga (k6) — solo contra docker-compose local o staging, nunca producción
+cd Backend/load-tests && k6 run smoke.js     # smoke test rápido
+k6 run load.js                               # carga sostenida (~3 min)
 ```
 
 ---
@@ -408,9 +413,10 @@ npm run test:coverage   # Reporte en Frontend/coverage/index.html
 ```
 Logify/
 ├── Frontend/                   # React 18 SPA + PWA (Vite 6) + Web Push
+│   ├── e2e/                    # Playwright: specs, auth.setup por rol, snapshots visuales
 │   └── src/
 │       ├── app/                # Auth, router, RBAC (access.ts)
-│       ├── hooks/              # useApiQuery, useBusinessMode, usePosCart...
+│       ├── hooks/               # useApiQuery, useBusinessMode, usePosCart, useCountUp, useStaggerReveal...
 │       ├── components/pos/     # Modales del POS: escáner, caja, monto libre, extras
 │       ├── pages/              # 20+ páginas por rol (incluye purchases-page, billing-page)
 │       ├── sw.ts               # Service worker propio (precache + push)
@@ -422,6 +428,7 @@ Logify/
 │   ├── notification-service/   # Node.js :8085 — trazabilidad + alertas + Web Push
 │   ├── nginx/                  # Config API Gateway :8080
 │   ├── shared/                 # app, db, logger, validate, security, email
+│   ├── load-tests/             # Pruebas de carga con k6 (smoke.js, load.js)
 │   └── seed.sql                # Datos de prueba
 ├── Landing/                    # Landing pública (Next.js, deploy en Vercel)
 ├── wiki/                       # Documentación técnica del proyecto
