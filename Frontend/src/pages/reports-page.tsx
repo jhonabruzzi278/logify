@@ -1,5 +1,6 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, BarChart3, Banknote, Boxes, CalendarDays, Clock, Download, Package, PiggyBank, Search, ShoppingBag, ShoppingCart, Table2, Truck } from "lucide-react";
+import { gsap } from "gsap";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { type BusinessMode, useBusinessMode } from "@/hooks/use-business-mode";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
@@ -58,6 +59,8 @@ function InteractiveBarChart({
   series2Color?: string;
 }) {
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const hasAnimatedRef = useRef(false);
   const max = Math.max(...data.map((d) => d.value), 1);
   const barW = 44;
   const gap = 16;
@@ -67,6 +70,51 @@ function InteractiveBarChart({
     const y = height - 28 - Math.max((d.value / max) * (height - 48), 0);
     return { x, y, value: d.value };
   });
+
+  useLayoutEffect(() => {
+    if (!svgRef.current) return;
+    // Solo anima la primera vez que llegan datos reales: el polling de refresco
+    // vacia los arrays brevemente en cada refetch, y animar en cada cambio haria
+    // que las barras "parpadearan" cada vez que el dashboard se refresca solo.
+    if (hasAnimatedRef.current || data.every((d) => d.value === 0)) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    hasAnimatedRef.current = true;
+
+    const ctx = gsap.context(() => {
+      const bars = gsap.utils.toArray<SVGRectElement>(".chart-bar");
+      bars.forEach((bar, i) => {
+        // Se calcula el objetivo desde `data`, no desde el DOM: leer el atributo ya
+        // renderizado puede devolver un valor dejado por una animacion anterior
+        // (GSAP muta el atributo directamente y React no siempre lo revierte si
+        // el valor "virtual" no cambio entre renders).
+        const d = data[i];
+        if (!d) return;
+        const targetH = Math.max((d.value / max) * (height - 48), 2);
+        const targetY = height - 28 - targetH;
+        gsap.fromTo(
+          bar,
+          { attr: { height: 0, y: targetY + targetH } },
+          { attr: { height: targetH, y: targetY }, duration: 0.5, delay: i * 0.04, ease: "power2.out" }
+        );
+      });
+
+      const dots = gsap.utils.toArray<SVGCircleElement>(".chart-dot");
+      if (dots.length > 0) {
+        gsap.set(dots, { transformOrigin: "center", scale: 0, opacity: 0 });
+        gsap.to(dots, { scale: 1, opacity: 1, duration: 0.35, delay: 0.35, stagger: 0.05, ease: "back.out(2)" });
+      }
+
+      const line = svgRef.current!.querySelector<SVGPolylineElement>(".chart-line");
+      if (line) {
+        const length = line.getTotalLength();
+        gsap.set(line, { strokeDasharray: length, strokeDashoffset: length });
+        gsap.to(line, { strokeDashoffset: 0, duration: 0.6, delay: 0.15, ease: "power2.inOut" });
+      }
+    }, svgRef);
+
+    return () => ctx.revert();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- guard interno (hasAnimatedRef) decide si corre; solo debe re-evaluar cuando cambia la forma de los datos
+  }, [data]);
 
   return (
     <div>
@@ -81,6 +129,7 @@ function InteractiveBarChart({
       </div>
       <div className="overflow-x-auto">
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${Math.max(totalW, 200)} ${height}`}
           className="w-full"
           style={{ minWidth: data.length * 60, height }}
@@ -119,6 +168,7 @@ function InteractiveBarChart({
                 className="cursor-pointer"
               >
                 <rect
+                  className="chart-bar transition-[filter,opacity,transform] duration-150"
                   x={x}
                   y={y}
                   width={barW}
@@ -126,7 +176,6 @@ function InteractiveBarChart({
                   rx="5"
                   fill={d.color}
                   opacity={isHovered ? 1 : 0.82}
-                  className="transition-all duration-150"
                   style={{ transform: isHovered ? `translateY(-4px)` : "", filter: isHovered ? "brightness(1.1)" : "" }}
                 />
                 <text x={x + barW / 2} y={y - 8} textAnchor="middle" className={cn("text-[11px] font-bold transition-opacity", isHovered ? "opacity-100" : "opacity-0")} fill="#112b4a">
@@ -143,6 +192,7 @@ function InteractiveBarChart({
           {linePoints && linePoints.length > 0 && (
             <g>
               <polyline
+                className="chart-line"
                 points={linePoints.map((p) => `${p.x},${p.y}`).join(" ")}
                 fill="none"
                 stroke={series2Color}
@@ -150,7 +200,7 @@ function InteractiveBarChart({
                 strokeLinejoin="round"
               />
               {linePoints.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r={3} fill={series2Color} />
+                <circle key={i} className="chart-dot" cx={p.x} cy={p.y} r={3} fill={series2Color} />
               ))}
             </g>
           )}

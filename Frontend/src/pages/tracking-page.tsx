@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, Clock, History, LogOut, MapPin, Package, Search, Truck, XCircle } from "lucide-react";
+import { gsap } from "gsap";
 import { useAuth } from "@/app/auth";
 import { adaptShipment } from "@/lib/api-adapters";
 import { cn } from "@/lib/utils";
@@ -154,6 +155,28 @@ export function TrackingPage() {
     ];
   }, [result, stageIdx]);
 
+  const stepperRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!stepperRef.current || stageIdx < 0) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const ctx = gsap.context(() => {
+      const icons = gsap.utils.toArray<HTMLElement>(".step-icon-done, .step-icon-active");
+      gsap.fromTo(icons, { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, stagger: 0.12, ease: "back.out(2)" });
+
+      const connectors = gsap.utils.toArray<HTMLElement>(".step-connector-done");
+      gsap.fromTo(connectors, { scaleY: 0 }, { scaleY: 1, duration: 0.35, stagger: 0.12, delay: 0.15, ease: "power2.out", transformOrigin: "top" });
+
+      const activeRing = stepperRef.current!.querySelector<HTMLElement>(".step-active-ring");
+      if (activeRing) {
+        gsap.to(activeRing, { scale: 1.8, opacity: 0, duration: 1.4, repeat: -1, ease: "power1.out" });
+      }
+    }, stepperRef);
+
+    return () => ctx.revert();
+  }, [stageIdx]);
+
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "linear-gradient(160deg,#0d2137 0%,#1a3a5c 40%,#112b4a 100%)" }}>
       <header className="flex items-center justify-between px-6 py-5 max-w-3xl mx-auto w-full">
@@ -267,7 +290,7 @@ export function TrackingPage() {
               {!isCancelled && (
                 <div className="rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm p-5">
                   <p className="text-[10px] font-bold uppercase tracking-[1.2px] text-white/40 mb-5">Estado del envío</p>
-                  <div className="space-y-0">
+                  <div ref={stepperRef} className="space-y-0">
                     {STEP_CONFIG.map((step, i) => {
                       const done = stageIdx > i;
                       const active = stageIdx === i;
@@ -277,17 +300,18 @@ export function TrackingPage() {
                         <div key={step.key} className="flex gap-3">
                           <div className="flex flex-col items-center">
                             <div className={cn(
-                              "h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-all",
-                              done ? "bg-green-500" :
-                              active ? "bg-[#4B98CF]" :
-                              "bg-white/10"
+                              "relative h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-all",
+                              done && "step-icon-done bg-green-500",
+                              active && "step-icon-active bg-[#4B98CF]",
+                              !done && !active && "bg-white/10"
                             )}>
-                              <Icon className={cn("h-4 w-4", done || active ? "text-white" : "text-white/30")} />
+                              {active && <span className="step-active-ring pointer-events-none absolute inset-0 rounded-full bg-[#4B98CF]" />}
+                              <Icon className={cn("relative h-4 w-4", done || active ? "text-white" : "text-white/30")} />
                             </div>
                             {i < STEP_CONFIG.length - 1 && (
                               <div className={cn(
                                 "w-0.5 h-8 mt-1",
-                                done ? "bg-green-500/40" : "bg-white/10"
+                                done ? "step-connector-done bg-green-500/40" : "bg-white/10"
                               )} />
                             )}
                           </div>

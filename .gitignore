@@ -13,6 +13,13 @@ Frontend/dev-dist/
 coverage/
 Backend/**/coverage/
 
+# Playwright (e2e)
+Frontend/test-results/
+Frontend/playwright-report/
+Frontend/playwright/.cache/
+Frontend/e2e/.auth/
+Frontend/blob-report/
+
 # Environment
 .env
 .env.local

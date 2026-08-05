@@ -90,7 +90,7 @@ export function AppShell() {
           tabIndex={-1}
           className="min-h-0 flex-1 overflow-y-auto bg-background px-4 py-4 pb-28 outline-none sm:px-6 lg:px-8 lg:py-6 lg:pb-6"
         >
-          <div className="mx-auto max-w-[1300px] space-y-5">
+          <div className="w-full space-y-5">
             <Outlet />
           </div>
         </main>

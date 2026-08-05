@@ -7,10 +7,12 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { type BusinessMode, useBusinessMode, CUSTOMER_TYPE_BY_MODE } from "@/hooks/use-business-mode";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
+import { useStaggerReveal } from "@/hooks/use-stagger-reveal";
+import { useCountUp } from "@/hooks/use-count-up";
 import { useToast } from "@/components/common/toast-provider";
 import { adaptCustomer, adaptInventory, adaptOrder, adaptShipment } from "@/lib/api-adapters";
 import { buildOperationalAlerts } from "@/lib/operational-insights";
-import { CardSkeleton, ListSkeleton } from "@/components/common/skeleton";
+import { CardSkeleton, ListSkeleton, Skeleton } from "@/components/common/skeleton";
 import { ApiErrorBanner } from "@/components/common/api-error-banner";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ApiCustomer, ApiInventory, ApiNotificationRecord, ApiOrder, ApiShipment } from "@/types/api";
@@ -110,6 +112,9 @@ export function DashboardPage() {
 
   const visibleQuickActions = useMemo(() => quickActions.filter((a) => a.modes.includes(mode)), [mode]);
 
+  const metricsRef = useStaggerReveal<HTMLDivElement>(!loading);
+  const panelsRef = useStaggerReveal<HTMLDivElement>(!loading);
+
   useEffect(() => {
     const critical = alerts.filter((a) => a.severity === "critical");
     if (critical.length > 0 && !loading) {
@@ -121,21 +126,44 @@ export function DashboardPage() {
 
   if (loading && !orders && !inventory && !shipments) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-xl font-bold text-[#112b4a]">Centro operativo</h1>
+      <div className="space-y-4 max-w-sm w-full mx-auto sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-6 w-40" />
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <CardSkeleton /><CardSkeleton /><CardSkeleton /><CardSkeleton />
         </div>
-        <ListSkeleton count={3} />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <Skeleton className="h-3 w-32 mb-4" />
+            <ListSkeleton count={3} />
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <Skeleton className="h-3 w-20 mb-4" />
+            <ListSkeleton count={3} />
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <Skeleton className="h-3 w-28 mb-3" />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 max-w-sm w-full mx-auto sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
+    <div className="flex h-full max-w-sm w-full mx-auto flex-col gap-4 sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
       {firstError && <ApiErrorBanner error={firstError} onRetry={() => { oRef(); iRef(); sRef(); }} />}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-muted-foreground">Dashboard</p>
           <h1 className="text-xl font-bold text-foreground">
@@ -150,33 +178,33 @@ export function DashboardPage() {
       </div>
 
       {/* Metric cards — solo valor economico, segmentado por modo B2B/B2C */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div ref={metricsRef} className="shrink-0 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {mode === "b2b" ? (
           <>
-            <MetricCard label="Ingresos por pedidos" value={formatCurrency(orderEconomics.revenueDelivered)} sub="Pedidos entregados" icon={Banknote} color="bg-[#4B98CF]/10" iconColor="text-[#4B98CF]" />
-            <MetricCard label="Ganancia estimada" value={formatCurrency(orderEconomics.profitDelivered)} sub="Margen sobre entregados" icon={TrendingUp} color="bg-[#4EB4A5]/10" iconColor="text-[#4EB4A5]" />
-            <MetricCard label="Valor en pipeline" value={formatCurrency(orderEconomics.pipelineValue)} sub={`${orderEconomics.pipelineCount} pedidos en curso`} icon={ShoppingBag} color="bg-[#E3AA75]/10" iconColor="text-[#E3AA75]" />
-            <MetricCard label="Cuentas por cobrar" value={formatCurrency(receivables)} sub="Fiado a clientes empresa" icon={CreditCard} color="bg-purple-50" iconColor="text-purple-500" />
+            <MetricCard label="Ingresos por pedidos" value={orderEconomics.revenueDelivered} sub="Pedidos entregados" icon={Banknote} color="bg-[#4B98CF]/10" iconColor="text-[#4B98CF]" />
+            <MetricCard label="Ganancia estimada" value={orderEconomics.profitDelivered} sub="Margen sobre entregados" icon={TrendingUp} color="bg-[#4EB4A5]/10" iconColor="text-[#4EB4A5]" />
+            <MetricCard label="Valor en pipeline" value={orderEconomics.pipelineValue} sub={`${orderEconomics.pipelineCount} pedidos en curso`} icon={ShoppingBag} color="bg-[#E3AA75]/10" iconColor="text-[#E3AA75]" />
+            <MetricCard label="Cuentas por cobrar" value={receivables} sub="Fiado a clientes empresa" icon={CreditCard} color="bg-purple-50" iconColor="text-purple-500" />
           </>
         ) : (
           <>
-            <MetricCard label="Ventas hoy" value={formatCurrency(todaySales.total)} sub={`${todaySales.count} transacciones`} icon={Banknote} color="bg-[#4B98CF]/10" iconColor="text-[#4B98CF]" />
-            <MetricCard label="Ganancia estimada hoy" value={formatCurrency(todaySales.profit)} sub="Margen sobre ventas" icon={TrendingUp} color="bg-[#4EB4A5]/10" iconColor="text-[#4EB4A5]" />
-            <MetricCard label="Ticket promedio" value={formatCurrency(todaySales.avgTicket)} sub="por venta hoy" icon={ShoppingBag} color="bg-[#E3AA75]/10" iconColor="text-[#E3AA75]" />
-            <MetricCard label="Cuentas por cobrar" value={formatCurrency(receivables)} sub="Fiado a clientes" icon={CreditCard} color="bg-purple-50" iconColor="text-purple-500" />
+            <MetricCard label="Ventas hoy" value={todaySales.total} sub={`${todaySales.count} transacciones`} icon={Banknote} color="bg-[#4B98CF]/10" iconColor="text-[#4B98CF]" />
+            <MetricCard label="Ganancia estimada hoy" value={todaySales.profit} sub="Margen sobre ventas" icon={TrendingUp} color="bg-[#4EB4A5]/10" iconColor="text-[#4EB4A5]" />
+            <MetricCard label="Ticket promedio" value={todaySales.avgTicket} sub="por venta hoy" icon={ShoppingBag} color="bg-[#E3AA75]/10" iconColor="text-[#E3AA75]" />
+            <MetricCard label="Cuentas por cobrar" value={receivables} sub="Fiado a clientes" icon={CreditCard} color="bg-purple-50" iconColor="text-purple-500" />
           </>
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div ref={panelsRef} className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
         {mode === "b2b" ? (
           /* Recent orders */
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center justify-between mb-4">
+          <div className="flex min-h-0 flex-col rounded-xl border border-border bg-card p-5">
+            <div className="shrink-0 flex items-center justify-between mb-4">
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-muted-foreground">Pedidos recientes</p>
               <Link to="/orders" className="text-xs text-[#4B98CF] hover:underline flex items-center gap-1">Todos <ArrowRight className="h-3 w-3" /></Link>
             </div>
-            <div className="space-y-2">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {operationalOrders.slice(0, 5).map((order) => (
                 <div key={order.id} className="flex items-center justify-between rounded bg-[#F8FAFB] px-3 py-2 cursor-pointer hover:bg-muted" onClick={() => navigate(`/orders/${order.id}`)}>
                   <div className="min-w-0">
@@ -199,12 +227,12 @@ export function DashboardPage() {
           </div>
         ) : (
           /* Recent sales */
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center justify-between mb-4">
+          <div className="flex min-h-0 flex-col rounded-xl border border-border bg-card p-5">
+            <div className="shrink-0 flex items-center justify-between mb-4">
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-muted-foreground">Ventas recientes</p>
               <Link to="/reports" className="text-xs text-[#4B98CF] hover:underline flex items-center gap-1">Todas <ArrowRight className="h-3 w-3" /></Link>
             </div>
-            <div className="space-y-2">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {recentSales.map((sale) => (
                 <div key={sale.id} className="flex items-center justify-between rounded bg-[#F8FAFB] px-3 py-2">
                   <div className="min-w-0">
@@ -220,12 +248,12 @@ export function DashboardPage() {
         )}
 
         {/* Critical alerts */}
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex min-h-0 flex-col rounded-xl border border-border bg-card p-5">
+          <div className="shrink-0 flex items-center justify-between mb-4">
             <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-muted-foreground">Alertas</p>
             <Link to="/alerts" className="text-xs text-[#4B98CF] hover:underline flex items-center gap-1">Todas <ArrowRight className="h-3 w-3" /></Link>
           </div>
-          <div className="space-y-2">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
             {alerts.slice(0, 5).map((alert) => (
               <Link key={alert.id} to={alert.actionLabel === "Ver pedido" ? `/orders/${alert.id.replace("order-", "")}` : alert.actionLabel === "Revisar inventario" ? "/inventory" : "/alerts"} className="flex items-start gap-2 rounded bg-[#F8FAFB] px-3 py-2 hover:bg-muted">
                 <AlertTriangle className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", alert.severity === "critical" ? "text-red-500" : alert.severity === "high" ? "text-[#E3AA75]" : "text-[#4B98CF]")} />
@@ -241,12 +269,12 @@ export function DashboardPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="shrink-0 rounded-xl border border-border bg-card p-5">
         <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-3">Acciones rapidas</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {visibleQuickActions.map((action) => (
-            <Link key={action.label} to={action.href} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 hover:bg-muted transition-colors">
-              <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", action.color)}>
+            <Link key={action.label} to={action.href} className="group flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-transparent hover:bg-muted hover:shadow-md">
+              <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110", action.color)}>
                 <action.icon className="h-4 w-4 text-white" />
               </div>
               <span className="text-xs font-medium text-foreground">{action.label}</span>
@@ -260,21 +288,22 @@ export function DashboardPage() {
 
 function MetricCard({ label, value, sub, icon: Icon, color, iconColor }: {
   label: string;
-  value: string | number;
+  value: number;
   sub: string;
   icon: typeof ShoppingBag;
   color: string;
   iconColor: string;
 }) {
+  const animatedValue = useCountUp(value);
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center gap-2 mb-3">
         <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", color)}>
           <Icon className={cn("h-4 w-4", iconColor)} />
         </div>
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.5px]">{label}</p>
       </div>
-      <p className="text-xl font-bold text-foreground">{value}</p>
+      <p className="text-xl font-bold text-foreground tabular-nums">{formatCurrency(animatedValue)}</p>
       <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
     </div>
   );
