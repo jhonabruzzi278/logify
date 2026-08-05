@@ -9,6 +9,14 @@ function MyApp({ Component, pageProps }) {
     useEffect(() => {
         setTimeout(() => { setLoading(false) }, 800)
     }, [])
-    return <>{!loading ? <Component {...pageProps} /> : <Preloader />}</>
+    return (
+        <>
+            {/* El contenido siempre se renderiza (server y cliente) para que el HTML
+                estático generado en build incluya título, meta tags y contenido real.
+                El Preloader es solo un overlay visual mientras carga, no reemplaza la página. */}
+            <Component {...pageProps} />
+            {loading && <Preloader />}
+        </>
+    )
 }
 export default MyApp

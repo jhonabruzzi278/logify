@@ -13,7 +13,7 @@
                         <div key={i} className="flex items-center gap-5 p-6 bg-white/5 border border-brand-1/20 rounded-2xl hover:bg-white/8 hover:border-brand-1/40 hover:-translate-y-1 transition-all duration-300">
                             <div className="w-16 h-16 rounded-xl bg-brand-1/10 flex items-center justify-center shrink-0">
                                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FEC201" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    {s.icon.split(" ").map((d, j) => <path key={j} d={d}/>)}
+                                    {s.icon.split(/(?=M)/).map((d, j) => <path key={j} d={d}/>)}
                                 </svg>
                             </div>
                             <div>
