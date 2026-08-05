@@ -39,44 +39,38 @@ Cualquiera con Ubuntu 24.04 LTS sirve igual; esta guía no depende del proveedor
 
 ## 2. Preparar el servidor
 
-Conectate por SSH como root la primera vez, y hacé lo básico de hardening:
+Conectate por SSH como root la primera vez y corré el script de setup
+(`Backend/scripts/00-vps-server-setup.sh`) — automatiza usuario `deploy`,
+firewall, Docker y rotación de logs en un solo paso idempotente:
 
 ```bash
-# Actualizar paquetes
-apt update && apt upgrade -y
+# Opción A: si ya tenés el repo en tu maquina, lo subís y lo corrés
+scp Backend/scripts/00-vps-server-setup.sh root@IP_DEL_VPS:/root/
+ssh root@IP_DEL_VPS "bash /root/00-vps-server-setup.sh"
 
-# Crear un usuario no-root con sudo (nunca operes como root del día a día)
-adduser deploy
-usermod -aG sudo deploy
-
-# Copiar tu clave SSH al nuevo usuario (desde tu maquina local)
-# ssh-copy-id deploy@IP_DEL_VPS
-
-# Firewall: solo SSH, HTTP y HTTPS. Todo lo demás (5432, 8081-8085) queda cerrado.
-apt install -y ufw
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw enable
-ufw status
+# Opción B: pegás el contenido del script directo en la sesión SSH
+ssh root@IP_DEL_VPS
+# (pegar y correr el contenido de Backend/scripts/00-vps-server-setup.sh)
 ```
 
-A partir de acá, conectate siempre como `deploy`, no como `root`.
+El script hace:
+1. Actualiza paquetes del sistema
+2. Crea el usuario `deploy` no-root con sudo (nunca operes como root del día a día)
+3. Firewall (ufw): solo SSH, 80 y 443 — todo lo demás (5432, 8081-8085) queda cerrado
+4. Instala Docker
+5. Configura rotación de logs de Docker (`/etc/docker/daemon.json`, evita llenar el disco con el tiempo)
+
+Al terminar, copiá tu clave SSH al nuevo usuario y conectate siempre como
+`deploy`, no como `root`:
+
+```bash
+ssh-copy-id deploy@IP_DEL_VPS
+```
 
 > Esto es exactamente lo que resuelve el punto crítico de la auditoría: en
 > `docker-compose.prod.yml` ningún servicio interno (Postgres, los 4
 > microservicios) publica puertos al host — solo Caddy expone 80/443. El
 > firewall es una segunda capa de defensa por si algo se mal-configura.
-
-### Instalar Docker
-
-```bash
-curl -fsSL https://get.docker.com | sh
-usermod -aG docker deploy
-# cerrar sesion y volver a entrar para que el grupo tome efecto
-docker --version
-docker compose version
-```
 
 ---
 
@@ -163,16 +157,15 @@ y redeployar. El resto de la configuración de Vercel no cambia.
 
 ## 7. Backups de Postgres
 
+Corré el script de post-clone, que activa el backup automático:
+
 ```bash
-chmod +x Backend/postgres/backup.sh
-crontab -e
+bash Backend/scripts/01-vps-post-clone-setup.sh
 ```
 
-Agregar (backup diario a las 3 AM, retiene 14 días por defecto):
-
-```
-0 3 * * * /home/deploy/logify/Backend/postgres/backup.sh >> /var/log/logify-backup.log 2>&1
-```
+Hace: da permisos de ejecución a `backup.sh` y agrega el cron diario a
+las 3 AM (retiene 14 días por defecto) si todavía no existe. Es
+idempotente, se puede correr de nuevo sin duplicar el cron.
 
 Los `.sql.gz` quedan en `Backend/postgres/backups/` (fuera del repo,
 `.gitignore` ya los excluye). **Recomendado**: copiar periódicamente esa
@@ -191,19 +184,9 @@ gunzip -c Backend/postgres/backups/orders_db_2026-08-05.sql.gz | \
 
 ## 8. Logs
 
-Por defecto Docker no rota logs, y con el tiempo pueden llenar el disco.
-Configurar rotación a nivel de daemon (una sola vez, afecta a todos los
-contenedores):
-
-```bash
-sudo tee /etc/docker/daemon.json <<'EOF'
-{
-  "log-driver": "json-file",
-  "log-opts": { "max-size": "10m", "max-file": "3" }
-}
-EOF
-sudo systemctl restart docker
-```
+La rotación de logs de Docker ya quedó configurada por el script del
+paso 2 (`00-vps-server-setup.sh`) — sin eso, Docker no rota logs y con
+el tiempo pueden llenar el disco.
 
 Ver logs de un servicio puntual:
 
@@ -224,19 +207,22 @@ docker compose -f docker-compose.prod.yml up -d --build
 Esto reconstruye solo las imágenes cuyo código cambió y recrea esos
 contenedores; Postgres no se toca (mismo volumen).
 
-> **Antes de mergear a la rama que despliega**: corré `npm test` en los 4
-> servicios de `Backend/` (o mejor, automatizalo — ver "Pendientes" abajo)
-> para no desplegar una regresión.
+> **Antes de mergear a la rama que despliega**: el CI (`.github/workflows/ci.yml`)
+> ya corre `npm test` en los 4 servicios de `Backend/`, Frontend y Landing
+> en cada PR — revisá que esté verde antes de mergear.
 
 ---
 
 ## 10. Pendientes recomendados (no bloqueantes, pero valen la pena)
 
-- **CI/CD**: hoy el despliegue es manual (`git pull` + rebuild). Un GitHub
-  Actions simple que corra `npm test` en los 4 servicios en cada PR evita
-  desplegar con tests rotos. Si querés, lo armo en otra sesión.
+- ~~**CI/CD**~~ ✅ Hecho — `.github/workflows/ci.yml` corre tests en los
+  4 microservicios, Frontend (typecheck + vitest + build) y Landing
+  (build) en cada PR y push a `main`.
 - **Monitoreo básico**: un uptime checker externo gratuito (UptimeRobot,
   Better Uptime) pegándole a `/healthz` cada 5 min, con alerta a tu correo.
+  Requiere crear una cuenta ahí — no es algo automatizable desde el repo,
+  pero toma 2 minutos: registrate, agregá un monitor HTTP(S) apuntando a
+  `https://api.tu-dominio.cl/healthz`, y configurá el intervalo en 5 min.
 - **Alertas de disco**: en un VPS chico, un log o backup que crece sin
   límite puede llenar el disco silenciosamente. Un check de cron simple
   (`df -h` + email si pasa 80%) es suficiente para este tamaño de proyecto.
