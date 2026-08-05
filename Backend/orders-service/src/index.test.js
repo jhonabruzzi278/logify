@@ -511,6 +511,21 @@ describe('orders-service', () => {
       const res = await request(app).post('/api/customers').send({ name: 'Test' });
       expect(res.status).toBe(500);
     });
+
+    it('crea cliente individual (B2C) sin RUT con customer_type persistido', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockCustomer, customer_type: 'individual' }] });
+      const res = await request(app).post('/api/customers').send({ name: 'Consumidor Final', customerType: 'individual' });
+      expect(res.status).toBe(201);
+      const [, params] = mockQuery.mock.calls[0];
+      expect(params).toContain('individual');
+    });
+
+    it('por defecto crea cliente tipo company cuando no se envía customerType', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockCustomer] });
+      await request(app).post('/api/customers').send({ name: 'Empresa SA' });
+      const [, params] = mockQuery.mock.calls[0];
+      expect(params).toContain('company');
+    });
   });
 
   describe('PUT /api/customers/:id', () => {
@@ -566,6 +581,79 @@ describe('orders-service', () => {
       mockQuery.mockRejectedValueOnce(new Error('DB crash'));
       const res = await request(app).delete('/api/customers/1');
       expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── CUENTA CORRIENTE / FIADO ───────────────────────────────────────────────
+
+  describe('GET /api/customers/:id/credit', () => {
+    it('retorna saldo y movimientos del cliente', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, credit_limit: 50000, credit_balance: 12000 }] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, type: 'charge', amount: 12000, balance_after: 12000 }] });
+      const res = await request(app).get('/api/customers/1/credit');
+      expect(res.status).toBe(200);
+      expect(res.body.creditBalance).toBe(12000);
+      expect(res.body.movements).toHaveLength(1);
+    });
+
+    it('retorna 404 si el cliente no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/customers/999/credit');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).get('/api/customers/1/credit');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('POST /api/customers/:id/credit/charge', () => {
+    it('registra un fiado válido → 201 con nuevo saldo y movimiento', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ new_balance: 15000, success: true, error_msg: null }] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, type: 'charge', amount: 15000, balance_after: 15000 }] });
+      const res = await request(app).post('/api/customers/1/credit/charge').send({ amount: 15000 });
+      expect(res.status).toBe(201);
+      expect(res.body.creditBalance).toBe(15000);
+      expect(res.body.movement.type).toBe('charge');
+    });
+
+    it('rechaza amount <= 0 → 400', async () => {
+      const res = await request(app).post('/api/customers/1/credit/charge').send({ amount: 0 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza si supera el límite de crédito → 400', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ new_balance: null, success: false, error_msg: 'El cargo supera el límite de crédito del cliente' }] });
+      const res = await request(app).post('/api/customers/1/credit/charge').send({ amount: 999999 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/límite/i);
+    });
+
+    it('retorna 404 si el cliente no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ new_balance: null, success: false, error_msg: 'Cliente no encontrado' }] });
+      const res = await request(app).post('/api/customers/999/credit/charge').send({ amount: 1000 });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('POST /api/customers/:id/credit/payment', () => {
+    it('registra un abono válido → 201 con saldo reducido', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ new_balance: 5000, success: true, error_msg: null }] })
+        .mockResolvedValueOnce({ rows: [{ id: 2, type: 'payment', amount: 10000, balance_after: 5000 }] });
+      const res = await request(app).post('/api/customers/1/credit/payment').send({ amount: 10000 });
+      expect(res.status).toBe(201);
+      expect(res.body.creditBalance).toBe(5000);
+      expect(res.body.movement.type).toBe('payment');
+    });
+
+    it('rechaza amount negativo → 400', async () => {
+      const res = await request(app).post('/api/customers/1/credit/payment').send({ amount: -5 });
+      expect(res.status).toBe(400);
     });
   });
 

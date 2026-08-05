@@ -34,6 +34,24 @@ async function ensureTables() {
     address VARCHAR(300), email VARCHAR(200), created_at TIMESTAMP DEFAULT NOW())`);
   await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS rut VARCHAR(20)`);
   await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS province VARCHAR(100)`);
+
+  // Fase 2 del roadmap de expansión comercial (ver aidlc-docs/): apertura a
+  // B2C. customer_type distingue consumidor final ('individual', sin RUT
+  // obligatorio) de empresa ('company', el comportamiento previo por
+  // defecto). credit_limit/credit_balance soportan cuenta corriente/fiado —
+  // el saldo se cachea en la columna y se ajusta atómicamente vía
+  // fn_adjust_customer_credit (mismo patrón que fn_adjust_stock en
+  // inventory-service), con el detalle en customer_credit_movements.
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_type VARCHAR(20) NOT NULL DEFAULT 'company'`);
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS credit_limit NUMERIC`);
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS credit_balance NUMERIC NOT NULL DEFAULT 0`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS customer_credit_movements (
+    id SERIAL PRIMARY KEY, customer_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL,
+    type VARCHAR(10) NOT NULL, amount NUMERIC NOT NULL, balance_after NUMERIC NOT NULL,
+    reference_type VARCHAR(20), reference_id VARCHAR(100), note VARCHAR(255),
+    created_by VARCHAR(100), created_at TIMESTAMP DEFAULT NOW())`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_customer_credit_movements_tenant ON customer_credit_movements (tenant_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_customer_credit_movements_customer ON customer_credit_movements (customer_id)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(200) NOT NULL, role VARCHAR(50) NOT NULL,
@@ -177,6 +195,34 @@ async function ensureProcedures() {
       UPDATE orders SET status = 'CANCELADO', cancel_reason = p_reason
       WHERE id = p_order_id AND tenant_id = p_tenant_id AND status <> 'CANCELADO';
       RETURN QUERY SELECT * FROM orders WHERE id = p_order_id AND tenant_id = p_tenant_id;
+    END;
+    $fn$ LANGUAGE plpgsql;
+  `);
+
+  // Fase 2 del roadmap de expansión comercial: ajuste atómico del saldo de
+  // cuenta corriente, mismo patrón de locking que fn_adjust_stock en
+  // inventory-service (SELECT ... FOR UPDATE, rechaza si viola el invariante
+  // — aquí, superar el límite de crédito del cliente).
+  await pool.query(`DROP FUNCTION IF EXISTS fn_adjust_customer_credit(INT, NUMERIC, INT)`).catch(() => {});
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION fn_adjust_customer_credit(p_customer_id INT, p_delta NUMERIC, p_tenant_id INT)
+    RETURNS TABLE(new_balance NUMERIC, success BOOLEAN, error_msg TEXT)
+    AS $fn$
+    DECLARE v_new_balance NUMERIC; v_limit NUMERIC;
+    BEGIN
+      SELECT credit_limit INTO v_limit FROM customers WHERE id = p_customer_id AND tenant_id = p_tenant_id FOR UPDATE;
+      IF NOT FOUND THEN
+        RETURN QUERY SELECT NULL::NUMERIC, FALSE, 'Cliente no encontrado'::TEXT; RETURN;
+      END IF;
+      UPDATE customers SET credit_balance = credit_balance + p_delta
+        WHERE id = p_customer_id AND tenant_id = p_tenant_id
+          AND (v_limit IS NULL OR credit_balance + p_delta <= v_limit)
+        RETURNING credit_balance INTO v_new_balance;
+      IF v_new_balance IS NOT NULL THEN
+        RETURN QUERY SELECT v_new_balance, TRUE, NULL::TEXT;
+      ELSE
+        RETURN QUERY SELECT NULL::NUMERIC, FALSE, 'El cargo supera el límite de crédito del cliente'::TEXT;
+      END IF;
     END;
     $fn$ LANGUAGE plpgsql;
   `);
@@ -554,22 +600,28 @@ app.get('/api/customers/:id', authMiddleware, requireTenant, async (req, res) =>
 
 app.post('/api/customers', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const { name, phone, address, email, rut, province } = req.body;
+    const { name, phone, address, email, rut, province, customerType, creditLimit } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    const type = customerType === 'individual' ? 'individual' : 'company';
     const c = (await pool.query(
-      'INSERT INTO customers (name, phone, address, email, rut, province, tenant_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [name.trim(), phone || null, address || null, email || null, rut || null, province || null, req.tenantId])).rows[0];
+      `INSERT INTO customers (name, phone, address, email, rut, province, customer_type, credit_limit, tenant_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [name.trim(), phone || null, address || null, email || null, rut || null, province || null,
+       type, creditLimit != null && creditLimit !== '' ? Number(creditLimit) : null, req.tenantId])).rows[0];
     res.status(201).json(c);
   } catch (err) { sendError(res, 500, 'Failed to create customer', err); }
 });
 
 app.put('/api/customers/:id', authMiddleware, requireTenant, async (req, res) => {
   try {
-    const { name, phone, address, email, rut, province } = req.body;
+    const { name, phone, address, email, rut, province, customerType, creditLimit } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    const type = customerType === 'individual' ? 'individual' : 'company';
     const r = await pool.query(
-      'UPDATE customers SET name=$1, phone=$2, address=$3, email=$4, rut=$5, province=$6 WHERE id=$7 AND tenant_id=$8 RETURNING *',
-      [name.trim(), phone || null, address || null, email || null, rut || null, province || null, req.params.id, req.tenantId]);
+      `UPDATE customers SET name=$1, phone=$2, address=$3, email=$4, rut=$5, province=$6,
+        customer_type=$7, credit_limit=$8 WHERE id=$9 AND tenant_id=$10 RETURNING *`,
+      [name.trim(), phone || null, address || null, email || null, rut || null, province || null,
+       type, creditLimit != null && creditLimit !== '' ? Number(creditLimit) : null, req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update customer', err); }
@@ -581,6 +633,51 @@ app.delete('/api/customers/:id', authMiddleware, requireTenant, async (req, res)
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json({ message: 'Cliente eliminado correctamente' });
   } catch (err) { sendError(res, 500, 'Failed to delete customer', err); }
+});
+
+// ═══ CUENTA CORRIENTE / FIADO ══════════════════════════════════════════════════
+
+app.get('/api/customers/:id/credit', authMiddleware, requireTenant, async (req, res) => {
+  try {
+    const customer = (await pool.query(
+      'SELECT id, credit_limit, credit_balance FROM customers WHERE id=$1 AND tenant_id=$2',
+      [req.params.id, req.tenantId])).rows[0];
+    if (!customer) return res.status(404).json({ error: 'Cliente no encontrado' });
+    const movements = (await pool.query(
+      'SELECT * FROM customer_credit_movements WHERE customer_id=$1 AND tenant_id=$2 ORDER BY created_at DESC LIMIT 100',
+      [req.params.id, req.tenantId])).rows;
+    res.json({ creditLimit: customer.credit_limit, creditBalance: customer.credit_balance, movements });
+  } catch (err) { sendError(res, 500, 'Failed to get customer credit', err); }
+});
+
+async function applyCreditMovement(req, res, { type, sign }) {
+  try {
+    const amount = Number(req.body.amount);
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'amount debe ser un número mayor a 0' });
+    const delta = sign * amount;
+    const result = (await pool.query(
+      'SELECT * FROM fn_adjust_customer_credit($1,$2,$3)', [req.params.id, delta, req.tenantId])).rows[0];
+    if (!result.success) {
+      const status = result.error_msg === 'Cliente no encontrado' ? 404 : 400;
+      return res.status(status).json({ error: result.error_msg });
+    }
+    const movement = (await pool.query(
+      `INSERT INTO customer_credit_movements
+        (customer_id, tenant_id, type, amount, balance_after, reference_type, reference_id, note, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [req.params.id, req.tenantId, type, amount, result.new_balance,
+       req.body.referenceType || null, req.body.referenceId || null, req.body.note || null, req.user?.sub || null]
+    )).rows[0];
+    res.status(201).json({ creditBalance: result.new_balance, movement });
+  } catch (err) { sendError(res, 500, 'Failed to record credit movement', err); }
+}
+
+app.post('/api/customers/:id/credit/charge', authMiddleware, requireTenant, requireRole('owner', 'admin', 'vendor'), async (req, res) => {
+  await applyCreditMovement(req, res, { type: 'charge', sign: 1 });
+});
+
+app.post('/api/customers/:id/credit/payment', authMiddleware, requireTenant, requireRole('owner', 'admin', 'vendor'), async (req, res) => {
+  await applyCreditMovement(req, res, { type: 'payment', sign: -1 });
 });
 
 // ═══ CONFIGURACIÓN DEL NEGOCIO Y DEL SISTEMA ══════════════════════════════════
