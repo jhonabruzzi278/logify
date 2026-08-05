@@ -69,6 +69,8 @@ export interface Order {
   clientCode?: string | null;
 }
 
+export type CustomerType = "individual" | "company";
+
 export interface Customer {
   id: string;
   name: string;
@@ -78,6 +80,53 @@ export interface Customer {
   createdAt: string;
   rut?: string | null;
   province?: string | null;
+  customerType: CustomerType;
+  creditLimit?: number | null;
+  creditBalance?: number;
+}
+
+export interface CreditMovement {
+  id: string;
+  type: "charge" | "payment";
+  amount: number;
+  balanceAfter: number;
+  note?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export interface CustomerCredit {
+  creditLimit: number | null;
+  creditBalance: number;
+  movements: CreditMovement[];
+}
+
+export interface CashSession {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  openingAmount: number;
+  openedAt: string;
+  closedAt: string | null;
+  countedAmount: number | null;
+  expectedAmount: number | null;
+  difference: number | null;
+  status: "open" | "closed";
+}
+
+export interface Purchase {
+  id: string;
+  sku: string;
+  productName: string;
+  unitOfMeasure: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  unitCost: number;
+  quantity: number;
+  subtotal: number;
+  updatePrices: boolean;
+  purchasedAt: string;
+  createdBy: string | null;
 }
 
 export interface Shipment {
@@ -114,6 +163,10 @@ export interface SaleItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  /** Costo unitario al momento de la venta; null en ventas anteriores a esta funcionalidad. */
+  unitCost?: number | null;
+  /** Línea sin SKU real (monto libre, descuento o recargo) — no descuenta stock. */
+  isManualAmount?: boolean;
 }
 
 export interface Sale {
@@ -124,4 +177,6 @@ export interface Sale {
   vendorId: string;
   vendorName: string;
   createdAt: string;
+  customerId?: string | null;
+  customerName?: string | null;
 }

@@ -1,5 +1,5 @@
-import type { ApiCustomer, ApiInventory, ApiNotificationRecord, ApiOrder, ApiShipment, ApiSupplier } from "@/types/api";
-import type { Customer, HealthState, Order, OrderStage, Product, Shipment, ShipmentStage, Supplier, TimelineEvent } from "@/types/domain";
+import type { ApiCashSession, ApiCustomer, ApiCustomerCredit, ApiInventory, ApiNotificationRecord, ApiOrder, ApiPurchase, ApiShipment, ApiSupplier } from "@/types/api";
+import type { CashSession, Customer, CustomerCredit, HealthState, Order, OrderStage, Product, Purchase, Shipment, ShipmentStage, Supplier, TimelineEvent } from "@/types/domain";
 
 type StatusMap<T extends string> = readonly (readonly [string, T])[];
 
@@ -322,5 +322,56 @@ export function adaptCustomer(apiCustomer: ApiCustomer): Customer {
     createdAt: ((c.createdAt ?? c.created_at ?? new Date().toISOString()) as string),
     rut: (c.rut as string) ?? null,
     province: (c.province as string) ?? null,
+    customerType: ((c.customerType ?? c.customer_type ?? "company") as Customer["customerType"]),
+    creditLimit: c.credit_limit != null ? Number(c.credit_limit) : null,
+    creditBalance: c.credit_balance != null ? Number(c.credit_balance) : 0,
+  };
+}
+
+export function adaptCashSession(s: ApiCashSession): CashSession {
+  return {
+    id: String(s.id),
+    vendorId: s.vendor_id,
+    vendorName: s.vendor_name ?? s.vendor_id,
+    openingAmount: Number(s.opening_amount),
+    openedAt: s.opened_at,
+    closedAt: s.closed_at,
+    countedAmount: s.counted_amount != null ? Number(s.counted_amount) : null,
+    expectedAmount: s.expected_amount != null ? Number(s.expected_amount) : null,
+    difference: s.difference != null ? Number(s.difference) : null,
+    status: s.status,
+  };
+}
+
+export function adaptPurchase(apiPurchase: ApiPurchase): Purchase {
+  return {
+    id: String(apiPurchase.id),
+    sku: apiPurchase.sku,
+    productName: apiPurchase.product_name ?? apiPurchase.sku,
+    unitOfMeasure: apiPurchase.unit_of_measure ?? "unidad",
+    supplierId: apiPurchase.supplier_id != null ? String(apiPurchase.supplier_id) : null,
+    supplierName: apiPurchase.supplier_name ?? null,
+    unitCost: Number(apiPurchase.unit_cost),
+    quantity: apiPurchase.quantity,
+    subtotal: Number(apiPurchase.subtotal),
+    updatePrices: apiPurchase.update_prices,
+    purchasedAt: apiPurchase.purchased_at,
+    createdBy: apiPurchase.created_by,
+  };
+}
+
+export function adaptCustomerCredit(apiCredit: ApiCustomerCredit): CustomerCredit {
+  return {
+    creditLimit: apiCredit.creditLimit != null ? Number(apiCredit.creditLimit) : null,
+    creditBalance: Number(apiCredit.creditBalance ?? 0),
+    movements: (apiCredit.movements ?? []).map((m) => ({
+      id: String(m.id),
+      type: m.type,
+      amount: Number(m.amount),
+      balanceAfter: Number(m.balance_after),
+      note: m.note ?? null,
+      createdBy: m.created_by ?? null,
+      createdAt: m.created_at,
+    })),
   };
 }

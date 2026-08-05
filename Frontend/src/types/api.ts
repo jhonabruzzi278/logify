@@ -28,6 +28,61 @@ export interface ApiCustomer {
   createdAt: string | null;
   rut?: string | null;
   province?: string | null;
+  customer_type?: "individual" | "company";
+  credit_limit?: number | string | null;
+  credit_balance?: number | string | null;
+}
+
+export interface ApiCreditMovement {
+  id: number;
+  type: "charge" | "payment";
+  amount: number | string;
+  balance_after: number | string;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ApiCustomerCredit {
+  creditLimit: number | string | null;
+  creditBalance: number | string;
+  movements: ApiCreditMovement[];
+}
+
+export interface ApiSalesCloseSummary {
+  date: string;
+  summary: { paymentMethod: string; count: number; total: number }[];
+  grandTotal: number;
+}
+
+export interface ApiCashSession {
+  id: number;
+  tenant_id: number;
+  vendor_id: string;
+  vendor_name: string | null;
+  opening_amount: number | string;
+  opened_at: string;
+  closed_at: string | null;
+  counted_amount: number | string | null;
+  expected_amount: number | string | null;
+  difference: number | string | null;
+  status: "open" | "closed";
+}
+
+export interface ApiPurchase {
+  id: number;
+  tenant_id: number;
+  sku: string;
+  supplier_id: number | null;
+  unit_cost: number | string;
+  quantity: number;
+  subtotal: number | string;
+  update_prices: boolean;
+  purchased_at: string;
+  created_by: string | null;
+  product_name?: string | null;
+  unit_of_measure?: string | null;
+  supplier_name?: string | null;
 }
 
 export interface ApiSupplier {
