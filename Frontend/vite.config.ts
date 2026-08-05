@@ -96,6 +96,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/setup-tests.ts"],
     css: false,
+    exclude: ["node_modules/**", "dist/**", "dev-dist/**", "e2e/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
