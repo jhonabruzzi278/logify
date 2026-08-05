@@ -97,7 +97,7 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
   ];
 
   return (
-    <header className="flex h-16 items-center justify-between bg-[#1A3142] px-4 text-white sm:px-6">
+    <header className="flex h-16 shrink-0 items-center justify-between bg-[#1A3142] px-4 text-white sm:px-6">
       <div className="flex items-center gap-3">
         <button
           type="button"

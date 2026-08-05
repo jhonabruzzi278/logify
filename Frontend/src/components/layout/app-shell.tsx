@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -14,24 +14,33 @@ export function AppShell() {
   const { mode } = useBusinessMode();
   const isOnline = useOnlineStatus();
   const [open, setOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
   const visibleItems = useMemo(() => (session ? getVisibleNavItems(session.role, mode) : []), [session, mode]);
 
   const currentTitle = useMemo(() => {
     return visibleItems.find((item) => pathname.startsWith(item.path))?.title ?? "Dashboard";
   }, [pathname, visibleItems]);
 
+  useEffect(() => {
+    setOpen(false);
+    const node = mainRef.current;
+    if (!node) return;
+    node.scrollTo({ top: 0 });
+    node.focus({ preventScroll: true });
+  }, [pathname]);
+
   if (!session) {
     return null;
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-dvh overflow-hidden bg-background">
       <Sidebar role={session.role} />
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
-          <div className="absolute left-0 top-0 h-full w-64 bg-[#1A3142] p-4 pt-6 shadow-xl">
+          <div role="dialog" aria-modal="true" aria-label="Navegación" className="absolute left-0 top-0 h-full w-64 overflow-y-auto bg-[#1A3142] p-4 pt-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-6 flex items-center justify-between">
               <p className="text-sm font-bold text-white">Navegacion</p>
               <button onClick={() => setOpen(false)} className="text-white/60 hover:text-white">
@@ -67,16 +76,20 @@ export function AppShell() {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar title={currentTitle} onMenu={() => setOpen(true)} onLogout={logout} role={session.role} sessionName={session.name} sessionUsername={session.username} />
 
         {!isOnline && (
-          <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-700">
+          <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-700">
             Sin conexion a internet. Mostrando datos locales.
           </div>
         )}
 
-        <main className="flex-1 bg-background px-4 py-4 pb-28 sm:px-6 lg:px-8 lg:py-6 lg:pb-6">
+        <main
+          ref={mainRef}
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-y-auto bg-background px-4 py-4 pb-28 outline-none sm:px-6 lg:px-8 lg:py-6 lg:pb-6"
+        >
           <div className="mx-auto max-w-[1300px] space-y-5">
             <Outlet />
           </div>
