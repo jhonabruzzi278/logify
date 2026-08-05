@@ -3,4 +3,4 @@ Allow: /login
 Allow: /tracking
 Disallow: /
 
-Sitemap: https://TU-DOMINIO.cl/sitemap.xml
+Sitemap: https://app.logify.cl/sitemap.xml

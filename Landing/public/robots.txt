@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://TU-DOMINIO.cl/sitemap.xml
+Sitemap: https://logify.cl/sitemap.xml

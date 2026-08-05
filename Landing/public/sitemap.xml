@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Reemplazar TU-DOMINIO.cl por el dominio real antes de desplegar a producción. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://TU-DOMINIO.cl/</loc>
+    <loc>https://logify.cl/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>

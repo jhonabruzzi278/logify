@@ -1,6 +1,6 @@
 import Head from "next/head"
 
-const SITE_URL = "https://TU-DOMINIO.cl"
+const SITE_URL = "https://logify.cl"
 const DEFAULT_TITLE = "Logify - POS e Inventario para tu Negocio"
 const DEFAULT_DESCRIPTION =
     "Logify: plataforma todo-en-uno para pequeños comercios. POS, control de inventario, pedidos, despachos y dashboard en un solo lugar."
