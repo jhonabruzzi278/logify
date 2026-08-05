@@ -15,6 +15,7 @@ jest.mock('../shared/auth', () => ({
 }));
 
 const request = require('supertest');
+const bcrypt = require('bcryptjs');
 const { createPool } = require('../shared/db');
 
 const mockQuery = jest.fn();
@@ -802,6 +803,305 @@ describe('orders-service', () => {
       const res = await request(app).get('/api/auth/users');
       expect(res.status).toBe(200);
       expect(res.body[0].last_login_at).toBe('2026-08-01T10:00:00.000Z');
+    });
+  });
+
+  // ─── POST /api/auth/login ────────────────────────────────────────────────────
+
+  describe('POST /api/auth/login', () => {
+    const TENANT_ROW = { id: 1, slug: 'logify', status: 'active' };
+
+    it('login correcto → 200 con token y datos del usuario', async () => {
+      const hash = await bcrypt.hash('Admin123!', 10);
+      mockQuery
+        .mockResolvedValueOnce({ rows: [TENANT_ROW] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', password_hash: hash, role: 'owner', name: 'Andrés Soto', rut: null, email: null }] })
+        .mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).post('/api/auth/login').send({ username: 'admin', password: 'Admin123!' });
+      expect(res.status).toBe(200);
+      expect(res.body.token).toBe('test-jwt-token');
+      expect(res.body.role).toBe('owner');
+      expect(res.body.username).toBe('admin');
+    });
+
+    it('rechaza sin username/password → 400', async () => {
+      const res = await request(app).post('/api/auth/login').send({ username: 'admin' });
+      expect(res.status).toBe(400);
+    });
+
+    it('tenant inexistente → 401 credenciales invalidas', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).post('/api/auth/login').send({ username: 'admin', password: 'x' });
+      expect(res.status).toBe(401);
+    });
+
+    it('tenant no activo → 403', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...TENANT_ROW, status: 'suspended' }] });
+      const res = await request(app).post('/api/auth/login').send({ username: 'admin', password: 'x' });
+      expect(res.status).toBe(403);
+    });
+
+    it('usuario inexistente → 401', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [TENANT_ROW] })
+        .mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).post('/api/auth/login').send({ username: 'noexiste', password: 'x' });
+      expect(res.status).toBe(401);
+    });
+
+    it('contraseña incorrecta → 401', async () => {
+      const hash = await bcrypt.hash('Correcta123!', 10);
+      mockQuery
+        .mockResolvedValueOnce({ rows: [TENANT_ROW] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', password_hash: hash, role: 'owner' }] });
+      const res = await request(app).post('/api/auth/login').send({ username: 'admin', password: 'Incorrecta' });
+      expect(res.status).toBe(401);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).post('/api/auth/login').send({ username: 'admin', password: 'x' });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── POST /api/auth/register ─────────────────────────────────────────────────
+
+  describe('POST /api/auth/register', () => {
+    const newUser = { username: 'nuevo', password: 'Clave123!', name: 'Nuevo Usuario', role: 'ops' };
+
+    it('crea usuario valido → 201', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevo', name: 'Nuevo Usuario', role: 'ops' }] });
+      const res = await request(app).post('/api/auth/register').send(newUser);
+      expect(res.status).toBe(201);
+      expect(res.body.username).toBe('nuevo');
+    });
+
+    it('rechaza sin campos requeridos → 400', async () => {
+      const res = await request(app).post('/api/auth/register').send({ username: 'x' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza rol invalido → 400', async () => {
+      const res = await request(app).post('/api/auth/register').send({ ...newUser, role: 'super-admin' });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 409 si el usuario ya existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+      const res = await request(app).post('/api/auth/register').send(newUser);
+      expect(res.status).toBe(409);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).post('/api/auth/register').send(newUser);
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── PUT /api/auth/users/:id ──────────────────────────────────────────────────
+
+  describe('PUT /api/auth/users/:id', () => {
+    it('actualiza nombre y rol', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', name: 'Viejo', role: 'owner', password_hash: 'hash' }] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', name: 'Nuevo Nombre', role: 'ops' }] });
+      const res = await request(app).put('/api/auth/users/1').send({ name: 'Nuevo Nombre', role: 'ops' });
+      expect(res.status).toBe(200);
+      expect(res.body.name).toBe('Nuevo Nombre');
+    });
+
+    it('retorna 404 si el usuario no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).put('/api/auth/users/999').send({ name: 'X' });
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).put('/api/auth/users/1').send({ name: 'X' });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── DELETE /api/auth/users/:id ───────────────────────────────────────────────
+
+  describe('DELETE /api/auth/users/:id', () => {
+    it('elimina usuario existente', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin' }] });
+      const res = await request(app).delete('/api/auth/users/1');
+      expect(res.status).toBe(200);
+      expect(res.body.user.username).toBe('admin');
+    });
+
+    it('retorna 404 si no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).delete('/api/auth/users/999');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).delete('/api/auth/users/1');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/orders/track/:clientCode (publico) ─────────────────────────────
+
+  describe('GET /api/orders/track/:clientCode', () => {
+    const TENANT_ROW = { id: 1, slug: 'logify', status: 'active' };
+
+    it('retorna datos publicos del pedido', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [TENANT_ROW] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, sku: 'COCA-2L', quantity: 5, status: 'EN_REPARTO', client_code: 'SL-ABC123', customer_name: 'Juan Perez' }] });
+      const res = await request(app).get('/api/orders/track/SL-ABC123');
+      expect(res.status).toBe(200);
+      expect(res.body.client_code).toBe('SL-ABC123');
+      expect(res.body.customer_name).toBe('Juan Perez');
+    });
+
+    it('normaliza el codigo a mayusculas', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [TENANT_ROW] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, client_code: 'SL-ABC123' }] });
+      const res = await request(app).get('/api/orders/track/sl-abc123');
+      expect(res.status).toBe(200);
+      expect(mockQuery.mock.calls[1][1]).toContain('SL-ABC123');
+    });
+
+    it('retorna 404 si el tenant no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/orders/track/SL-XXX');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 404 si el codigo no existe', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [TENANT_ROW] })
+        .mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/orders/track/SL-NOEXISTE');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).get('/api/orders/track/SL-ABC123');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/orders/:id ──────────────────────────────────────────────────────
+
+  describe('GET /api/orders/:id', () => {
+    it('retorna la orden por id', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockOrder, client_code: 'SL-ABC123' }] });
+      const res = await request(app).get('/api/orders/1');
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBe(1);
+      expect(res.body.sku).toBe('COCA-2L');
+    });
+
+    it('retorna 404 si la orden no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/orders/999');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).get('/api/orders/1');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/customers/validate-rut ──────────────────────────────────────────
+
+  describe('GET /api/customers/validate-rut', () => {
+    it('valida un RUT chileno correcto', async () => {
+      const res = await request(app).get('/api/customers/validate-rut?rut=18923456-2');
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(true);
+      expect(res.body.formatted).toBe('18.923.456-2');
+    });
+
+    it('detecta digito verificador incorrecto', async () => {
+      const res = await request(app).get('/api/customers/validate-rut?rut=18923456-3');
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(false);
+    });
+
+    it('detecta formato invalido', async () => {
+      const res = await request(app).get('/api/customers/validate-rut?rut=abc');
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(false);
+      expect(res.body.error).toMatch(/formato/i);
+    });
+
+    it('rechaza sin rut → 400', async () => {
+      const res = await request(app).get('/api/customers/validate-rut');
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // ─── GET /api/customers/address-suggest ───────────────────────────────────────
+
+  describe('GET /api/customers/address-suggest', () => {
+    afterEach(() => { delete global.fetch; });
+
+    it('retorna sugerencias normalizadas', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ([{ display_name: 'Av. Lima 123, Santiago', lat: '-33.45', lon: '-70.65', address: { road: 'Av. Lima', house_number: '123', city: 'Santiago' } }])
+      });
+      const res = await request(app).get('/api/customers/address-suggest?q=Av+Lima+123');
+      expect(res.status).toBe(200);
+      expect(res.body[0]).toMatchObject({ displayName: 'Av. Lima 123, Santiago', lat: -33.45, lon: -70.65 });
+    });
+
+    it('rechaza q menor a 3 caracteres → 400', async () => {
+      const res = await request(app).get('/api/customers/address-suggest?q=ab');
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 500 si Nominatim falla', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      const res = await request(app).get('/api/customers/address-suggest?q=Av+Lima');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/orders/:id/pdf ───────────────────────────────────────────────────
+
+  describe('GET /api/orders/:id/pdf', () => {
+    it('genera un PDF con content-type application/pdf', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockOrder, customer_name: 'Juan Perez', customer_email: 'juan@mail.cl', customer_address: 'Av. Lima 123', customer_phone: '999888777', customer_rut: '11.111.111-1' }] });
+      const res = await request(app).get('/api/orders/1/pdf');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('application/pdf');
+      expect(res.headers['content-disposition']).toMatch(/orden-1\.pdf/);
+    });
+
+    it('genera PDF aunque falten datos de cliente', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockOrder] });
+      const res = await request(app).get('/api/orders/1/pdf');
+      expect(res.status).toBe(200);
+    });
+
+    it('retorna 404 si la orden no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/orders/999/pdf');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).get('/api/orders/1/pdf');
+      expect(res.status).toBe(500);
     });
   });
 });
