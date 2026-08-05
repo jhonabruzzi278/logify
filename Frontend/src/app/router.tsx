@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { RequireAuth } from "@/app/auth";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageLoader } from "@/components/common/page-loader";
+import { RouteErrorFallback } from "@/components/common/route-error-fallback";
 
 function lazyPage<T extends { [key: string]: ComponentType }>(
   factory: () => Promise<T>,
@@ -19,22 +20,27 @@ function lazyPage<T extends { [key: string]: ComponentType }>(
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/dashboard" replace />
+    element: <Navigate to="/dashboard" replace />,
+    errorElement: <RouteErrorFallback />
   },
   {
     path: "/login",
-    element: lazyPage(() => import("@/pages/login-page"), "LoginPage")
+    element: lazyPage(() => import("@/pages/login-page"), "LoginPage"),
+    errorElement: <RouteErrorFallback />
   },
   {
     path: "/forgot-password",
-    element: lazyPage(() => import("@/pages/forgot-password-page"), "ForgotPasswordPage")
+    element: lazyPage(() => import("@/pages/forgot-password-page"), "ForgotPasswordPage"),
+    errorElement: <RouteErrorFallback />
   },
   {
     path: "/tracking/:code?",
-    element: lazyPage(() => import("@/pages/tracking-page"), "TrackingPage")
+    element: lazyPage(() => import("@/pages/tracking-page"), "TrackingPage"),
+    errorElement: <RouteErrorFallback />
   },
   {
     element: <RequireAuth />,
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         element: <AppShell />,
@@ -80,6 +86,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "*",
-    element: lazyPage(() => import("@/pages/not-found-page"), "NotFoundPage")
+    element: lazyPage(() => import("@/pages/not-found-page"), "NotFoundPage"),
+    errorElement: <RouteErrorFallback />
   }
 ]);
