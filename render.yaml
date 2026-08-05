@@ -1,0 +1,164 @@
+# Render Blueprint para el backend de Logify (plan gratuito).
+#
+# Uso: en Render → New → Blueprint → selecciona el repo jhonabruzzi278/logify,
+# branch main. Render detecta este archivo automaticamente.
+#
+# IMPORTANTE — limitacion del plan free de Render: los "web services" gratis
+# pueden ENVIAR trafico por la red privada pero no pueden RECIBIRLO (eso solo
+# lo pueden los "private services", que requieren plan pago). Por eso los 5
+# componentes son "type: web" y se comunican entre si por su URL PUBLICA
+# (https://<servicio>.onrender.com), no por red privada. Estan protegidos por
+# JWT + CORS igual que si fueran privados, pero tecnicamente son alcanzables
+# directo si alguien adivina la URL.
+#
+# Esas URLs publicas solo se conocen DESPUES del primer deploy (Render las
+# asigna al crear cada servicio), asi que el proceso es en dos pasadas:
+#   1. Aplica este blueprint tal cual (con los placeholders de abajo).
+#   2. Cuando los 5 servicios esten arriba, copia la URL real de cada uno
+#      (Render dashboard → servicio → arriba del todo) y reemplaza los
+#      placeholders "https://REEMPLAZAR-..." en las variables de entorno de
+#      los servicios que las consumen (Settings → Environment).
+#   3. Vuelve a desplegar (Manual Deploy) los servicios que actualizaste.
+#
+# DB_URL, JWT_SECRET, SMTP_*, VAPID_* tienen "sync: false": Render te los va
+# a pedir en el momento de crear el blueprint (no quedan en este archivo).
+#
+# Ver RENDER_DEPLOY.md para la guia paso a paso completa, incluyendo el setup
+# de la base de datos en Neon.
+
+services:
+  - name: orders-service
+    type: web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Backend/orders-service/Dockerfile
+    dockerContext: Backend
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8081"
+      - key: DB_URL
+        sync: false
+      - key: INVENTORY_SERVICE_URL
+        value: "https://REEMPLAZAR-inventory-service.onrender.com"
+      - key: SHIPPING_SERVICE_URL
+        value: "https://REEMPLAZAR-shipping-service.onrender.com"
+      - key: ALLOWED_ORIGINS
+        value: "https://logify-five.vercel.app,http://localhost:3000"
+      - key: APP_URL
+        value: "https://logify-five.vercel.app"
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: "8h"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        value: "no-reply@logify.cl"
+
+  - name: inventory-service
+    type: web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Backend/inventory-service/Dockerfile
+    dockerContext: Backend
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8082"
+      - key: DB_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: "https://logify-five.vercel.app,http://localhost:3000"
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: "8h"
+
+  - name: shipping-service
+    type: web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Backend/shipping-service/Dockerfile
+    dockerContext: Backend
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8084"
+      - key: DB_URL
+        sync: false
+      - key: NOTIFICATION_SERVICE_URL
+        value: "https://REEMPLAZAR-notification-service.onrender.com"
+      - key: ALLOWED_ORIGINS
+        value: "https://logify-five.vercel.app,http://localhost:3000"
+      - key: APP_URL
+        value: "https://logify-five.vercel.app"
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: "8h"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        value: "no-reply@logify.cl"
+
+  - name: notification-service
+    type: web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Backend/notification-service/Dockerfile
+    dockerContext: Backend
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8085"
+      - key: DB_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: "https://logify-five.vercel.app,http://localhost:3000"
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: "8h"
+      - key: VAPID_PUBLIC_KEY
+        value: ""
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: "mailto:logistica@logify.cl"
+
+  - name: api-gateway
+    type: web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Backend/nginx/Dockerfile
+    dockerContext: Backend/nginx
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: ORDERS_SERVICE_URL
+        value: "https://REEMPLAZAR-orders-service.onrender.com"
+      - key: INVENTORY_SERVICE_URL
+        value: "https://REEMPLAZAR-inventory-service.onrender.com"
+      - key: SHIPPING_SERVICE_URL
+        value: "https://REEMPLAZAR-shipping-service.onrender.com"
+      - key: NOTIFICATION_SERVICE_URL
+        value: "https://REEMPLAZAR-notification-service.onrender.com"

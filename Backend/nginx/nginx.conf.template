@@ -39,6 +39,15 @@ http {
       proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
     }
 
+    location /api/settings {
+      proxy_pass ${ORDERS_SERVICE_URL};
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
+    }
+
     location /api/orders {
       proxy_pass ${ORDERS_SERVICE_URL};
       proxy_set_header Host $host;
@@ -58,6 +67,15 @@ http {
     }
 
     location /api/sales {
+      proxy_pass ${INVENTORY_SERVICE_URL};
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Tenant-Slug $http_x_tenant_slug;
+    }
+
+    location /api/suppliers {
       proxy_pass ${INVENTORY_SERVICE_URL};
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;

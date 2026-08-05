@@ -45,7 +45,7 @@ export function readApiConfig(): ApiConfig {
   }
 
   // En produccion, el build-time VITE_API_BASE_URL siempre tiene prioridad
-  // sobre lo almacenado (la IP publica cambia con cada deploy de ECS)
+  // sobre lo almacenado (la URL publica puede cambiar entre deploys)
   const baseUrl = defaultUrl || window.localStorage.getItem(BASE_URL_KEY) || "";
 
   return {

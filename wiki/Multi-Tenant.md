@@ -8,9 +8,9 @@ romper el sistema actual.
 ## Topología
 
 Frontend en `*.logify.cl` (wildcard, Vercel), pero **un solo backend fijo**
-en `api.logify.cl` (Railway, sin wildcard). El frontend deriva el tenant de
+en `api.logify.cl` (Render, sin wildcard). El frontend deriva el tenant de
 `window.location.hostname` y lo manda como header `X-Tenant-Slug` en cada
-request. Esto evita depender de que Railway soporte dominios wildcard y
+request. Esto evita depender de que Render soporte dominios wildcard y
 evita problemas de CORS.
 
 **Regla de seguridad dura:** el header `X-Tenant-Slug` nunca se usa para
@@ -72,7 +72,7 @@ forma consistente entre bases separadas).
   real (`acme`): aislamiento de datos confirmado y reuso cruzado de token
   entre tenants rechazado con 403.
 - **4D — Wildcard DNS + dominio propio** (pendiente) `*.logify.cl` en Vercel,
-  `api.logify.cl` en Railway, actualizar `ALLOWED_ORIGINS`/`APP_URL`.
+  `api.logify.cl` en Render, actualizar `ALLOWED_ORIGINS`/`APP_URL`.
 - **4E — Provisioning de tenants** (pendiente) Alta manual/admin-asistida
   primero; signup self-service y panel de super-admin después.
 

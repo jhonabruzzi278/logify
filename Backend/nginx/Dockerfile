@@ -1,2 +1,6 @@
 FROM nginx:alpine
-COPY nginx-ecs.conf /etc/nginx/nginx.conf
+COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+EXPOSE 8080
+ENTRYPOINT ["/docker-entrypoint.sh"]

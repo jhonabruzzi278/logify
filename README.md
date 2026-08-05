@@ -4,7 +4,7 @@ Logify es una plataforma SaaS de gestión logística: pedidos, inventario,
 envíos y notificaciones en un solo sistema, con control de acceso por rol.
 
 **Repositorio:** https://github.com/jhonabruzzi278/logify
-**Dominio:** logify.cl (en configuración — ver [RAILWAY_DEPLOY.md](RAILWAY_DEPLOY.md))
+**Dominio:** logify.cl (en configuración — ver [RENDER_DEPLOY.md](RENDER_DEPLOY.md))
 
 ---
 
@@ -314,9 +314,9 @@ docker compose up -d --build orders-service
 
 ## Despliegue a producción
 
-Backend (4 microservicios + gateway + PostgreSQL) en Railway, Frontend y
-Landing en Vercel. Guía paso a paso completa en
-[RAILWAY_DEPLOY.md](RAILWAY_DEPLOY.md).
+Backend (4 microservicios + gateway + PostgreSQL) en Render (plan free),
+Frontend y Landing en Vercel. Guía paso a paso completa en
+[RENDER_DEPLOY.md](RENDER_DEPLOY.md).
 
 ## Roadmap: multi-tenant
 
@@ -370,6 +370,24 @@ Logify/
 ├── docs/
 │   ├── technical/               # Arquitectura, persistencia, informe de pruebas (HTML)
 │   └── api/                     # Colección Postman
-├── RAILWAY_DEPLOY.md           # Guía de despliegue (Railway + Vercel)
+├── RENDER_DEPLOY.md            # Guía de despliegue (Render + Neon + Vercel)
+├── render.yaml                 # Blueprint de Render
 └── docker-compose.yml          # Orquestación completa local
 ```
+
+---
+
+## 📋 Documentación del Proyecto (AI-DLC)
+
+Este proyecto sigue la metodología AI-DLC. Estado actual: **Construction (tardía) / Deployment-Readiness**
+
+Documentación completa en [`/aidlc-docs/`](./aidlc-docs/):
+- [Requirements e Intent](./aidlc-docs/requirements/)
+- [Historias de usuario](./aidlc-docs/story-artifacts/)
+- [Architecture y Domain Model](./aidlc-docs/design-artifacts/ARCHITECTURE.md)
+- [Decisiones de arquitectura (ADRs)](./aidlc-docs/design-artifacts/ADR/)
+- [Testing Strategy y Coverage real medido](./aidlc-docs/testing/TEST_COVERAGE_REPORT.md)
+- [Deployment Checklist](./aidlc-docs/deployment/DEPLOYMENT_CHECKLIST.md)
+- [Operations](./aidlc-docs/operations/) *(mayormente pendiente — el proyecto aún no opera en producción real)*
+
+Última auditoría: 2026-07-19
