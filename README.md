@@ -371,9 +371,14 @@ docker compose up -d --build orders-service
 
 ## Despliegue a producción
 
-Backend (4 microservicios + gateway + PostgreSQL) en Render (plan free),
-Frontend y Landing en Vercel. Guía paso a paso completa en
-[RENDER_DEPLOY.md](RENDER_DEPLOY.md).
+Dos caminos documentados, elegí uno:
+
+- **Render (plan free) + Vercel** — backend en Render, Frontend/Landing en
+  Vercel, todo administrado. Guía paso a paso en [RENDER_DEPLOY.md](RENDER_DEPLOY.md).
+- **VPS propio + Vercel** — backend en un VPS (Docker Compose + Caddy con
+  TLS automático), Frontend/Landing se quedan en Vercel. Guía completa en
+  [wiki/Despliegue-VPS.md](wiki/Despliegue-VPS.md), incluye `docker-compose.prod.yml`,
+  backups de Postgres y hardening básico (firewall, sin puertos internos expuestos).
 
 ## Roadmap: multi-tenant
 
@@ -429,15 +434,18 @@ Logify/
 │   ├── nginx/                  # Config API Gateway :8080
 │   ├── shared/                 # app, db, logger, validate, security, email
 │   ├── load-tests/             # Pruebas de carga con k6 (smoke.js, load.js)
+│   ├── postgres/backup.sh      # Backup diario (cron) para despliegue en VPS
+│   ├── Caddyfile                # Proxy TLS automático para despliegue en VPS
 │   └── seed.sql                # Datos de prueba
 ├── Landing/                    # Landing pública (Next.js, deploy en Vercel)
-├── wiki/                       # Documentación técnica del proyecto
+├── wiki/                       # Documentación técnica del proyecto (incluye Despliegue-VPS.md)
 ├── docs/
 │   ├── technical/               # Arquitectura, persistencia, informe de pruebas (HTML)
 │   └── api/                     # Colección Postman
 ├── RENDER_DEPLOY.md            # Guía de despliegue (Render + Neon + Vercel)
 ├── render.yaml                 # Blueprint de Render
-└── docker-compose.yml          # Orquestación completa local
+├── docker-compose.yml          # Orquestación completa local
+└── docker-compose.prod.yml     # Orquestación para VPS (sin puertos internos expuestos, con Caddy/TLS)
 ```
 
 ---

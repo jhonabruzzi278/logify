@@ -1,3 +1,16 @@
+## Compose de PRODUCCIÓN para VPS — ver wiki/Despliegue-VPS.md antes de usar esto.
+##
+## Diferencias clave respecto a docker-compose.yml (uso local):
+##   - Postgres y los 4 microservicios NO publican puertos al host: solo son
+##     alcanzables entre sí por la red interna de Docker. Únicamente Caddy
+##     expone 80/443 al mundo.
+##   - Caddy hace de proxy TLS (Let's Encrypt automático) frente al
+##     api-gateway (nginx), que deja de estar expuesto directamente.
+##   - Límites de memoria por contenedor, pensados para un VPS de 2-4GB.
+##
+## Uso:
+##   docker compose -f docker-compose.prod.yml up -d --build
+
 services:
   postgres-db:
     image: postgres:15-alpine
@@ -5,22 +18,21 @@ services:
     restart: unless-stopped
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}
     command: >
       postgres
-      -c shared_buffers=64MB
-      -c effective_cache_size=128MB
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
       -c max_connections=50
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./Backend/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    ports:
-      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 512m
     networks:
       - logify-net
 
@@ -31,10 +43,10 @@ services:
     container_name: logify-orders
     restart: unless-stopped
     environment:
-      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/orders_db
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}@postgres-db:5432/orders_db
       - INVENTORY_SERVICE_URL=http://inventory-service:8082
       - SHIPPING_SERVICE_URL=http://shipping-service:8084
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
       - PORT=8081
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
@@ -44,11 +56,10 @@ services:
       - APP_URL=${APP_URL}
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
-    ports:
-      - "8081:8081"
     depends_on:
       postgres-db:
         condition: service_healthy
+    mem_limit: 320m
     networks:
       - logify-net
 
@@ -59,16 +70,15 @@ services:
     container_name: logify-inventory
     restart: unless-stopped
     environment:
-      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/inventory_db
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}@postgres-db:5432/inventory_db
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
       - PORT=8082
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
-    ports:
-      - "8082:8082"
     depends_on:
       postgres-db:
         condition: service_healthy
+    mem_limit: 320m
     networks:
       - logify-net
 
@@ -79,9 +89,9 @@ services:
     container_name: logify-shipping
     restart: unless-stopped
     environment:
-      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/shipping_db
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}@postgres-db:5432/shipping_db
       - NOTIFICATION_SERVICE_URL=http://notification-service:8085
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
       - PORT=8084
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
@@ -91,11 +101,10 @@ services:
       - APP_URL=${APP_URL}
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
-    ports:
-      - "8084:8084"
     depends_on:
       postgres-db:
         condition: service_healthy
+    mem_limit: 256m
     networks:
       - logify-net
 
@@ -106,19 +115,18 @@ services:
     container_name: logify-notification
     restart: unless-stopped
     environment:
-      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/notification_db
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}@postgres-db:5432/notification_db
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
       - PORT=8085
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:logistica@logify.cl}
-    ports:
-      - "8085:8085"
     depends_on:
       postgres-db:
         condition: service_healthy
+    mem_limit: 256m
     networks:
       - logify-net
 
@@ -126,8 +134,6 @@ services:
     image: nginx:alpine
     container_name: logify-api-gateway
     restart: unless-stopped
-    ports:
-      - "8080:80"
     volumes:
       - ./Backend/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -135,6 +141,27 @@ services:
       - inventory-service
       - shipping-service
       - notification-service
+    mem_limit: 64m
+    networks:
+      - logify-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: logify-caddy
+    restart: unless-stopped
+    environment:
+      - API_DOMAIN=${API_DOMAIN:?Definí API_DOMAIN en tu .env, ej. api.tu-dominio.cl}
+      - ACME_EMAIL=${ACME_EMAIL:?Definí ACME_EMAIL en tu .env (para avisos de Let's Encrypt)}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Backend/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-gateway
+    mem_limit: 96m
     networks:
       - logify-net
 
@@ -144,3 +171,5 @@ networks:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

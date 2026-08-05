@@ -48,6 +48,11 @@ Thumbs.db
 
 # Docker
 Backend/postgres_data/
+Backend/postgres/backups/
+
+# Caddy (TLS certs/config del VPS, nunca al repo)
+Backend/caddy_data/
+Backend/caddy_config/
 
 # Tooling (AI agents / skills cache)
 .agents/
