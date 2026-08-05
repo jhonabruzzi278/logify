@@ -1,6 +1,6 @@
 # Pruebas
 
-Logify incluye pruebas unitarias en cada microservicio y en el frontend. Estado actual: **212 pruebas, todas en verde**.
+Logify incluye pruebas unitarias en cada microservicio y en el frontend. Estado actual: **347 pruebas, todas en verde**.
 
 ---
 
@@ -25,10 +25,10 @@ cd Backend/notification-service && npm test
 Cada servicio tiene una suite única junto a su código:
 
 ```
-orders-service/src/index.test.js         60 pruebas
-inventory-service/src/index.test.js      45 pruebas
-shipping-service/src/index.test.js       28 pruebas
-notification-service/src/index.test.js   26 pruebas
+orders-service/src/index.test.js         102 pruebas
+inventory-service/src/index.test.js       96 pruebas
+shipping-service/src/index.test.js        28 pruebas
+notification-service/src/index.test.js    26 pruebas
 ```
 
 ### Qué se prueba
@@ -40,6 +40,10 @@ notification-service/src/index.test.js   26 pruebas
 | Tracking | Código válido, código inexistente, formato incorrecto |
 | RLS | `client_code` ausente para shipper/customer/vendor, presente para owner/ops |
 | Inventario | CRUD, ajuste de stock, stock negativo |
+| Cuenta corriente | Cargo/abono con locking atómico, rechazo por límite de crédito, historial |
+| POS / Ventas | Venta simple y multi-item, fiado con customerId, costo guardado por venta (ganancia real), líneas manuales (`isManualAmount`) sin descuento de stock |
+| Compras a proveedor | Sube stock, actualiza costo solo si `updatePrices`, rollback si el SKU no existe |
+| Sesiones de caja | Apertura (rechaza doble apertura), cierre con cálculo de diferencia, historial |
 | Envíos | Crear, cambiar etapa, validación ENTREGADO |
 | Notificaciones | Persistir evento, idempotencia (409 DUPLICATE), consultar por orden y audiencia |
 
@@ -86,11 +90,11 @@ npm run test:coverage    # Reporte de cobertura en coverage/index.html
 
 | Área | Casos cubiertos |
 |------|----------------|
-| Hooks | useApiQuery, useCustomerScope, usePermissions |
-| Adaptadores | api-adapters (snake_case → camelCase) |
+| Hooks | useApiQuery, useBusinessMode, usePosCart (líneas manuales, cartId único) |
+| Adaptadores | api-adapters (snake_case → camelCase, incluye Purchase/CashSession/CustomerCredit) |
 | Utilidades | cn(), formatDate(), formatCurrency() |
-| RBAC | isPathAllowedForRole, hasPermission, getDefaultPathForRole |
-| Componentes | StatusBadge, MetricCard, EmptyState |
+| RBAC | isPathAllowedForRole, hasPermission, getDefaultPathForRole, filtro por modo B2B/B2C |
+| Componentes POS | close-register-modal, open-register-modal, price-check-modal, extras-modal, add-amount-modal |
 
 ---
 
@@ -100,12 +104,12 @@ npm run test:coverage    # Reporte de cobertura en coverage/index.html
 
 | Componente | Pruebas | Cobertura (statements) |
 |-----------|--------:|----------------------:|
-| orders-service | 60 | 46,4 % |
-| inventory-service | 45 | 36,6 % |
+| orders-service | 102 | 57,1 % |
+| inventory-service | 96 | 62,3 % |
 | shipping-service | 28 | 46,3 % |
 | notification-service | 26 | 29,9 % |
-| Frontend | 53 | 77,4 % |
-| **Total** | **212** | — |
+| Frontend | 95 | 74,7 % |
+| **Total** | **347** | — |
 
 > La meta del equipo es 60% en backend. La brecha actual se concentra en las
 > integraciones externas agregadas al final (push, indicadores, QR/PDF), que se

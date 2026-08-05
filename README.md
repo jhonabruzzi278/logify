@@ -1,7 +1,9 @@
 # Logify — Plataforma de Gestión Logística
 
-Logify es una plataforma SaaS de gestión logística: pedidos, inventario,
-envíos y notificaciones en un solo sistema, con control de acceso por rol.
+Logify es una plataforma SaaS de gestión logística y comercial: pedidos B2B,
+inventario, envíos y notificaciones, más un punto de venta B2C completo
+(POS con fiado, caja, compras a proveedor y reportes de ganancia real) en
+un solo sistema, con control de acceso por rol.
 
 **Repositorio:** https://github.com/jhonabruzzi278/logify
 **Dominio:** logify.cl (en configuración — ver [RENDER_DEPLOY.md](RENDER_DEPLOY.md))
@@ -124,6 +126,51 @@ Sembrados automáticamente en el primer arranque (`seedUsers()` en `Backend/orde
 
 ---
 
+## Modo B2B / B2C y funcionalidades comerciales
+
+Logify opera en dos modos que se alternan con un switch en el topbar
+(persistido en `localStorage`, no cambia nada en el backend — solo filtra
+qué páginas se muestran en la navegación):
+
+- **B2B** (modo original): Pedidos, Envíos, Entregas.
+- **B2C**: Punto de Venta (POS).
+
+Dashboard, Inventario, Clientes, Compras, Reportes, Proveedores, Usuarios y
+Configuración son comunes a ambos modos.
+
+**Clientes B2B vs. B2C** — cada cliente tiene un `customerType`
+(`company`/`individual`); el RUT solo es obligatorio en el formulario para
+clientes tipo empresa.
+
+**Cuenta corriente (fiado)** — cada cliente puede tener un `creditLimit`
+opcional y un `creditBalance` que se ajusta atómicamente (con locking a
+nivel de fila, mismo patrón que el ajuste de stock) vía cargos y abonos,
+con historial completo de movimientos.
+
+**POS (Punto de Venta)** — además de la venta simple:
+- Métodos de pago: efectivo, transferencia, débito y **fiado** (exige
+  cliente registrado, carga automáticamente su cuenta corriente).
+- Escáner de código de barras (cámara), buscador con "Enter para agregar".
+- "Consultar Precio" (sin tocar el carrito) y "Agregar Monto" (línea libre
+  sin SKU real, para cobros varios).
+- "Gestionar Extras": descuento o recargo (%, o monto fijo) sobre la venta.
+- Doble Enter para cobrar.
+- **Sesiones de caja**: apertura con monto inicial, cierre con conteo real
+  y diferencia calculada contra las ventas en efectivo del turno.
+
+**Compras a proveedor** — registra una compra (producto, proveedor, costo
+unitario, cantidad) que sube el stock automáticamente y, opcionalmente,
+actualiza el costo del producto (`updatePrices`). Historial completo en
+`/purchases`.
+
+**Reportes → Ganancia real** — cada venta guarda el costo del producto al
+momento exacto de la transacción (no el costo actual), lo que permite
+calcular ganancia real por venta, top productos por ganancia y el gráfico
+de ingresos/ganancia por día. Ventas anteriores a esta funcionalidad no
+tienen costo guardado y se excluyen del cálculo (no se cuentan como $0).
+
+---
+
 ## Endpoints API (vía BFF :8080)
 
 Salvo login, tracking público, `/api/orders/test` y `validate-rut`, todos los endpoints requieren `Authorization: Bearer <token>`.
@@ -158,11 +205,14 @@ Salvo login, tracking público, `/api/orders/test` y `validate-rut`, todos los e
 |--------|------|-------------|
 | GET | `/api/customers` | Listar clientes |
 | GET | `/api/customers/:id` | Detalle de cliente |
-| POST | `/api/customers` | Crear cliente `{name, phone, address, email, rut}` |
-| PUT | `/api/customers/:id` | Actualizar cliente (incluyendo RUT) |
+| POST | `/api/customers` | Crear cliente `{name, phone, address, email, rut, customerType, creditLimit}` |
+| PUT | `/api/customers/:id` | Actualizar cliente (incluyendo RUT, customerType, creditLimit) |
 | DELETE | `/api/customers/:id` | Eliminar cliente |
 | GET | `/api/customers/validate-rut?rut=X` | Validar RUT chileno (sin auth) |
 | GET | `/api/customers/address-suggest?q=X` | Autocompletar dirección (Nominatim) |
+| GET | `/api/customers/:id/credit` | Saldo y movimientos de cuenta corriente |
+| POST | `/api/customers/:id/credit/charge` | Cargar fiado `{amount, note?}` |
+| POST | `/api/customers/:id/credit/payment` | Registrar abono `{amount}` |
 
 ### Inventory
 
@@ -181,8 +231,15 @@ Salvo login, tracking público, `/api/orders/test` y `validate-rut`, todos los e
 | GET | `/api/inventory/geocode?address=X` | Geocodificar dirección (Nominatim) |
 | GET | `/api/inventory/indicadores` | UF/dólar/UTM del día (mindicador.cl, caché 1h) |
 | GET | `/api/inventory/image-search?q=X` | Buscar imágenes de producto (Openverse) |
-| GET | `/api/sales` | Listar ventas |
-| POST | `/api/sales` | Registrar venta `{sku, quantity}` |
+| GET | `/api/sales` | Listar ventas (agrupadas por ticket, incluye `unitCost` por item) |
+| POST | `/api/sales` | Registrar venta `{items[], paymentMethod, customerId?}` — items con `isManualAmount:true` (Agregar Monto/Descuento/Recargo) no requieren SKU real |
+| GET | `/api/sales/close-summary?date=` | Desglose de ventas del día por método de pago |
+| GET | `/api/purchases?q=` | Historial de compras a proveedor |
+| POST | `/api/purchases` | Registrar compra `{sku, supplierId, unitCost, quantity, updatePrices}` — sube stock y, si corresponde, actualiza el costo |
+| GET | `/api/cash-sessions/active` | Sesión de caja abierta del vendedor actual |
+| GET | `/api/cash-sessions` | Historial de sesiones de caja |
+| POST | `/api/cash-sessions` | Abrir caja `{openingAmount}` |
+| PUT | `/api/cash-sessions/:id/close` | Cerrar caja `{countedAmount}` → calcula diferencia |
 
 ### Shipping
 
@@ -330,17 +387,17 @@ paso intermedio.
 
 ## Pruebas
 
-**212 pruebas** en total (backend 159 con Jest + Supertest, frontend 53 con Vitest + RTL). Ver detalle y cobertura en [wiki/Pruebas.md](wiki/Pruebas.md).
+**347 pruebas** en total (backend 252 con Jest + Supertest, frontend 95 con Vitest + RTL). Ver detalle y cobertura en [wiki/Pruebas.md](wiki/Pruebas.md).
 
 ```bash
 # Backend — npm test ya incluye cobertura (jest --coverage)
-cd Backend/orders-service && npm test        # 60 pruebas
-cd Backend/inventory-service && npm test     # 45 pruebas
+cd Backend/orders-service && npm test        # 102 pruebas (incluye cuenta corriente)
+cd Backend/inventory-service && npm test     # 96 pruebas (POS, compras, caja, ganancia real)
 cd Backend/shipping-service && npm test      # 28 pruebas
 cd Backend/notification-service && npm test  # 26 pruebas
 
 # Frontend
-cd Frontend && npm test                      # 53 pruebas
+cd Frontend && npm test                      # 95 pruebas
 npm run test:coverage   # Reporte en Frontend/coverage/index.html
 ```
 
@@ -353,8 +410,9 @@ Logify/
 ├── Frontend/                   # React 18 SPA + PWA (Vite 6) + Web Push
 │   └── src/
 │       ├── app/                # Auth, router, RBAC (access.ts)
-│       ├── hooks/              # useApiQuery, useCustomerScope, usePermissions...
-│       ├── pages/              # 20+ páginas por rol
+│       ├── hooks/              # useApiQuery, useBusinessMode, usePosCart...
+│       ├── components/pos/     # Modales del POS: escáner, caja, monto libre, extras
+│       ├── pages/              # 20+ páginas por rol (incluye purchases-page, billing-page)
 │       ├── sw.ts               # Service worker propio (precache + push)
 │       └── types/              # api.ts, domain.ts
 ├── Backend/

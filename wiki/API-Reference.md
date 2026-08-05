@@ -248,9 +248,15 @@ Content-Type: application/json
   "phone": "+56912345678",
   "address": "Av. Principal 123",
   "email": "maria@ejemplo.cl",
-  "rut": "12.345.678-9"
+  "rut": "12.345.678-9",
+  "customerType": "company",
+  "creditLimit": 100000
 }
 ```
+
+`customerType` es `"company"` (default) o `"individual"`. `creditLimit` es
+opcional (nulo = sin límite de fiado). El RUT sigue siendo opcional a nivel
+de API — la obligatoriedad para clientes `company` se aplica en el frontend.
 
 ---
 
@@ -265,7 +271,9 @@ Content-Type: application/json
   "phone": "+56987654321",
   "address": "Nueva Dirección 456",
   "email": "nueva@ejemplo.cl",
-  "rut": "12.345.678-9"
+  "rut": "12.345.678-9",
+  "customerType": "individual",
+  "creditLimit": null
 }
 ```
 
@@ -301,6 +309,53 @@ GET /api/customers/address-suggest?q=Av. Principal 123
 ```
 
 Sugerencias de direcciones vía [Nominatim (OpenStreetMap)](https://nominatim.org/), acotado a Chile (`q` mínimo 3 caracteres). Devuelve hasta 5 resultados con `displayName`, `lat`, `lon` y detalle de dirección.
+
+---
+
+### Cuenta corriente del cliente (fiado)
+
+```
+GET /api/customers/:id/credit
+```
+
+**Respuesta 200:**
+```json
+{
+  "creditLimit": 100000,
+  "creditBalance": 15000,
+  "movements": [
+    { "id": 1, "type": "charge", "amount": 15000, "balance_after": 15000, "note": "Venta POS a fiado", "created_by": "vendedor1", "created_at": "2026-08-04T21:03:26.368Z" }
+  ]
+}
+```
+
+---
+
+### Cargar fiado
+
+```
+POST /api/customers/:id/credit/charge
+Content-Type: application/json
+
+{ "amount": 15000, "note": "Venta POS a fiado", "referenceType": "sale" }
+```
+
+Ajuste atómico con locking a nivel de fila (mismo patrón que el ajuste de
+stock). Rechaza con 400 si el cargo deja el saldo por sobre `creditLimit`.
+
+---
+
+### Registrar abono
+
+```
+POST /api/customers/:id/credit/payment
+Content-Type: application/json
+
+{ "amount": 5000 }
+```
+
+Reduce `creditBalance`. Ambos endpoints requieren rol `owner`, `admin` o
+`vendor`, y devuelven `{ creditBalance, movement }`.
 
 ---
 
@@ -453,6 +508,11 @@ Guarda la URL en la columna `inventory.image_url`. Responde 404 si el SKU no exi
 GET /api/sales
 ```
 
+Agrupa las filas por ticket (`sale_group`). Cada item incluye `unitCost`
+— el costo del producto al momento exacto de la venta, `null` en ventas
+anteriores a esta funcionalidad — usado para calcular ganancia real en
+Reportes.
+
 ---
 
 ### Registrar venta
@@ -461,10 +521,126 @@ GET /api/sales
 POST /api/sales
 Content-Type: application/json
 
-{ "sku": "COCA-2L", "quantity": 2 }
+{
+  "items": [{ "sku": "COCA-2L", "quantity": 2, "unitPrice": 2500, "subtotal": 5000 }],
+  "paymentMethod": "credit",
+  "customerId": 7,
+  "customerName": "Juan Pérez",
+  "total": 5000
+}
 ```
 
-Descuenta stock directamente (flujo POS, sin crear orden).
+Flujo POS: descuenta stock directamente, sin crear una orden B2B. Un item
+con `"isManualAmount": true` (Agregar Monto, Descuento o Recargo desde el
+POS) no requiere un SKU real de inventario ni descuenta stock — se
+inserta con el `sku` igual a su etiqueta legible (ej. `"Descuento"`).
+`paymentMethod: "credit"` requiere `customerId` — el cargo a la cuenta
+corriente lo hace el frontend como un segundo llamado a
+`POST /api/customers/:id/credit/charge`.
+
+---
+
+### Cierre de caja (resumen del día)
+
+```
+GET /api/sales/close-summary?date=2026-08-04
+```
+
+`date` es opcional (default: hoy). Agrupa las ventas del tenant por
+`payment_method`.
+
+**Respuesta 200:**
+```json
+{
+  "date": "2026-08-04",
+  "summary": [{ "paymentMethod": "cash", "count": 3, "total": 9000 }],
+  "grandTotal": 9000
+}
+```
+
+---
+
+## Purchases (compras a proveedor)
+
+### Listar compras
+
+```
+GET /api/purchases?q=coca
+```
+
+`q` (opcional) filtra por nombre de producto, SKU, unidad de medida o
+usuario que registró la compra.
+
+---
+
+### Registrar compra
+
+```
+POST /api/purchases
+Content-Type: application/json
+
+{
+  "sku": "COCA-2L",
+  "supplierId": 1,
+  "unitCost": 2000,
+  "quantity": 20,
+  "purchasedAt": "2026-08-04",
+  "updatePrices": true
+}
+```
+
+Requiere rol `owner` o `warehouse`. Transacción atómica: sube
+`inventory.stock` en `quantity` y, solo si `updatePrices` es `true`,
+actualiza `inventory.cost` al nuevo `unitCost`. Responde 404 si el SKU no
+existe en el inventario del tenant.
+
+---
+
+## Cash Sessions (sesiones de caja)
+
+### Sesión activa
+
+```
+GET /api/cash-sessions/active
+```
+
+Devuelve la sesión `status: "open"` del vendedor autenticado, o `null` si
+no tiene ninguna abierta.
+
+---
+
+### Abrir caja
+
+```
+POST /api/cash-sessions
+Content-Type: application/json
+
+{ "openingAmount": 50000 }
+```
+
+Responde 409 si el vendedor ya tiene una caja abierta.
+
+---
+
+### Cerrar caja
+
+```
+PUT /api/cash-sessions/:id/close
+Content-Type: application/json
+
+{ "countedAmount": 54500 }
+```
+
+Calcula `expected_amount = opening_amount + SUM(ventas en efectivo del
+vendedor desde la apertura)` y `difference = countedAmount - expected_amount`.
+
+---
+
+### Historial de sesiones de caja
+
+```
+GET /api/cash-sessions
+```
 
 ---
 

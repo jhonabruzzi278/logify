@@ -23,12 +23,18 @@ Plataforma de gestión logística basada en microservicios.
 
 ## Resumen del sistema
 
-**Logify** permite gestionar el ciclo completo de una operación logística:
+**Logify** permite gestionar el ciclo completo de una operación logística B2B:
 
 ```
 Cliente crea pedido → Bodega confirma stock → Transportista entrega →
 Cliente verifica su pedido con código SL-XXXXXX
 ```
+
+Además opera como POS B2C (venta al público): fiado con cuenta corriente,
+sesiones de caja, compras a proveedor y reportes de ganancia real. Un
+switch B2B/B2C en el topbar alterna qué secciones de la navegación se
+muestran. Ver el detalle en la sección "Modo B2B / B2C y funcionalidades
+comerciales" del [README](../README.md).
 
 ### Stack principal
 
