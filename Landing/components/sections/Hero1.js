@@ -15,7 +15,7 @@
                         <span className="text-brand-1">en un solo lugar</span>
                     </h1>
                     <p className="text-lg text-white/85 leading-relaxed mb-8 max-w-lg">
-                        Logify simplifica la gestión de tu pequeño comercio. Vende, controla stock, gestiona pedidos y coordina despachos desde un solo panel.
+                        Logify simplifica la gestión de tu negocio, sea venta al público (B2C) o pedidos entre empresas (B2B). Vende con POS y fiado, controla stock, gestiona pedidos y coordina despachos desde un solo panel.
                     </p>
                     <div className="flex flex-wrap gap-3 mb-10">
                         <a href="https://logify-five.vercel.app" className="inline-flex items-center gap-2 bg-brand-1 text-brand-2 font-bold px-8 py-4 rounded-xl hover:bg-yellow-400 transition-all hover:-translate-y-0.5 shadow-lg shadow-brand-1/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-brand-2" aria-label="Acceder al software Logify">

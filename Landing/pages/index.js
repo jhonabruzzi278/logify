@@ -1,4 +1,5 @@
 import Layout from "@/components/layout/Layout"
+import Comparison1 from "@/components/sections/Comparison1"
 import Cta1 from "@/components/sections/Cta1"
 import Faqs1 from "@/components/sections/Faqs1"
 import Hero1 from "@/components/sections/Hero1"
@@ -18,6 +19,7 @@ export default function Home() {
             <Howitwork1 />
             <Stats1 />
             <Pricing1 />
+            <Comparison1 />
             <Requestquote1 />
             <Faqs1 />
             <Cta1 />

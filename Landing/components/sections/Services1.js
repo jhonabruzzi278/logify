@@ -1,9 +1,9 @@
 ﻿import { useState } from "react"
 
 const features = [
-    { icon: "🏪", title: "Punto de Venta (POS)", short: "Vende de forma rápida e intuitiva. Agrega productos al carrito, calcula vueltos y genera comprobantes al instante.",
-        detail: "El POS de Logify está diseñado para que tu cajero aprenda en segundos. Agrega productos con búsqueda rápida, calcula el vuelto automáticamente, y el stock se descuenta al instante. Compatible con lectores de código de barras y básculas.",
-        bullets: ["Carrito de compras rápido","Cálculo automático de vuelto","Descuento automático de stock","Comprobante de venta digital"] },
+    { icon: "🏪", title: "Punto de Venta (POS) + Cuenta Corriente", short: "Vende de forma rápida e intuitiva, con fiado y cuenta corriente por cliente. Ideal para venta al público (B2C).",
+        detail: "El POS de Logify está diseñado para que tu cajero aprenda en segundos. Agrega productos con búsqueda rápida o escaneando el código de barras, calcula el vuelto automáticamente, y el stock se descuenta al instante. Vende a crédito y lleva la cuenta corriente de cada cliente sin cuadernos.",
+        bullets: ["Carrito de compras rápido","Escáner de código de barras","Fiado con cuenta corriente por cliente","Cierre de caja por método de pago"] },
     { icon: "📦", title: "Control de Inventario", short: "Gestióna tu stock con alertas de inventario crítico. Por producto, por categoría y por proveedor.",
         detail: "Mantén el control total de tu bodega. Registra cada producto con SKU, precio, costo y categoría. Logify te avisa automáticamente cuando un producto llega a nivel crítico, para que nunca te quedes sin stock de lo que más vendes.",
         bullets: ["Alertas de stock crítico y warning","Seguimiento por proveedor","Costos y precios por producto","Categorías personalizables"] },
