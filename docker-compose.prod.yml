@@ -55,6 +55,7 @@ services:
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL}
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     depends_on:
       postgres-db:
@@ -74,6 +75,7 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
       - PORT=8082
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     depends_on:
       postgres-db:
@@ -100,6 +102,7 @@ services:
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL}
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     depends_on:
       postgres-db:
@@ -119,6 +122,7 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
       - PORT=8085
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
@@ -145,12 +149,23 @@ services:
     networks:
       - logify-net
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: logify-uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - uptime_kuma_data:/app/data
+    mem_limit: 128m
+    networks:
+      - logify-net
+
   caddy:
     image: caddy:2-alpine
     container_name: logify-caddy
     restart: unless-stopped
     environment:
       - API_DOMAIN=${API_DOMAIN:?Definí API_DOMAIN en tu .env, ej. api.tu-dominio.cl}
+      - STATUS_DOMAIN=${STATUS_DOMAIN:?Definí STATUS_DOMAIN en tu .env, ej. status.tu-dominio.cl}
       - ACME_EMAIL=${ACME_EMAIL:?Definí ACME_EMAIL en tu .env (para avisos de Let's Encrypt)}
     ports:
       - "80:80"
@@ -161,6 +176,7 @@ services:
       - caddy_config:/config
     depends_on:
       - api-gateway
+      - uptime-kuma
     mem_limit: 96m
     networks:
       - logify-net
@@ -173,3 +189,4 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  uptime_kuma_data:
