@@ -226,3 +226,14 @@ contenedores; Postgres no se toca (mismo volumen).
 - **Alertas de disco**: en un VPS chico, un log o backup que crece sin
   límite puede llenar el disco silenciosamente. Un check de cron simple
   (`df -h` + email si pasa 80%) es suficiente para este tamaño de proyecto.
+- **Verificar que el VPS esté al día con `main` después de cada merge**:
+  el paso 9 (`git pull` + rebuild) es manual, nadie lo fuerza. El
+  2026-08-06 esto causó un incidente real (`/api/signup` 404 en
+  producción porque el VPS quedó 9 commits atrás) — ver
+  `aidlc-docs/operations/POST_MORTEMS/2026-08-06-signup-404-produccion.md`.
+  Antes de dar un merge por "desplegado", confirmar con
+  `git log -1 --oneline` en el VPS contra `origin/main`. Recordatorio:
+  si el cambio toca `Backend/nginx/nginx.conf`, `docker compose up -d --build`
+  **no** recarga nginx solo (el archivo va montado como volumen) — hace
+  falta `docker compose -f docker-compose.prod.yml restart api-gateway`
+  explícito.

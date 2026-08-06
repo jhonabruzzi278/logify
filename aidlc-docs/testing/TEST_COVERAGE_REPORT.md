@@ -1,5 +1,30 @@
 # Test Coverage Report
 
+## 📌 Actualización 2026-08-06
+
+Las cifras de abajo son del **2026-07-19** y ya no reflejan el estado
+actual — el equipo cerró la brecha de cobertura que este reporte
+identificaba. Verificado contra el log real de CI del commit `830021f`
+(2026-08-06): `orders-service` mide **84.99% statements, 142/142 tests
+en verde**, consistente con lo que declara `wiki/Pruebas.md` (464+
+tests totales, 81-88% por servicio backend, meta de 80% alcanzada en
+los 4 servicios). No se volvió a correr `--coverage` en los otros 3
+servicios backend en esta sesión para confirmar cada uno individualmente
+— tomar el número de `wiki/Pruebas.md` con esa salvedad.
+
+SonarCloud reporta cobertura agregada de **45%**, muy por debajo de lo
+anterior — probablemente un artefacto de medición (posible desalineación
+de rutas `lcov.info` en `sonar-project.properties`, o que `Landing`
+—sin tests— arrastra el promedio) y no una regresión real, dado que el
+dato por-servicio vía CI sí está verificado arriba. Vale la pena
+revisar la config de Sonar, no motivo de alarma inmediata.
+
+`docs/technical/03-informe-pruebas.html` sigue sin ser fuente de verdad
+(ver hallazgo original abajo) y ahora hay un tercer número dando vueltas
+(el original 226, el declarado 464+, y el de Sonar 45%) — recomendación
+original de regenerar o borrar ese HTML sigue en pie y ahora es más
+urgente.
+
 ## ⚠️ Nota sobre discrepancia previa — RESUELTA con ejecución real
 
 Al iniciar esta auditoría, se encontraron **dos reportes existentes en el repo que no coinciden entre sí**:
