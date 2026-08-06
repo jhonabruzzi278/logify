@@ -3,11 +3,16 @@
 -- Distribuidora mayorista de abarrotes y bebidas que abastece
 -- almacenes y minimarkets de barrio en Santiago de Chile.
 --
--- Ejecutar: docker exec -i logify-db psql -U postgres < seed.sql
 -- ADVERTENCIA: este script VACÍA los datos operacionales
 -- (pedidos, clientes, inventario, ventas, envíos, notificaciones)
 -- y los reemplaza por el dataset realista. Los usuarios se
 -- conservan (solo se actualizan sus nombres visibles).
+--
+-- NO ejecutar este archivo directamente con psql: usar el wrapper
+-- Backend/scripts/run-seed.sh, que exige confirmación explícita y
+-- bloquea la ejecución si detecta un entorno de producción
+-- (NODE_ENV/APP_ENV=production).
+--   bash Backend/scripts/run-seed.sh
 -- ============================================================
 
 -- ============================================================

@@ -1,7 +1,13 @@
 const jwt = require('jsonwebtoken');
 const log = require('./logger');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'logify-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET no esta configurado. No existe un valor por defecto por seguridad: ' +
+    'define la variable de entorno JWT_SECRET antes de iniciar el servicio.'
+  );
+}
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
 // Rotacion de secreto sin downtime (ver wiki/Rotacion-JWT.md): JWT_SECRET_PREVIOUS

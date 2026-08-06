@@ -1,4 +1,5 @@
 ﻿import Link from "next/link"
+import { openCookiePreferences } from "@/util/cookieConsent"
 
 export default function Footer() {
     return (
@@ -51,9 +52,15 @@ export default function Footer() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <span className="text-sm text-white/50">© Logify {new Date().getFullYear()}. Todos los derechos reservados.</span>
                     <div className="flex gap-6">
-                        {["Política de Privacidad","Términos del Servicio","Cookies"].map((item, i) => (
-                            <Link key={i} href="#" className="text-xs text-white/40 hover:text-white/60 transition-colors">{item}</Link>
-                        ))}
+                        <Link href="/politica-de-privacidad" className="text-xs text-white/40 hover:text-white/60 transition-colors">Política de Privacidad</Link>
+                        <Link href="#" className="text-xs text-white/40 hover:text-white/60 transition-colors">Términos del Servicio</Link>
+                        <button
+                            type="button"
+                            onClick={openCookiePreferences}
+                            className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                        >
+                            Preferencias de cookies
+                        </button>
                     </div>
                 </div>
             </div>
