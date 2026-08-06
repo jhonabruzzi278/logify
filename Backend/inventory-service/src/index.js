@@ -835,4 +835,4 @@ if (require.main === module) {
   (async () => { await ensureTables(); await ensureTenantConstraints(); await ensureProcedures(); start(); })();
 }
 
-module.exports = { app };
+module.exports = { app, ensureTables, ensureTenantColumns, ensureTenantConstraints };

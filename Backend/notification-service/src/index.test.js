@@ -1,7 +1,7 @@
 'use strict';
 
 jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
-jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
+jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
 jest.mock('../shared/auth', () => ({
@@ -20,7 +20,7 @@ const { createPool } = require('../shared/db');
 const mockQuery = jest.fn();
 createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn() });
 
-const { app } = require('./index');
+const { app, ensureTables, ensureTenantColumns, ensureTenantConstraints } = require('./index');
 
 const validNotification = {
   eventId: 'evt-001',
@@ -522,5 +522,16 @@ describe('notification-service', () => {
       const res = await request(app).delete('/api/notifications');
       expect(res.status).toBe(500);
     });
+  });
+});
+
+// ─── BOOTSTRAP CONTRA DB VACÍA ──────────────────────────────────────────────
+// Ver orders-service/src/index.test.js para el contexto del bug del 2026-08-06.
+describe('bootstrap (ensureTables/ensureTenantColumns/ensureTenantConstraints) contra DB vacía', () => {
+  it('corre sin lanzar excepciones cuando las tablas/columnas no existen todavía', async () => {
+    mockQuery.mockResolvedValue({ rows: [] });
+    await ensureTables();
+    await ensureTenantColumns();
+    await ensureTenantConstraints();
   });
 });
