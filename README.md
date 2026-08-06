@@ -6,7 +6,7 @@ inventario, envíos y notificaciones, más un punto de venta B2C completo
 un solo sistema, con control de acceso por rol.
 
 **Repositorio:** https://github.com/jhonabruzzi278/logify
-**Dominio:** logify.cl (en configuración — ver [wiki/Despliegue-VPS.md](wiki/Despliegue-VPS.md))
+**En producción:** [logify.cl](https://logify.cl) (landing) · [app.logify.cl](https://app.logify.cl) (dashboard) · [api.logify.cl](https://api.logify.cl) (backend) · [status.logify.cl](https://status.logify.cl) (monitoreo)
 
 ---
 
@@ -371,10 +371,13 @@ docker compose up -d --build orders-service
 
 ## Despliegue a producción
 
-- **Backend en VPS propio** (Docker Compose + Caddy con TLS automático) +
-  **Frontend y Landing en Vercel**. Guía completa en
-  [wiki/Despliegue-VPS.md](wiki/Despliegue-VPS.md), incluye `docker-compose.prod.yml`,
-  backups de Postgres y hardening básico (firewall, sin puertos internos expuestos).
+- **Backend en VPS propio** (Docker Compose + Caddy con TLS automático).
+  Guía completa en [wiki/Despliegue-VPS.md](wiki/Despliegue-VPS.md), incluye
+  `docker-compose.prod.yml`, backups de Postgres y hardening básico
+  (firewall, sin puertos internos expuestos).
+- **Frontend y Landing en Vercel**, cada uno su propio proyecto conectado
+  al repo (`Root Directory` distinto). Guía en
+  [wiki/Despliegue-Vercel.md](wiki/Despliegue-Vercel.md).
 - **Monitoreo:** página pública de status en `status.logify.cl` (Uptime
   Kuma, self-hosted en el mismo VPS). Ver [wiki/Monitoreo.md](wiki/Monitoreo.md).
 
