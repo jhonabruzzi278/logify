@@ -6,7 +6,7 @@ inventario, envíos y notificaciones, más un punto de venta B2C completo
 un solo sistema, con control de acceso por rol.
 
 **Repositorio:** https://github.com/jhonabruzzi278/logify
-**Dominio:** logify.cl (en configuración — ver [RENDER_DEPLOY.md](RENDER_DEPLOY.md))
+**Dominio:** logify.cl (en configuración — ver [wiki/Despliegue-VPS.md](wiki/Despliegue-VPS.md))
 
 ---
 
@@ -371,14 +371,19 @@ docker compose up -d --build orders-service
 
 ## Despliegue a producción
 
-Dos caminos documentados, elegí uno:
-
-- **Render (plan free) + Vercel** — backend en Render, Frontend/Landing en
-  Vercel, todo administrado. Guía paso a paso en [RENDER_DEPLOY.md](RENDER_DEPLOY.md).
-- **VPS propio + Vercel** — backend en un VPS (Docker Compose + Caddy con
-  TLS automático), Frontend/Landing se quedan en Vercel. Guía completa en
+- **Backend en VPS propio** (Docker Compose + Caddy con TLS automático) +
+  **Frontend y Landing en Vercel**. Guía completa en
   [wiki/Despliegue-VPS.md](wiki/Despliegue-VPS.md), incluye `docker-compose.prod.yml`,
   backups de Postgres y hardening básico (firewall, sin puertos internos expuestos).
+- **Monitoreo:** página pública de status en `status.logify.cl` (Uptime
+  Kuma, self-hosted en el mismo VPS). Ver [wiki/Monitoreo.md](wiki/Monitoreo.md).
+
+## Contribuir
+
+`main` está protegida: todo cambio entra vía Pull Request, y el PR no se
+puede mergear hasta que los 6 checks de CI (`.github/workflows/ci.yml`)
+estén en verde — aplica también a administradores del repo. Detalle
+completo del flujo en [wiki/Flujo-Git.md](wiki/Flujo-Git.md).
 
 ## Roadmap: multi-tenant
 
@@ -392,14 +397,16 @@ paso intermedio.
 
 ## Pruebas
 
-**464 pruebas unitarias/integración** (backend 369 con Jest + Supertest, cobertura 80%+ en los 4 servicios; frontend 95 con Vitest + RTL) **+ 15 E2E** con Playwright (regresión visual + flujos críticos) **+ pruebas de carga** con k6. Ver detalle completo en [wiki/Pruebas.md](wiki/Pruebas.md).
+**470 pruebas unitarias/integración** (backend 375 con Jest + Supertest, cobertura 83%+ en los 4 servicios; frontend 95 con Vitest + RTL) **+ 15 E2E** con Playwright (regresión visual + flujos críticos) **+ pruebas de carga** con k6. Ver detalle completo en [wiki/Pruebas.md](wiki/Pruebas.md).
+
+Todas corren automáticamente en CI (`.github/workflows/ci.yml`) en cada PR — `main` tiene branch protection y no acepta merges si el CI falla (ver [wiki/Flujo-Git.md](wiki/Flujo-Git.md)).
 
 ```bash
 # Backend — npm test ya incluye cobertura (jest --coverage)
-cd Backend/orders-service && npm test        # 139 pruebas — 81.8% cobertura
-cd Backend/inventory-service && npm test     # 116 pruebas — 84.6% cobertura
-cd Backend/shipping-service && npm test      # 53 pruebas — 87.9% cobertura
-cd Backend/notification-service && npm test  # 61 pruebas — 84.2% cobertura
+cd Backend/orders-service && npm test        # 142 pruebas — 85% cobertura
+cd Backend/inventory-service && npm test     # 117 pruebas — 92.7% cobertura
+cd Backend/shipping-service && npm test      # 54 pruebas — 92.8% cobertura
+cd Backend/notification-service && npm test  # 62 pruebas — 93.4% cobertura
 
 # Frontend
 cd Frontend && npm test                      # 95 pruebas unitarias (Vitest)
@@ -442,8 +449,6 @@ Logify/
 ├── docs/
 │   ├── technical/               # Arquitectura, persistencia, informe de pruebas (HTML)
 │   └── api/                     # Colección Postman
-├── RENDER_DEPLOY.md            # Guía de despliegue (Render + Neon + Vercel)
-├── render.yaml                 # Blueprint de Render
 ├── docker-compose.yml          # Orquestación completa local
 └── docker-compose.prod.yml     # Orquestación para VPS (sin puertos internos expuestos, con Caddy/TLS)
 ```
