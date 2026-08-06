@@ -155,7 +155,7 @@ services:
     restart: unless-stopped
     volumes:
       - uptime_kuma_data:/app/data
-    mem_limit: 128m
+    mem_limit: 256m
     networks:
       - logify-net
 
