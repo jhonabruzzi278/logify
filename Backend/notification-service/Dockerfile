@@ -2,7 +2,7 @@ FROM node:22-alpine
 RUN apk add --no-cache wget
 WORKDIR /app
 COPY notification-service/package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 COPY notification-service/src/ ./src/
 COPY shared/ ./shared/
 EXPOSE 8085
