@@ -1,10 +1,8 @@
 import Layout from "@/components/layout/Layout"
 
 // NOTA INTERNA (no se muestra en el sitio): este texto fue adaptado a partir
-// de una plantilla y contiene placeholders [NOMBRE COMPLETO], [RUT] y
-// [DOMICILIO] en la sección 1 que deben completarse con los datos reales del
-// responsable del tratamiento antes de publicar. Revisar con un abogado
-// antes de publicar: este documento no reemplaza asesoría legal.
+// de una plantilla. Revisar con un abogado antes de publicar: este documento
+// no reemplaza asesoría legal.
 
 const SECTIONS = [
     {
@@ -13,8 +11,8 @@ const SECTIONS = [
             <>
                 <p>
                     El responsable del tratamiento de los datos personales es{" "}
-                    <strong>[NOMBRE COMPLETO]</strong>, RUT <strong>[RUT]</strong>, con domicilio en{" "}
-                    <strong>[DOMICILIO]</strong>, Chile.
+                    <strong>Jonathan Guerra</strong>, RUT <strong>28.309.224-0</strong>, con domicilio en{" "}
+                    <strong>El Toril 0214</strong>, Chile.
                 </p>
                 <p>Correo de contacto y soporte: soporte@logify.cl.</p>
             </>
