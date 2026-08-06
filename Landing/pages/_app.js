@@ -1,4 +1,5 @@
 import Preloader from "@/components/elements/Preloader"
+import CookieConsent from "@/components/elements/CookieConsent"
 import { useEffect, useState } from "react"
 import "@/styles/globals.css"
 import "swiper/css"
@@ -16,6 +17,7 @@ function MyApp({ Component, pageProps }) {
                 El Preloader es solo un overlay visual mientras carga, no reemplaza la página. */}
             <Component {...pageProps} />
             {loading && <Preloader />}
+            <CookieConsent />
         </>
     )
 }
