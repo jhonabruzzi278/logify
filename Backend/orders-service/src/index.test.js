@@ -1,7 +1,7 @@
 'use strict';
 
 jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
-jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
+jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
 jest.mock('../shared/auth', () => ({
@@ -21,7 +21,7 @@ const { createPool } = require('../shared/db');
 const mockQuery = jest.fn();
 createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn() });
 
-const { app } = require('./index');
+const { app, seedUsers } = require('./index');
 
 const mockOrder = {
   id: 1, customer_id: 10, sku: 'COCA-2L', quantity: 5,
@@ -279,35 +279,44 @@ describe('orders-service', () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('incluye warning si inventory-service falla (saga continúa)', async () => {
-      const confirmed = { ...mockOrder, status: 'EN_PREPARACION' };
-      mockQuery
-        .mockResolvedValueOnce({ rows: [mockOrder] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [confirmed] });
-      global.fetch = jest.fn()
-        .mockRejectedValueOnce(new Error('Inventory unavailable'))
-        .mockResolvedValueOnce({ ok: true });
+    it('NO crea envío ni avanza status si inventory-service falla (evita enviar sin stock reservado)', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockOrder] });
+      global.fetch = jest.fn().mockRejectedValueOnce(new Error('Inventory unavailable'));
       const res = await request(app).put('/api/orders/1/confirm');
       expect(res.status).toBe(200);
-      expect(res.body.status).toBe('EN_PREPARACION');
+      expect(res.body.status).toBe('CREATED');
+      expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(Array.isArray(res.body.warnings)).toBe(true);
       expect(res.body.warnings[0]).toMatch(/Inventario/i);
     });
 
-    it('incluye warning si shipping-service falla (saga continúa)', async () => {
-      const confirmed = { ...mockOrder, status: 'EN_PREPARACION' };
-      mockQuery
-        .mockResolvedValueOnce({ rows: [mockOrder] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [confirmed] });
+    it('compensa (revierte) el stock si shipping-service falla después de descontar inventario', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockOrder] });
       global.fetch = jest.fn()
-        .mockResolvedValueOnce({ ok: true })
-        .mockRejectedValueOnce(new Error('Shipping unavailable'));
+        .mockResolvedValueOnce({ ok: true }) // inventory adjust -quantity
+        .mockRejectedValueOnce(new Error('Shipping unavailable')) // shipment create falla
+        .mockResolvedValueOnce({ ok: true }); // compensacion: inventory adjust +quantity
       const res = await request(app).put('/api/orders/1/confirm');
       expect(res.status).toBe(200);
+      expect(res.body.status).toBe('CREATED'); // no avanza: la saga no se completo
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+      const compensationCall = global.fetch.mock.calls[2][0];
+      expect(compensationCall).toMatch(/inventory/i);
+      expect(compensationCall).toMatch(/delta=\+5/);
       expect(Array.isArray(res.body.warnings)).toBe(true);
       expect(res.body.warnings[0]).toMatch(/Envío/i);
+    });
+
+    it('advierte revisión manual si la compensación de stock también falla', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockOrder] });
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce({ ok: true }) // inventory adjust -quantity
+        .mockRejectedValueOnce(new Error('Shipping unavailable')) // shipment create falla
+        .mockRejectedValueOnce(new Error('Inventory unavailable')); // compensacion tambien falla
+      const res = await request(app).put('/api/orders/1/confirm');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('CREATED');
+      expect(res.body.warnings.some(w => /revisión manual/i.test(w))).toBe(true);
     });
 
     it('retorna 500 si BD falla al actualizar status tras saga', async () => {
@@ -1103,5 +1112,54 @@ describe('orders-service', () => {
       const res = await request(app).get('/api/orders/1/pdf');
       expect(res.status).toBe(500);
     });
+  });
+});
+
+// ─── BOOTSTRAP CONTRA DB VACÍA ──────────────────────────────────────────────
+// Regresión del bug del 2026-08-06: al truncar `users`, seedUsers() insertaba
+// filas sin tenant_id, violando el NOT NULL ya migrado por ensureTenants() y
+// tumbando el servicio en un crash-loop. Este bloque ejerce seedUsers()
+// directamente contra una tabla `users` vacía (COUNT(*) = 0), el mismo
+// escenario real que produjo el bug, para que no pueda reaparecer en silencio.
+describe('seedUsers() — arranque contra DB vacía', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('siembra los 8 usuarios demo, todos con tenant_id, cuando la tabla users está vacía', async () => {
+    mockQuery.mockImplementation((sql) => {
+      if (typeof sql === 'string' && sql.includes('SELECT COUNT(*)')) {
+        return Promise.resolve({ rows: [{ cnt: '0' }] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    await seedUsers();
+
+    const userInserts = mockQuery.mock.calls.filter(
+      ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO users')
+    );
+    expect(userInserts).toHaveLength(8);
+    for (const [sql] of userInserts) {
+      // tenant_id va inline (VALUES ($1,$2,$3,$4,1)), no como parametro
+      expect(sql).toMatch(/tenant_id/i);
+      expect(sql).toMatch(/VALUES\s*\([^)]*,\s*1\)/i);
+    }
+  });
+
+  it('no reinserta usuarios si la tabla ya tiene filas (evita duplicar en cada arranque)', async () => {
+    mockQuery.mockImplementation((sql) => {
+      if (typeof sql === 'string' && sql.includes('SELECT COUNT(*)')) {
+        return Promise.resolve({ rows: [{ cnt: '8' }] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    await seedUsers();
+
+    const userInserts = mockQuery.mock.calls.filter(
+      ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO users')
+    );
+    expect(userInserts).toHaveLength(0);
   });
 });
