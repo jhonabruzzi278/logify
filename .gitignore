@@ -73,3 +73,5 @@ skills-lock.json
 # (forgot-password-page.tsx nunca se commiteó por esto — ver auditoría de producción)
 !Frontend/src/pages/forgot-password-page.tsx
 !Frontend/src/lib/security-service.ts
+
+.vercel
