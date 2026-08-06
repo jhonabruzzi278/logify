@@ -4,6 +4,14 @@ const log = require('./logger');
 const JWT_SECRET = process.env.JWT_SECRET || 'logify-dev-secret-change-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
+// Rotacion de secreto sin downtime (ver wiki/Rotacion-JWT.md): JWT_SECRET_PREVIOUS
+// es opcional y solo se usa para VERIFICAR tokens ya emitidos con el secreto
+// anterior, nunca para firmar. Procedimiento: setear JWT_SECRET_PREVIOUS=<secreto
+// viejo> y JWT_SECRET=<secreto nuevo> en los 4 servicios, hacer rolling restart;
+// los tokens viejos (hasta JWT_EXPIRES_IN de antiguedad) siguen siendo validos
+// durante la ventana de rotacion. Pasado ese tiempo, quitar JWT_SECRET_PREVIOUS.
+const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS || null;
+
 function signToken(user) {
   const payload = {
     sub: user.username,
@@ -17,7 +25,14 @@ function signToken(user) {
 }
 
 function verifyToken(token) {
-  return jwt.verify(token, JWT_SECRET);
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    if (JWT_SECRET_PREVIOUS && err.name === 'JsonWebTokenError') {
+      return jwt.verify(token, JWT_SECRET_PREVIOUS);
+    }
+    throw err;
+  }
 }
 
 function authMiddleware(req, res, next) {

@@ -43,6 +43,7 @@ services:
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL}
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8081:8081"
@@ -63,6 +64,7 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
       - PORT=8082
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8082:8082"
@@ -90,6 +92,7 @@ services:
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL}
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8084:8084"
@@ -110,6 +113,7 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
       - PORT=8085
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
