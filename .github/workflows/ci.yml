@@ -68,3 +68,30 @@ jobs:
           cache-dependency-path: Landing/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  sonarcloud:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend, landing]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Cada npm test de backend ya corre con --coverage (jest); Frontend
+      # necesita test:coverage explicito (npm test corre vitest sin coverage).
+      - run: npm ci && npm test
+        working-directory: Backend/orders-service
+      - run: npm ci && npm test
+        working-directory: Backend/inventory-service
+      - run: npm ci && npm test
+        working-directory: Backend/shipping-service
+      - run: npm ci && npm test
+        working-directory: Backend/notification-service
+      - run: npm ci && npm run test:coverage
+        working-directory: Frontend
+      - uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
