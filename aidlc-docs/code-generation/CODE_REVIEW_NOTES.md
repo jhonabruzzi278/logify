@@ -19,7 +19,7 @@ No se encontró evidencia de un proceso formal de code review (no hay plantilla 
 
 ## Observaciones — Prioridad Baja / Housekeeping
 
-10. **Nombre de carpeta/repo (`SmartLogix`/`logify`) no coincide con el nombre de producto actual ("Logify")** — puramente cosmético, pero puede confundir a colaboradores nuevos.
+10. ~~Nombre de carpeta/repo no coincide con el nombre de producto actual~~ — **resuelto el 2026-08-05**, la carpeta/repo ahora se llama `Logify`.
 11. **`docs/technical/03-informe-pruebas.html` no es reproducible.** Esta auditoría ejecutó los tests reales (2026-07-19) y midió 226 tests totales con cobertura de 28.41%-51.44% en backend — muy por debajo del 73.7%-85.7% que reporta ese HTML. Se recomienda regenerarlo o eliminarlo; deja de ser una fuente de verdad confiable tal como está. Ver `testing/TEST_COVERAGE_REPORT.md` para el detalle completo.
 12. **Test coverage backend real medido está por debajo de la meta interna declarada de 60%** (medido 2026-07-19: orders-service 51.44%, inventory-service 37.63%, shipping-service 44.39%, notification-service 28.41% — statements). Ningún servicio backend alcanza la meta. Ver `testing/TEST_COVERAGE_REPORT.md`.
 

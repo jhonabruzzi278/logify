@@ -6,7 +6,7 @@
 #   chmod +x Backend/postgres/backup.sh
 #   crontab -e
 #   # agregar la linea (backup diario a las 3:00 AM):
-#   0 3 * * * /ruta/absoluta/a/SmartLogix/Backend/postgres/backup.sh >> /var/log/logify-backup.log 2>&1
+#   0 3 * * * /ruta/absoluta/a/Logify/Backend/postgres/backup.sh >> /var/log/logify-backup.log 2>&1
 #
 # Restaurar un backup:
 #   gunzip -c backups/orders_db_2026-08-05.sql.gz | docker exec -i logify-db psql -U postgres -d orders_db

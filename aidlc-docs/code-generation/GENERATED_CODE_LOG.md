@@ -11,7 +11,7 @@ Este proyecto no fue generado mediante flujo AI-DLC formal (Intent → Unit → 
 | — | Migración de autenticación: reemplazo de AWS Cognito por JWT local propio (commits `4b6dd3b` "reemplazar auth Cognito/demo por JWT backend simple", `dee6cf0` "corregir referencias obsoletas a Cognito") |
 | — | Integraciones externas añadidas incrementalmente: PDF (pdfkit), QR (qrserver.com), geocodificación (Nominatim), clima (Open-Meteo), rutas (OSRM), validación de RUT chileno, notificaciones push web (VAPID) |
 | `6018f89` | "eliminar infraestructura AWS/Terraform y CI/CD asociado" — retiro deliberado de CI/CD (ver `design-artifacts/ADR/ADR-003-...md`) |
-| — | Rebrand de "SmartLogix" a "Logify" (nombre de producto cambiado; carpetas/repo mantienen el nombre original) |
+| — | Rebrand de "SmartLogix" a "Logify" (nombre de producto cambiado; carpetas/repo mantuvieron el nombre original hasta el 2026-08-05, cuando se renombraron para coincidir) |
 | — | Roadmap multi-tenant, fases 4A → 4C (schema, propagación de tenant, enforcement) — ver `design-artifacts/ADR/ADR-002-...md` |
 | `85591f3` (HEAD) | "fix: soportar subdominios de tenant en CORS + guia completa de deploy" (2026-07-16) |
 

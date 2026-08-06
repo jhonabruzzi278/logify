@@ -3,7 +3,7 @@
 ## Estructura del Proyecto
 
 ```
-SmartLogix/ (repo raíz, producto renombrado a "Logify")
+Logify/ (repo raíz)
 ├── Frontend/                   # React 18 SPA + PWA (Vite 6), UI operativa por rol
 │   └── src/
 │       ├── app/                 # auth.tsx (contexto+guard RBAC), router.tsx, access.ts
