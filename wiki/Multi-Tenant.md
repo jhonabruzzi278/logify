@@ -73,8 +73,19 @@ forma consistente entre bases separadas).
   entre tenants rechazado con 403.
 - **4D — Wildcard DNS + dominio propio** (pendiente) `*.logify.cl` en Vercel,
   `api.logify.cl` en Render, actualizar `ALLOWED_ORIGINS`/`APP_URL`.
-- **4E — Provisioning de tenants** (pendiente) Alta manual/admin-asistida
-  primero; signup self-service y panel de super-admin después.
+- **4E — Provisioning de tenants** ✅ Signup self-service público
+  (`POST /api/signup` + `GET /api/signup/check-slug` en orders-service,
+  formulario en `Landing/pages/registro.js`): crea el tenant y su usuario
+  "owner" en una transacción, sin verificación de email, con una demo
+  gratuita de 90 días (`tenants.trial_ends_at`) extensible vía un sistema de
+  cupones (tablas `coupons`/`coupon_redemptions`, administradas por
+  `POST/GET /api/admin/coupons` protegidos con el header `X-Admin-Key`).
+  `tenants` también quedó preparada para cobro real (`subscription_status`,
+  `plan_price_clp`, `billing_provider`, `billing_customer_id`, todas
+  nullable/sin uso todavía — un único plan mensual, sin niveles) — ningún
+  proveedor de pago está integrado aún. Pendiente: panel de super-admin con
+  UI (hoy los cupones se gestionan por API con secreto compartido) y
+  activar un proveedor de cobro cuando corresponda.
 
 Ver [README.md](../README.md#roadmap-multi-tenant) para el estado general
 del roadmap.

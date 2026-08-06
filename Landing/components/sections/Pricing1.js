@@ -8,7 +8,7 @@ export default function Pricing1() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-14">
                     <h2 className="text-brand-2 font-extrabold mb-4" style={{fontSize: 'clamp(1.8rem, 3vw, 2.5rem)'}}>Plan de Negocio</h2>
-                    <p className="text-grey-500 text-lg">Prueba gratuita de 14 días. Sin compromiso, cancela cuando quieras.</p>
+                    <p className="text-grey-500 text-lg">Prueba gratuita de 90 días. Sin compromiso, cancela cuando quieras.</p>
                 </div>
                 <div className="flex justify-center">
                     <div className="rounded-2xl p-8 flex flex-col max-w-md w-full bg-brand-2 border-2 border-brand-1 relative shadow-lg shadow-brand-1/20">
@@ -35,7 +35,7 @@ export default function Pricing1() {
                             ))}
                         </ul>
                         <div className="mt-8">
-                            <Link href="#demo"
+                            <Link href="/registro"
                                 className="block text-center font-bold py-3.5 rounded-xl transition-all hover:-translate-y-0.5 bg-brand-1 text-brand-2 hover:bg-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-brand-2"
                                 aria-label="Comenzar prueba gratuita de Logify">
                                 Comenzar Prueba
