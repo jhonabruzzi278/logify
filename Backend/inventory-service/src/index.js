@@ -367,17 +367,33 @@ app.delete('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res
   } catch (err) { sendError(res, 500, 'Failed to delete', err); }
 });
 
+// El QR codifica el producto completo como JSON (no solo el SKU) para que
+// sirva tanto a un futuro lector dedicado (que puede parsear el campo `t`)
+// como a la cámara de cualquier celular sin lector comprado — cualquier app
+// de cámara estándar decodifica el texto plano del QR igual, sea URL o JSON.
 app.get('/api/inventory/:sku/qr', authMiddleware, requireTenant, async (req, res) => {
   try {
     const { sku } = req.params;
-    if (!(await pool.query('SELECT 1 FROM inventory WHERE sku=$1 AND tenant_id=$2', [sku, req.tenantId])).rows.length)
-      return res.status(404).json({ error: 'SKU no encontrado' });
-    const size = req.query.size || '200x200';
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent('LOGIFY-SKU:' + sku)}&format=png&margin=10`;
+    const product = (await pool.query(
+      'SELECT sku, name, price, category, stock, unit_of_measure FROM inventory WHERE sku=$1 AND tenant_id=$2',
+      [sku, req.tenantId]
+    )).rows[0];
+    if (!product) return res.status(404).json({ error: 'SKU no encontrado' });
+    const size = req.query.size || '300x300';
+    const payload = JSON.stringify({
+      t: 'logify_product',
+      sku: product.sku,
+      name: product.name,
+      price: Number(product.price),
+      category: product.category,
+      stock: product.stock,
+      unit: product.unit_of_measure,
+    });
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent(payload)}&format=png&margin=10&ecc=M`;
     const qrRes = await fetch(qrUrl);
     if (!qrRes.ok) throw new Error('QR service error');
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', 'no-store');
     res.send(Buffer.from(await qrRes.arrayBuffer()));
   } catch (err) { sendError(res, 500, 'QR failed', err); }
 });
@@ -819,4 +835,4 @@ if (require.main === module) {
   (async () => { await ensureTables(); await ensureTenantConstraints(); await ensureProcedures(); start(); })();
 }
 
-module.exports = { app };
+module.exports = { app, ensureTables, ensureTenantColumns, ensureTenantConstraints };

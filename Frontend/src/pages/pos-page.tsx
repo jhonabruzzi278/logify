@@ -2,6 +2,7 @@
 import { Banknote, Camera, Check, CreditCard, DollarSign, Landmark, Lock, Minus, PiggyBank, Plus, Receipt, Search, ShoppingCart, Tag, Trash2, User, X } from "lucide-react";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { CUSTOMER_TYPE_BY_MODE } from "@/hooks/use-business-mode";
 import { usePosCart } from "@/hooks/use-pos-cart";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
@@ -65,7 +66,7 @@ export function PosPage() {
   });
 
   const { data: customers } = useApiQuery<ApiCustomer[], Customer[]>({
-    path: "/api/customers", transform: (r) => r.map(adaptCustomer)
+    path: "/api/customers", transform: (r) => r.map(adaptCustomer).filter((c) => c.customerType === CUSTOMER_TYPE_BY_MODE.b2c)
   });
 
   const { data: activeCashSession, refresh: refreshCashSession } = useApiQuery<ApiCashSession | null, boolean>({

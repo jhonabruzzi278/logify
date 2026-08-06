@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
+import type { CustomerType } from "@/types/domain";
 
 export type BusinessMode = "b2b" | "b2c";
+
+/** Los clientes B2B (empresa) y B2C (persona natural) nunca se cruzan: el modo activo fija el segmento visible. */
+export const CUSTOMER_TYPE_BY_MODE: Record<BusinessMode, CustomerType> = { b2b: "company", b2c: "individual" };
 
 interface BusinessModeContextValue {
   mode: BusinessMode;

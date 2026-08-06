@@ -1,0 +1,11 @@
+{
+  "name": "logify-load-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pruebas de carga con k6 contra el API gateway de Logify (docker-compose local o staging, nunca produccion).",
+  "scripts": {
+    "smoke": "k6 run smoke.js",
+    "load": "k6 run load.js",
+    "load:heavy": "k6 run --env VUS_MAX=100 load.js"
+  }
+}

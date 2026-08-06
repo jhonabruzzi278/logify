@@ -1,7 +1,19 @@
 # ADR-003: Sin pipeline de CI/CD — autodeploy nativo de plataforma
 
-**Status:** Aceptado (implementado) — ⚠️ reversión de una decisión anterior
+**Status:** ~~Aceptado (implementado)~~ **Parcialmente revertido el 2026-08-06**
 **Fecha:** commit `6018f89` ("chore: eliminar infraestructura AWS/Terraform y CI/CD asociado")
+
+## Actualización 2026-08-06
+
+Se implementó la recomendación de este mismo ADR (ver abajo): `.github/workflows/ci.yml`
+corre tests de los 4 microservicios + Frontend + Landing en cada push/PR, y
+`main` ahora tiene branch protection con esos 6 checks como requisito
+obligatorio para mergear (ver [wiki/Flujo-Git.md](../../../wiki/Flujo-Git.md)).
+Esto cierra la brecha #1 listada en "Consecuencias — Negativas" abajo: ya
+no es posible pushear código que rompe tests directo a `main`, sin volver
+a introducir AWS/Terraform. Las otras brechas (lint/typecheck en PR más
+allá de lo que ya corre `Frontend` en CI, build de verificación explícito)
+siguen sin resolver.
 
 ## Contexto
 

@@ -1,7 +1,7 @@
 'use strict';
 
 jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
-jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
+jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
 jest.mock('../shared/auth', () => ({
@@ -22,7 +22,7 @@ const mockClientRelease = jest.fn();
 const mockClient = { query: mockQuery, release: mockClientRelease };
 createPool.mockReturnValue({ query: mockQuery, connect: jest.fn().mockResolvedValue(mockClient), on: jest.fn(), end: jest.fn() });
 
-const { app } = require('./index');
+const { app, ensureTables, ensureTenantColumns, ensureTenantConstraints } = require('./index');
 
 const mockProduct = { id: 1, sku: 'COCA-2L', stock: 50 };
 const mockSale = { id: 1, sku: 'COCA-2L', quantity: 5, sale_date: new Date().toISOString() };
@@ -895,5 +895,204 @@ describe('inventory-service', () => {
       const res = await request(app).post('/api/inventory/import').send({});
       expect(res.status).toBe(400);
     });
+  });
+
+  // ─── GET /api/inventory/report/pdf ──────────────────────────────────────────
+
+  describe('GET /api/inventory/report/pdf', () => {
+    it('genera un PDF con content-type application/pdf', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', name: 'Coca 2L', stock: 5, price: 1000, category: 'bebidas' }] })
+        .mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', stock_level: 'BAJO' }] });
+      const res = await request(app).get('/api/inventory/report/pdf');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('application/pdf');
+      expect(res.headers['content-disposition']).toMatch(/inventario\.pdf/);
+    });
+
+    it('genera un PDF vacio cuando no hay productos', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/inventory/report/pdf');
+      expect(res.status).toBe(200);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).get('/api/inventory/report/pdf');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/inventory/indicadores ──────────────────────────────────────────
+
+  describe('GET /api/inventory/indicadores', () => {
+    const mindicadorResponse = {
+      uf: { valor: 38500.12, fecha: '2026-08-05' },
+      dolar: { valor: 950.5, fecha: '2026-08-05' },
+      utm: { valor: 65000, fecha: '2026-08-05' },
+    };
+
+    afterEach(() => { delete global.fetch; });
+
+    // Nota de orden: `indicadoresCache` es estado a nivel de modulo (no se
+    // resetea entre tests), asi que el test de error va primero: una vez que
+    // un test exitoso cachea datos, las llamadas siguientes dentro del TTL
+    // (1h) no vuelven a golpear fetch.
+    it('retorna 500 si mindicador.cl responde con error', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      const res = await request(app).get('/api/inventory/indicadores');
+      expect(res.status).toBe(500);
+    });
+
+    it('consulta mindicador.cl, retorna uf/dolar/utm y cachea la 2da llamada', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mindicadorResponse });
+      const res = await request(app).get('/api/inventory/indicadores');
+      expect(res.status).toBe(200);
+      expect(res.body.uf.valor).toBe(38500.12);
+      expect(res.body.dolar.valor).toBe(950.5);
+      expect(res.body.utm.valor).toBe(65000);
+
+      const res2 = await request(app).get('/api/inventory/indicadores');
+      expect(res2.status).toBe(200);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ─── GET /api/inventory/geocode ──────────────────────────────────────────────
+
+  describe('GET /api/inventory/geocode', () => {
+    afterEach(() => { delete global.fetch; });
+
+    it('retorna resultados normalizados desde Nominatim', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ([{ display_name: 'Av. Siempre Viva 123, Santiago', lat: '-33.45', lon: '-70.65', address: { road: 'Av. Siempre Viva', city: 'Santiago', state: 'RM', postcode: '8320000' } }])
+      });
+      const res = await request(app).get('/api/inventory/geocode?address=Av+Siempre+Viva+123');
+      expect(res.status).toBe(200);
+      expect(res.body[0]).toMatchObject({ displayName: 'Av. Siempre Viva 123, Santiago', lat: -33.45, lon: -70.65 });
+      expect(res.body[0].address.city).toBe('Santiago');
+    });
+
+    it('rechaza address menor a 3 caracteres → 400', async () => {
+      const res = await request(app).get('/api/inventory/geocode?address=ab');
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza sin address → 400', async () => {
+      const res = await request(app).get('/api/inventory/geocode');
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 500 si Nominatim falla', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      const res = await request(app).get('/api/inventory/geocode?address=Alguna+direccion');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/inventory/image-search ─────────────────────────────────────────
+
+  describe('GET /api/inventory/image-search', () => {
+    afterEach(() => { delete global.fetch; });
+
+    it('retorna resultados normalizados desde Openverse', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ results: [{ id: 'abc', title: 'Coca Cola', thumbnail: 'http://x/thumb.jpg', url: 'http://x/img.jpg', creator: 'alguien', license: 'cc0' }] })
+      });
+      const res = await request(app).get('/api/inventory/image-search?q=coca+cola');
+      expect(res.status).toBe(200);
+      expect(res.body[0]).toMatchObject({ id: 'abc', title: 'Coca Cola', license: 'cc0' });
+    });
+
+    it('retorna array vacio si Openverse no trae results', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+      const res = await request(app).get('/api/inventory/image-search?q=algo');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('rechaza q menor a 2 caracteres → 400', async () => {
+      const res = await request(app).get('/api/inventory/image-search?q=a');
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 500 si Openverse falla', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      const res = await request(app).get('/api/inventory/image-search?q=coca');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── PUT /api/inventory/:sku/image ───────────────────────────────────────────
+
+  describe('PUT /api/inventory/:sku/image', () => {
+    it('actualiza la imagen del producto', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockProduct, image_url: 'http://x/img.jpg' }] });
+      const res = await request(app).put('/api/inventory/COCA-2L/image').send({ imageUrl: 'http://x/img.jpg' });
+      expect(res.status).toBe(200);
+      expect(res.body.image_url).toBe('http://x/img.jpg');
+    });
+
+    it('rechaza sin imageUrl → 400', async () => {
+      const res = await request(app).put('/api/inventory/COCA-2L/image').send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 404 si el SKU no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).put('/api/inventory/NOEXISTE/image').send({ imageUrl: 'http://x/img.jpg' });
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).put('/api/inventory/COCA-2L/image').send({ imageUrl: 'http://x/img.jpg' });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/inventory/:sku/qr ──────────────────────────────────────────────
+
+  describe('GET /api/inventory/:sku/qr', () => {
+    afterEach(() => { delete global.fetch; });
+
+    it('retorna imagen png con datos del producto codificados', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', name: 'Coca 2L', price: 1000, category: 'bebidas', stock: 5, unit_of_measure: 'un' }] });
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+      const res = await request(app).get('/api/inventory/COCA-2L/qr');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('image/png');
+    });
+
+    it('retorna 404 si el SKU no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/inventory/NOEXISTE/qr');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si el servicio de QR falla', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', name: 'Coca 2L', price: 1000, category: 'bebidas', stock: 5, unit_of_measure: 'un' }] });
+      global.fetch = jest.fn().mockResolvedValue({ ok: false });
+      const res = await request(app).get('/api/inventory/COCA-2L/qr');
+      expect(res.status).toBe(500);
+    });
+  });
+});
+
+// ─── BOOTSTRAP CONTRA DB VACÍA ──────────────────────────────────────────────
+// Ver orders-service/src/index.test.js para el contexto del bug del 2026-08-06.
+// Este servicio no tiene una función de auto-seed de datos (a diferencia de
+// orders-service), pero sus migraciones de arranque tampoco tenían cobertura
+// — este smoke test cierra ese gap y confirma que corren limpio contra una
+// base de datos vacía sin lanzar excepciones.
+describe('bootstrap (ensureTables/ensureTenantColumns/ensureTenantConstraints) contra DB vacía', () => {
+  it('corre sin lanzar excepciones cuando las tablas/columnas no existen todavía', async () => {
+    mockQuery.mockResolvedValue({ rows: [] });
+    // Si cualquiera de estas rechaza, el await propaga y el test falla.
+    await ensureTables();
+    await ensureTenantColumns();
+    await ensureTenantConstraints();
   });
 });

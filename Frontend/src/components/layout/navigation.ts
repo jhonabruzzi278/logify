@@ -22,7 +22,7 @@ export const navItems: NavItem[] = [
   { title: "Clientes", path: "/customers", icon: Users, permission: "orders.view", mode: "both" },
   { title: "Envios", path: "/shipments", icon: Truck, permission: "shipments.view", mode: "b2b" },
   { title: "Entregas", path: "/deliveries", icon: Truck, permission: "shipments.update", mode: "b2b" },
-  { title: "Calendario", path: "/calendar", icon: Calendar, permission: "shipments.view", mode: "both" },
+  { title: "Calendario", path: "/calendar", icon: Calendar, permission: "shipments.view", mode: "b2b" },
   { title: "Reportes", path: "/reports", icon: BarChart3, permission: "dashboard.view", mode: "both" },
   { title: "Proveedores", path: "/suppliers", icon: Building2, permission: "suppliers.manage", mode: "both" },
   { title: "Compras", path: "/purchases", icon: PackagePlus, permission: "purchases.manage", mode: "both" },

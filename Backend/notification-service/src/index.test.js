@@ -1,7 +1,7 @@
 'use strict';
 
 jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
-jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
+jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
 jest.mock('../shared/auth', () => ({
@@ -20,7 +20,7 @@ const { createPool } = require('../shared/db');
 const mockQuery = jest.fn();
 createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn() });
 
-const { app } = require('./index');
+const { app, ensureTables, ensureTenantColumns, ensureTenantConstraints } = require('./index');
 
 const validNotification = {
   eventId: 'evt-001',
@@ -275,5 +275,263 @@ describe('notification-service', () => {
       const res = await request(app).get('/api/notifications/audience/BOTH');
       expect(res.status).toBe(500);
     });
+  });
+
+  // ─── POST /api/notifications/alert ──────────────────────────────────────────
+
+  describe('POST /api/notifications/alert', () => {
+    it('crea alerta de stock bajo → 201 con eventId y mensaje', async () => {
+      const res = await request(app).post('/api/notifications/alert')
+        .send({ sku: 'COCA-2L', name: 'Coca-Cola 2L', stock: 3, type: 'low_stock', vendor: 'Bodega' });
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe('ALERT_SENT');
+      expect(res.body.eventId).toMatch(/^alert-COCA-2L-/);
+      expect(res.body.message).toMatch(/bajo/i);
+    });
+
+    it('usa mensaje de stock critico cuando type=critical_stock', async () => {
+      const res = await request(app).post('/api/notifications/alert')
+        .send({ sku: 'SKU-1', stock: 0, type: 'critical_stock' });
+      expect(res.status).toBe(201);
+      expect(res.body.message).toMatch(/critico/i);
+    });
+
+    it('rechaza sin sku → 400', async () => {
+      const res = await request(app).post('/api/notifications/alert').send({ stock: 3 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/sku/i);
+    });
+
+    it('rechaza sin stock → 400', async () => {
+      const res = await request(app).post('/api/notifications/alert').send({ sku: 'SKU-1' });
+      expect(res.status).toBe(400);
+    });
+
+    it('acepta stock=0 (falsy pero definido)', async () => {
+      const res = await request(app).post('/api/notifications/alert').send({ sku: 'SKU-1', stock: 0 });
+      expect(res.status).toBe(201);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).post('/api/notifications/alert').send({ sku: 'SKU-1', stock: 1 });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/notifications/weather-alert ───────────────────────────────────
+
+  describe('GET /api/notifications/weather-alert', () => {
+    const okWeather = (weatherCode) => ({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        current: { temperature_2m: 18, precipitation: 0, wind_speed_10m: 10, weather_code: weatherCode }
+      })
+    });
+
+    afterEach(() => { delete global.fetch; });
+
+    it('sin condiciones adversas (code<51) → alert:false, sin insertar', async () => {
+      global.fetch = jest.fn().mockResolvedValue(okWeather(1));
+      const res = await request(app).get('/api/notifications/weather-alert');
+      expect(res.status).toBe(200);
+      expect(res.body.alert).toBe(false);
+      expect(res.body.condition).toBe('Nublado');
+    });
+
+    it('con condiciones adversas (code>=51) → alert:true, inserta y responde eventId', async () => {
+      global.fetch = jest.fn().mockResolvedValue(okWeather(61));
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/notifications/weather-alert');
+      expect(res.status).toBe(200);
+      expect(res.body.alert).toBe(true);
+      expect(res.body.condition).toBe('Lluvia');
+      expect(res.body.eventId).toMatch(/^weather-/);
+    });
+
+    it('usa lat/lon por defecto de Santiago cuando no se envian', async () => {
+      global.fetch = jest.fn().mockResolvedValue(okWeather(0));
+      const res = await request(app).get('/api/notifications/weather-alert');
+      expect(res.status).toBe(200);
+      expect(res.body.location).toEqual({ lat: -33.4489, lon: -70.6693 });
+    });
+
+    it('respeta lat/lon enviados por query', async () => {
+      global.fetch = jest.fn().mockResolvedValue(okWeather(0));
+      const res = await request(app).get('/api/notifications/weather-alert?lat=-10&lon=-20');
+      expect(res.status).toBe(200);
+      expect(res.body.location).toEqual({ lat: -10, lon: -20 });
+    });
+
+    it('retorna 500 si el servicio de clima responde con error', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false });
+      const res = await request(app).get('/api/notifications/weather-alert');
+      expect(res.status).toBe(500);
+    });
+
+    it('retorna 500 si fetch lanza excepcion', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
+      const res = await request(app).get('/api/notifications/weather-alert');
+      expect(res.status).toBe(500);
+    });
+
+    it.each([
+      [4, 'Neblina'],
+      [50, 'Lluvia'],
+      [68, 'Nieve'],
+      [78, 'Chubascos'],
+      [83, 'Tormenta eléctrica'],
+      [100, 'Desconocido'],
+    ])('describe weather_code=%i como "%s"', async (code, expected) => {
+      global.fetch = jest.fn().mockResolvedValue(okWeather(code));
+      if (code >= 51) mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/notifications/weather-alert');
+      expect(res.body.condition).toBe(expected);
+    });
+  });
+
+  // ─── GET /api/notifications/report/pdf ──────────────────────────────────────
+
+  describe('GET /api/notifications/report/pdf', () => {
+    it('genera un PDF con content-type application/pdf', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockRecord] });
+      const res = await request(app).get('/api/notifications/report/pdf');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('application/pdf');
+      expect(res.headers['content-disposition']).toMatch(/notificaciones\.pdf/);
+    });
+
+    it('genera un PDF vacio cuando no hay registros', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/notifications/report/pdf');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('application/pdf');
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).get('/api/notifications/report/pdf');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/notifications/qr ───────────────────────────────────────────────
+
+  describe('GET /api/notifications/qr', () => {
+    afterEach(() => { delete global.fetch; });
+
+    it('retorna imagen png cuando el texto es valido', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+      const res = await request(app).get('/api/notifications/qr?text=LOGIFY-TRACK123');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('image/png');
+    });
+
+    it('rechaza sin text → 400', async () => {
+      const res = await request(app).get('/api/notifications/qr');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/text/i);
+    });
+
+    it('retorna 500 si el servicio de QR falla', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false });
+      const res = await request(app).get('/api/notifications/qr?text=ABC');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── Push subscriptions ──────────────────────────────────────────────────────
+
+  describe('GET /api/notifications/push/vapid-public-key', () => {
+    it('retorna publicKey (null si no hay VAPID configurado)', async () => {
+      const res = await request(app).get('/api/notifications/push/vapid-public-key');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('publicKey');
+    });
+  });
+
+  describe('POST /api/notifications/push/subscribe', () => {
+    const subscription = { endpoint: 'https://push.example.com/abc', keys: { p256dh: 'key1', auth: 'key2' } };
+
+    it('suscribe correctamente → 201', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).post('/api/notifications/push/subscribe').send(subscription);
+      expect(res.status).toBe(201);
+      expect(res.body.subscribed).toBe(true);
+    });
+
+    it('rechaza sin endpoint → 400', async () => {
+      const { endpoint, ...sin } = subscription;
+      const res = await request(app).post('/api/notifications/push/subscribe').send(sin);
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza sin keys.p256dh → 400', async () => {
+      const res = await request(app).post('/api/notifications/push/subscribe')
+        .send({ endpoint: 'https://x.com', keys: { auth: 'a' } });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza sin keys.auth → 400', async () => {
+      const res = await request(app).post('/api/notifications/push/subscribe')
+        .send({ endpoint: 'https://x.com', keys: { p256dh: 'p' } });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).post('/api/notifications/push/subscribe').send(subscription);
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('DELETE /api/notifications/push/subscribe', () => {
+    it('desuscribe correctamente', async () => {
+      mockQuery.mockResolvedValueOnce({ rowCount: 1 });
+      const res = await request(app).delete('/api/notifications/push/subscribe')
+        .send({ endpoint: 'https://push.example.com/abc' });
+      expect(res.status).toBe(200);
+      expect(res.body.unsubscribed).toBe(true);
+    });
+
+    it('rechaza sin endpoint → 400', async () => {
+      const res = await request(app).delete('/api/notifications/push/subscribe').send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).delete('/api/notifications/push/subscribe')
+        .send({ endpoint: 'https://x.com' });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── DELETE /api/notifications ───────────────────────────────────────────────
+
+  describe('DELETE /api/notifications', () => {
+    it('vacia el historial y retorna deletedCount', async () => {
+      mockQuery.mockResolvedValueOnce({ rowCount: 42 });
+      const res = await request(app).delete('/api/notifications');
+      expect(res.status).toBe(200);
+      expect(res.body.deletedCount).toBe(42);
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).delete('/api/notifications');
+      expect(res.status).toBe(500);
+    });
+  });
+});
+
+// ─── BOOTSTRAP CONTRA DB VACÍA ──────────────────────────────────────────────
+// Ver orders-service/src/index.test.js para el contexto del bug del 2026-08-06.
+describe('bootstrap (ensureTables/ensureTenantColumns/ensureTenantConstraints) contra DB vacía', () => {
+  it('corre sin lanzar excepciones cuando las tablas/columnas no existen todavía', async () => {
+    mockQuery.mockResolvedValue({ rows: [] });
+    await ensureTables();
+    await ensureTenantColumns();
+    await ensureTenantConstraints();
   });
 });

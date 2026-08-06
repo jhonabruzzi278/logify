@@ -1,0 +1,192 @@
+## Compose de PRODUCCIÓN para VPS — ver wiki/Despliegue-VPS.md antes de usar esto.
+##
+## Diferencias clave respecto a docker-compose.yml (uso local):
+##   - Postgres y los 4 microservicios NO publican puertos al host: solo son
+##     alcanzables entre sí por la red interna de Docker. Únicamente Caddy
+##     expone 80/443 al mundo.
+##   - Caddy hace de proxy TLS (Let's Encrypt automático) frente al
+##     api-gateway (nginx), que deja de estar expuesto directamente.
+##   - Límites de memoria por contenedor, pensados para un VPS de 2-4GB.
+##
+## Uso:
+##   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: logify-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
+      -c max_connections=50
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Backend/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 512m
+    networks:
+      - logify-net
+
+  orders-service:
+    build:
+      context: ./Backend
+      dockerfile: orders-service/Dockerfile
+    container_name: logify-orders
+    restart: unless-stopped
+    environment:
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}@postgres-db:5432/orders_db
+      - INVENTORY_SERVICE_URL=http://inventory-service:8082
+      - SHIPPING_SERVICE_URL=http://shipping-service:8084
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
+      - PORT=8081
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - APP_URL=${APP_URL}
+      - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    mem_limit: 320m
+    networks:
+      - logify-net
+
+  inventory-service:
+    build:
+      context: ./Backend
+      dockerfile: inventory-service/Dockerfile
+    container_name: logify-inventory
+    restart: unless-stopped
+    environment:
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}@postgres-db:5432/inventory_db
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
+      - PORT=8082
+      - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    mem_limit: 320m
+    networks:
+      - logify-net
+
+  shipping-service:
+    build:
+      context: ./Backend
+      dockerfile: shipping-service/Dockerfile
+    container_name: logify-shipping
+    restart: unless-stopped
+    environment:
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}@postgres-db:5432/shipping_db
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8085
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
+      - PORT=8084
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - APP_URL=${APP_URL}
+      - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    mem_limit: 256m
+    networks:
+      - logify-net
+
+  notification-service:
+    build:
+      context: ./Backend
+      dockerfile: notification-service/Dockerfile
+    container_name: logify-notification
+    restart: unless-stopped
+    environment:
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env}@postgres-db:5432/notification_db
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
+      - PORT=8085
+      - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:logistica@logify.cl}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    mem_limit: 256m
+    networks:
+      - logify-net
+
+  api-gateway:
+    image: nginx:alpine
+    container_name: logify-api-gateway
+    restart: unless-stopped
+    volumes:
+      - ./Backend/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - orders-service
+      - inventory-service
+      - shipping-service
+      - notification-service
+    mem_limit: 64m
+    networks:
+      - logify-net
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: logify-uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - uptime_kuma_data:/app/data
+    mem_limit: 128m
+    networks:
+      - logify-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: logify-caddy
+    restart: unless-stopped
+    environment:
+      - API_DOMAIN=${API_DOMAIN:?Definí API_DOMAIN en tu .env, ej. api.tu-dominio.cl}
+      - STATUS_DOMAIN=${STATUS_DOMAIN:?Definí STATUS_DOMAIN en tu .env, ej. status.tu-dominio.cl}
+      - ACME_EMAIL=${ACME_EMAIL:?Definí ACME_EMAIL en tu .env (para avisos de Let's Encrypt)}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Backend/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-gateway
+      - uptime-kuma
+    mem_limit: 96m
+    networks:
+      - logify-net
+
+networks:
+  logify-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  uptime_kuma_data:

@@ -96,13 +96,13 @@ Ninguno de los siguientes es un interesado confirmado hoy — es el **mapa de a 
 | Tests automatizados | **226 tests, todos pasando** (medido el 2026-07-19, no de memoria) | `aidlc-docs/testing/TEST_COVERAGE_REPORT.md` |
 | Cobertura de código | Backend 28%-51% según servicio, Frontend 76% (por debajo de la meta interna declarada de 60% backend) | ídem |
 | Arquitectura multi-tenant SaaS | 3 de 5 fases implementadas y **verificadas con un tenant de prueba real** (aislamiento de datos confirmado, reuso cruzado de token rechazado) | `wiki/Multi-Tenant.md` |
-| Costo de infraestructura | Objetivo explícito de **US$0/mes** (Render + Neon + Vercel, planes free) — señal de eficiencia de capital, no de falta de ambición | `RENDER_DEPLOY.md` |
-| Despliegue en producción real | **No** — hay guía y blueprint (`render.yaml`) listos, pero el checklist de producción en `RENDER_DEPLOY.md` está sin completar | `aidlc-docs/00_PROJECT_METADATA.md` |
-| Clientes pagando | **Ninguno** — no hay evidencia de cliente real, piloto, ni ingreso en el repositorio | — |
-| CI/CD automatizado | **No** — fue removido deliberadamente en una limpieza previa del repo; el despliegue depende del autodeploy nativo de Render/Vercel | `aidlc-docs/design-artifacts/ADR/ADR-003-no-cicd-platform-native-autodeploy.md` |
-| Monitoreo/observabilidad en producción | **No implementado** — logging es un wrapper simple sin niveles ni correlación de requests | `aidlc-docs/operations/MONITORING_SETUP.md` |
+| Costo de infraestructura | ~~Objetivo explícito de US$0/mes (Render + Neon + Vercel, planes free)~~ **actualizado el 2026-08-06**: backend migrado a VPS propio (costo fijo bajo) + Vercel free para Frontend/Landing | `wiki/Despliegue-VPS.md` |
+| Despliegue en producción real | **No** (persiste) — infraestructura y checklist de VPS listos (`docker-compose.prod.yml`, `wiki/Despliegue-VPS.md`), pero sin evidencia de un despliegue real ejecutado todavía | `wiki/Despliegue-VPS.md` |
+| Clientes pagando | **Ninguno** (persiste) — no hay evidencia de cliente real, piloto, ni ingreso en el repositorio | — |
+| CI/CD automatizado | ~~No — fue removido deliberadamente~~ **resuelto el 2026-08-06**: `.github/workflows/ci.yml` corre tests de los 4 microservicios + Frontend + Landing, y `main` tiene branch protection exigiendo esos 6 checks antes de mergear | `wiki/Flujo-Git.md`, `aidlc-docs/design-artifacts/ADR/ADR-003-no-cicd-platform-native-autodeploy.md` |
+| Monitoreo/observabilidad en producción | ~~No implementado~~ **resuelto el 2026-08-06**: logging estructurado (JSON, niveles, `x-request-id` de correlación entre servicios) + página pública de status (Uptime Kuma en `status.logify.cl`) | `wiki/Monitoreo.md` |
 
-**Cómo enmarcar esto en un pitch:** la narrativa honesta y defendible es *"riesgo técnico resuelto, riesgo comercial es exactamente lo que buscamos financiar."* Un producto MVP completo con 226 tests y una arquitectura multi-tenant ya parcialmente implementada es una posición fuerte comparada con un pitch deck sin código. Presentarlo como "ya listo para escalar a miles de clientes" sin mencionar la ausencia de monitoreo, CI/CD o clientes reales es el tipo de sobre-promesa que no sobrevive una diligencia técnica de 30 minutos.
+**Cómo enmarcar esto en un pitch:** la narrativa honesta y defendible es *"riesgo técnico resuelto, riesgo comercial es exactamente lo que buscamos financiar."* Un producto MVP completo con 375 tests, CI obligatorio antes de mergear, monitoreo básico en producción y una arquitectura multi-tenant ya parcialmente implementada es una posición fuerte comparada con un pitch deck sin código. Lo que sigue faltando — clientes reales y un despliegue en producción efectivamente ejecutado — es riesgo comercial, no técnico. Presentarlo como "ya listo para escalar a miles de clientes" sin mencionar la ausencia de clientes reales es el tipo de sobre-promesa que no sobrevive una diligencia técnica de 30 minutos.
 
 ---
 
@@ -110,10 +110,10 @@ Ninguno de los siguientes es un interesado confirmado hoy — es el **mapa de a 
 
 Presentar proactivamente estos puntos en una conversación de financiamiento genera más confianza que ocultarlos — señala un equipo que conoce su propio producto en profundidad:
 
-1. **Identidad de marca inconsistente:** el producto se llama "Logify" en README/wiki/dominio, pero la carpeta/repo raíz sigue llamándose "SmartLogix" — un detalle menor pero que un inversionista notará en los primeros 5 minutos de revisar el repo. Vale la pena resolverlo antes de cualquier presentación externa.
-2. **Secreto JWT compartido sin rotación** entre los 4 microservicios — riesgo de seguridad documentado pero no mitigado.
-3. **Sin rollback automático** en el flujo Saga de confirmación de pedido — fallas parciales se registran como advertencias, no se revierten solas.
-4. **Sin política de retención/anonimización de datos personales** (RUT, contacto de clientes) — relevante de cara a compliance si se opera formalmente en Chile (Ley 19.628).
+1. ~~**Identidad de marca inconsistente:**~~ **resuelto el 2026-08-05** — la carpeta/repo raíz ahora se llama `Logify`, coincidiendo con el nombre de producto en README/wiki/dominio.
+2. ~~**Secreto JWT compartido sin rotación**~~ **mitigado el 2026-08-06** — `JWT_SECRET_PREVIOUS` permite rotar sin downtime (ver `wiki/Rotacion-JWT.md`). Sigue siendo un secreto compartido entre los 4 servicios (no hay auth service centralizado), pero ya no es "documentado y sin mitigar".
+3. ~~**Sin rollback automático**~~ **resuelto el 2026-08-06** — el Saga de confirmación de pedido ahora compensa (revierte) el descuento de stock si la creación del envío falla después; si la compensación misma falla, se marca explícitamente para revisión manual en vez de fallar en silencio.
+4. **Sin política de retención/anonimización de datos personales** (RUT, contacto de clientes) — **documentado el 2026-08-06** en `wiki/Politica-Retencion-Datos.md`, pero **todavía no implementado en código** (no existe endpoint de anonimización ni job de purga). Relevante de cara a compliance si se opera formalmente en Chile (Ley 19.628).
 5. **Discrepancias históricas de documentación ya detectadas y corregidas** en esta auditoría (conteo de tests, cobertura reportada vs. medida) — ver `testing/TEST_COVERAGE_REPORT.md`. El hecho de que ya se hayan detectado y corregido es, en sí, una señal positiva de rigor, siempre que se presente así y no se oculte que existieron.
 
 ---
@@ -134,16 +134,17 @@ Presentar proactivamente estos puntos en una conversación de financiamiento gen
 
 Priorizado por impacto en credibilidad frente a un inversionista o cliente piloto, no por dificultad técnica:
 
-1. **Resolver la identidad de marca** (Logify vs. SmartLogix) — cosmético pero de alta visibilidad inmediata.
+1. ~~**Resolver la identidad de marca** (Logify vs. SmartLogix)~~ — resuelto el 2026-08-05.
 2. **Conseguir un piloto real**, aunque sea gratuito o con un solo cliente — nada reemplaza a un caso de uso real citable.
-3. **Cerrar el checklist de `RENDER_DEPLOY.md`** y desplegar a producción real, aunque sea en el plan free — pasar de "puede desplegarse" a "está desplegado" cambia la conversación completamente.
+3. **Ejecutar el despliegue real en el VPS** (`wiki/Despliegue-VPS.md`) — la infraestructura ya está lista (compose, Caddy/TLS, CI gate en `main`), falta pasar de "puede desplegarse" a "está desplegado".
 4. **Definir estructura societaria y modelo de pricing** antes de la primera reunión formal con un inversionista.
-5. **Añadir monitoreo básico** (aunque sea Render/Vercel logs + un uptime checker gratuito) para poder decir "está en producción y lo estamos observando", no solo "está desplegado".
+5. ~~**Añadir monitoreo básico**~~ — resuelto el 2026-08-06: página pública de status (`status.logify.cl`, Uptime Kuma) + logging estructurado con correlación de requests. Falta solo activarla al hacer el despliegue real (paso 3).
 6. **Preparar un pitch deck separado** que use este documento como fuente de verdad técnica, pero con el formato visual de una presentación de inversión (problema/solución/mercado/producto/equipo/ask) — este documento es la materia prima, no el documento para mostrar directamente a un inversionista.
 
 ---
 
 ## 10. Registro de Cambios de Esta Sección
 
+- **2026-08-06:** Actualizada la sección 6 (tabla de estado) y los riesgos #2-#3-#5 de la sección 7 tras una sesión de hardening técnico: migración de Render a VPS propio, CI gate obligatorio en `main` vía branch protection, rotación de JWT_SECRET, compensación real en el Saga de confirmación, monitoreo con Uptime Kuma, y documentación (sin implementación aún) de la política de retención de datos. Ver `wiki/Flujo-Git.md`, `wiki/Rotacion-JWT.md`, `wiki/Monitoreo.md`, `wiki/Politica-Retencion-Datos.md`.
 - **2026-07-23:** Documento reescrito con enfoque en financiamiento/venta a solicitud explícita del equipo. Se preservó todo el contenido factual verificado de la versión anterior (roles, stakeholders internos, ausencia de stakeholders externos confirmados) y se añadieron las secciones 1, 4-9 orientadas a la narrativa de inversión. Ningún dato de tracción fue inventado; todo lo nuevo está explícitamente marcado como inferencia, opción de mercado, o pendiente de validación.
 - **2026-07-19:** Versión original generada por auditoría AI-DLC inicial (ver `00_PROJECT_METADATA.md` para el detalle completo de esa auditoría).

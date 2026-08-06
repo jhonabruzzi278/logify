@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /login
+Allow: /tracking
+Disallow: /
+
+Sitemap: https://app.logify.cl/sitemap.xml

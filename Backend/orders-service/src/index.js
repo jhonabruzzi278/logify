@@ -133,7 +133,7 @@ async function seedUsers() {
 
   for (const u of users) {
     const hash = await bcrypt.hash(u.password, 10);
-    await pool.query('INSERT INTO users (username, password_hash, name, role) VALUES ($1,$2,$3,$4)',
+    await pool.query('INSERT INTO users (username, password_hash, name, role, tenant_id) VALUES ($1,$2,$3,$4,1)',
       [u.username, hash, u.name, u.role]);
   }
   log.info('Demo users seeded');
@@ -422,6 +422,14 @@ app.put('/api/orders/:id/status', authMiddleware, requireTenant, async (req, res
   } catch (err) { sendError(res, 500, 'Failed to update status', err); }
 });
 
+// Saga de confirmacion (ver aidlc-docs/design-artifacts/ADR/ADR-001): sin
+// orquestador ni transacciones distribuidas reales, asi que la consistencia
+// se logra a mano. inventory solo se descuenta si el paso anterior no fallo,
+// y si shipping falla DESPUES de que el stock ya se desconto, se compensa
+// revirtiendo ese descuento (en vez de dejar stock reservado sin envio real).
+// Si la compensacion en si falla, la orden queda en CREATED igual (para
+// permitir reintentar) pero el warning marca que requiere revision manual,
+// porque en ese caso el stock puede haber quedado descontado sin envio.
 app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, async (req, res) => {
   const orderId = req.params.id;
   try {
@@ -429,15 +437,40 @@ app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, async (req, re
     if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
     const errors = [];
 
-    try { await req.forwardedFetch(`${INVENTORY_URL}/api/inventory/${order.sku}/adjust?delta=-${order.quantity}`, { method: 'POST' }); }
-    catch (e) { log.error('Inventory adjustment failed', { orderId, message: e.message }); errors.push(`Inventario: ${e.message}`); }
+    let inventoryAdjusted = false;
+    try {
+      await req.forwardedFetch(`${INVENTORY_URL}/api/inventory/${order.sku}/adjust?delta=-${order.quantity}`, { method: 'POST' });
+      inventoryAdjusted = true;
+    } catch (e) {
+      log.error('Inventory adjustment failed', { orderId, message: e.message });
+      errors.push(`Inventario: ${e.message}`);
+    }
 
-    try { await req.forwardedFetch(`${SHIPPING_URL}/api/shipments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: parseInt(orderId), customerId: order.customer_id, sku: order.sku, quantity: order.quantity }) }); }
-    catch (e) { log.error('Shipment creation failed', { orderId, message: e.message }); errors.push(`Envío: ${e.message}`); }
+    let shipmentCreated = false;
+    if (inventoryAdjusted) {
+      try {
+        await req.forwardedFetch(`${SHIPPING_URL}/api/shipments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: parseInt(orderId), customerId: order.customer_id, sku: order.sku, quantity: order.quantity }) });
+        shipmentCreated = true;
+      } catch (e) {
+        log.error('Shipment creation failed', { orderId, message: e.message });
+        errors.push(`Envío: ${e.message}`);
+        try {
+          await req.forwardedFetch(`${INVENTORY_URL}/api/inventory/${order.sku}/adjust?delta=+${order.quantity}`, { method: 'POST' });
+          log.warn('Stock compensado tras fallo de envío', { orderId });
+        } catch (compErr) {
+          log.error('Compensación de stock falló — requiere revisión manual', { orderId, message: compErr.message });
+          errors.push(`Compensación de stock falló, requiere revisión manual: ${compErr.message}`);
+        }
+      }
+    }
 
-    await pool.query("UPDATE orders SET status='EN_PREPARACION' WHERE id=$1 AND tenant_id=$2", [orderId, req.tenantId]);
-    const updated = (await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
-    log.info('Order confirmed', { orderId, hasErrors: errors.length > 0 });
+    const sagaOk = inventoryAdjusted && shipmentCreated;
+    let updated = order;
+    if (sagaOk) {
+      await pool.query("UPDATE orders SET status='EN_PREPARACION' WHERE id=$1 AND tenant_id=$2", [orderId, req.tenantId]);
+      updated = (await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
+    }
+    log.info('Order confirm attempted', { orderId, sagaOk });
     res.json({ ...updated, warnings: errors.length ? errors : undefined });
   } catch (err) { sendError(res, 500, 'Failed to confirm order', err); }
 });
@@ -793,4 +826,4 @@ if (require.main === module) {
   (async () => { await ensureTables(); await ensureTenantConstraints(); await seedUsers(); await ensureSecurityProfiles(); await ensureProcedures(); start(); })();
 }
 
-module.exports = { app };
+module.exports = { app, ensureTables, ensureTenants, ensureTenantConstraints, seedUsers, ensureSecurityProfiles };

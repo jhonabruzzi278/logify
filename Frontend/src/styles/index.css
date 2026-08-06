@@ -60,6 +60,22 @@ html {
   background: hsl(var(--background));
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
+  /* El sistema no debe mostrar barras de scroll visibles en ninguna parte:
+     el scroll sigue funcionando (rueda, touch, teclado), solo se oculta el
+     control visual del navegador. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 body {
@@ -156,5 +172,23 @@ body {
 
   .scroll-x::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* Etiqueta de producto: oculta toda la app y muestra solo #product-label-print al imprimir. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #product-label-print,
+  #product-label-print * {
+    visibility: visible;
+  }
+
+  #product-label-print {
+    position: absolute;
+    inset: 0;
+    display: flex !important;
   }
 }

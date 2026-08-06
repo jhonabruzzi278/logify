@@ -1,9 +1,20 @@
+const crypto = require('crypto');
 const express = require('express');
 const { createPool } = require('./db');
 const log = require('./logger');
 const { applySecurity } = require('./security');
 const { gracefulShutdown } = require('./shutdown');
 const { extractTenantSlug } = require('./tenant');
+
+// Correlaciona logs de un mismo request a traves de los 4 microservicios:
+// hereda x-request-id si ya viene de otro servicio (forwardedFetch lo agrega),
+// o genera uno nuevo si es la entrada original del request.
+function requestIdMiddleware(req, res, next) {
+  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  req.requestId = requestId;
+  res.setHeader('x-request-id', requestId);
+  log.runWithRequestId(requestId, next);
+}
 
 function sendError(res, status, logMessage, err) {
   log.warn(logMessage, { error: err?.message || String(err) });
@@ -30,12 +41,33 @@ function forwardedFetch(req) {
     if (tenantSlug && !headers['x-tenant-slug']) {
       headers['x-tenant-slug'] = tenantSlug;
     }
+    if (req.requestId && !headers['x-request-id']) {
+      headers['x-request-id'] = req.requestId;
+    }
     return interServiceFetch(url, { ...options, headers });
   };
 }
 
+function accessLogMiddleware(req, res, next) {
+  if (req.path === '/health') return next();
+  const startedAt = process.hrtime.bigint();
+  res.on('finish', () => {
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
+    log[level]('request', {
+      method: req.method,
+      path: req.originalUrl,
+      status: res.statusCode,
+      durationMs: Math.round(durationMs),
+    });
+  });
+  next();
+}
+
 function createApp(dbName, port) {
   const app = express();
+  app.use(requestIdMiddleware);
+  app.use(accessLogMiddleware);
   applySecurity(app);
   app.use(express.json({ limit: '1mb' }));
   app.use(extractTenantSlug);

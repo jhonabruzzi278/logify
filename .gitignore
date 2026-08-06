@@ -13,6 +13,13 @@ Frontend/dev-dist/
 coverage/
 Backend/**/coverage/
 
+# Playwright (e2e)
+Frontend/test-results/
+Frontend/playwright-report/
+Frontend/playwright/.cache/
+Frontend/e2e/.auth/
+Frontend/blob-report/
+
 # Environment
 .env
 .env.local
@@ -41,6 +48,11 @@ Thumbs.db
 
 # Docker
 Backend/postgres_data/
+Backend/postgres/backups/
+
+# Caddy (TLS certs/config del VPS, nunca al repo)
+Backend/caddy_data/
+Backend/caddy_config/
 
 # Tooling (AI agents / skills cache)
 .agents/
@@ -56,3 +68,8 @@ skills-lock.json
 *password*
 !*.example
 !*example*
+
+# Excepciones: código fuente legítimo que matchea los patrones de arriba
+# (forgot-password-page.tsx nunca se commiteó por esto — ver auditoría de producción)
+!Frontend/src/pages/forgot-password-page.tsx
+!Frontend/src/lib/security-service.ts

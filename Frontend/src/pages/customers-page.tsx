@@ -3,6 +3,7 @@ import { CheckCircle2, Download, MapPin, Pencil, Plus, Search, Trash2, User, Use
 import { Link, useNavigate } from "react-router-dom";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
+import { CUSTOMER_TYPE_BY_MODE, useBusinessMode } from "@/hooks/use-business-mode";
 import { useDebounce } from "@/hooks/use-debounce";
 import { adaptCustomer } from "@/lib/api-adapters";
 import { cn } from "@/lib/utils";
@@ -37,12 +38,13 @@ function formatRut(value: string) {
 }
 
 export function CustomersPage() {
+  const { mode } = useBusinessMode();
+  const segmentType = CUSTOMER_TYPE_BY_MODE[mode];
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: "company" as CustomerType, creditLimit: "" });
-  const [typeFilter, setTypeFilter] = useState<"all" | CustomerType>("all");
+  const [form, setForm] = useState({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: segmentType, creditLimit: "" });
   const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
   const [rutStatus, setRutStatus] = useState<RutValidation | null>(null);
@@ -83,16 +85,13 @@ export function CustomersPage() {
 
   const filtered = useMemo(() => {
     if (!customers) return [];
-    let list = customers;
-    if (typeFilter !== "all") {
-      list = list.filter((c) => c.customerType === typeFilter);
-    }
+    let list = customers.filter((c) => c.customerType === segmentType);
     if (query) {
       const q = query.toLowerCase();
       list = list.filter((c) => `${c.name} ${c.phone ?? ""} ${c.address ?? ""} ${c.email ?? ""} ${c.rut ?? ""}`.toLowerCase().includes(q));
     }
     return list;
-  }, [customers, query, typeFilter]);
+  }, [customers, query, segmentType]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,7 +110,7 @@ export function CustomersPage() {
       } else {
         await apiFetch("/api/customers", { method: "POST", body });
       }
-      setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: "company", creditLimit: "" });
+      setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: segmentType, creditLimit: "" });
       setEditCustomer(null);
       setDialogOpen(false);
       refresh();
@@ -145,30 +144,19 @@ export function CustomersPage() {
           <h1 className="text-xl font-bold text-[#112b4a]">Gestión de clientes</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: "company", creditLimit: "" }); setRutStatus(null); setAddressSuggestions([]); } }}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: segmentType, creditLimit: "" }); setRutStatus(null); setAddressSuggestions([]); } }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><UserPlus className="h-3.5 w-3.5" />Nuevo cliente</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
                 <DialogTitle>{editCustomer ? "Editar cliente" : "Nuevo cliente"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Tipo de cliente</label>
-                  <div className="inline-flex rounded border border-[#DCE0E2] p-0.5">
-                    {(Object.keys(CUSTOMER_TYPE_LABELS) as CustomerType[]).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setForm({ ...form, customerType: t })}
-                        className={cn(
-                          "rounded px-3 py-1.5 text-xs font-semibold transition-colors",
-                          form.customerType === t ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]"
-                        )}
-                      >
-                        {CUSTOMER_TYPE_LABELS[t]}
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-2 rounded border border-[#DCE0E2] bg-[#F8FAFB] px-3 py-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Tipo de cliente</span>
+                  <span className="rounded-full bg-[#4B98CF]/10 px-2 py-0.5 text-xs font-bold text-[#4B98CF]">
+                    {CUSTOMER_TYPE_LABELS[segmentType]}
+                  </span>
+                  <span className="text-[10px] text-[#6B7280]">(según modo {mode.toUpperCase()} activo)</span>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre *</label>
@@ -258,20 +246,14 @@ export function CustomersPage() {
             className="h-10 w-full rounded border border-input bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="inline-flex shrink-0 rounded border border-[#DCE0E2] bg-white p-0.5">
-          {([["all", "Todos"], ["individual", "Personas"], ["company", "Empresas"]] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setTypeFilter(value)}
-              className={cn(
-                "rounded px-3 py-1.5 text-xs font-semibold transition-colors",
-                typeFilter === value ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]"
-              )}
-            >
-              {label}
-            </button>
-          ))}
+        <div
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded border px-3 py-1.5 text-xs font-bold",
+            segmentType === "individual" ? "border-[#4EB4A5]/30 bg-[#4EB4A5]/10 text-[#4EB4A5]" : "border-[#4B98CF]/30 bg-[#4B98CF]/10 text-[#4B98CF]"
+          )}
+          title="Los clientes B2B y B2C no se comparten: cambia el modo desde la barra superior para ver el otro segmento."
+        >
+          {CUSTOMER_TYPE_LABELS[segmentType]}
         </div>
       </div>
 

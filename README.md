@@ -6,7 +6,7 @@ inventario, envíos y notificaciones, más un punto de venta B2C completo
 un solo sistema, con control de acceso por rol.
 
 **Repositorio:** https://github.com/jhonabruzzi278/logify
-**Dominio:** logify.cl (en configuración — ver [RENDER_DEPLOY.md](RENDER_DEPLOY.md))
+**Dominio:** logify.cl (en configuración — ver [wiki/Despliegue-VPS.md](wiki/Despliegue-VPS.md))
 
 ---
 
@@ -371,9 +371,19 @@ docker compose up -d --build orders-service
 
 ## Despliegue a producción
 
-Backend (4 microservicios + gateway + PostgreSQL) en Render (plan free),
-Frontend y Landing en Vercel. Guía paso a paso completa en
-[RENDER_DEPLOY.md](RENDER_DEPLOY.md).
+- **Backend en VPS propio** (Docker Compose + Caddy con TLS automático) +
+  **Frontend y Landing en Vercel**. Guía completa en
+  [wiki/Despliegue-VPS.md](wiki/Despliegue-VPS.md), incluye `docker-compose.prod.yml`,
+  backups de Postgres y hardening básico (firewall, sin puertos internos expuestos).
+- **Monitoreo:** página pública de status en `status.logify.cl` (Uptime
+  Kuma, self-hosted en el mismo VPS). Ver [wiki/Monitoreo.md](wiki/Monitoreo.md).
+
+## Contribuir
+
+`main` está protegida: todo cambio entra vía Pull Request, y el PR no se
+puede mergear hasta que los 6 checks de CI (`.github/workflows/ci.yml`)
+estén en verde — aplica también a administradores del repo. Detalle
+completo del flujo en [wiki/Flujo-Git.md](wiki/Flujo-Git.md).
 
 ## Roadmap: multi-tenant
 
@@ -387,18 +397,25 @@ paso intermedio.
 
 ## Pruebas
 
-**347 pruebas** en total (backend 252 con Jest + Supertest, frontend 95 con Vitest + RTL). Ver detalle y cobertura en [wiki/Pruebas.md](wiki/Pruebas.md).
+**470 pruebas unitarias/integración** (backend 375 con Jest + Supertest, cobertura 83%+ en los 4 servicios; frontend 95 con Vitest + RTL) **+ 15 E2E** con Playwright (regresión visual + flujos críticos) **+ pruebas de carga** con k6. Ver detalle completo en [wiki/Pruebas.md](wiki/Pruebas.md).
+
+Todas corren automáticamente en CI (`.github/workflows/ci.yml`) en cada PR — `main` tiene branch protection y no acepta merges si el CI falla (ver [wiki/Flujo-Git.md](wiki/Flujo-Git.md)).
 
 ```bash
 # Backend — npm test ya incluye cobertura (jest --coverage)
-cd Backend/orders-service && npm test        # 102 pruebas (incluye cuenta corriente)
-cd Backend/inventory-service && npm test     # 96 pruebas (POS, compras, caja, ganancia real)
-cd Backend/shipping-service && npm test      # 28 pruebas
-cd Backend/notification-service && npm test  # 26 pruebas
+cd Backend/orders-service && npm test        # 142 pruebas — 85% cobertura
+cd Backend/inventory-service && npm test     # 117 pruebas — 92.7% cobertura
+cd Backend/shipping-service && npm test      # 54 pruebas — 92.8% cobertura
+cd Backend/notification-service && npm test  # 62 pruebas — 93.4% cobertura
 
 # Frontend
-cd Frontend && npm test                      # 95 pruebas
-npm run test:coverage   # Reporte en Frontend/coverage/index.html
+cd Frontend && npm test                      # 95 pruebas unitarias (Vitest)
+npm run test:coverage                        # Reporte en Frontend/coverage/index.html
+npm run test:e2e                             # 15 pruebas E2E (Playwright) — requiere `npm run dev` corriendo
+
+# Carga (k6) — solo contra docker-compose local o staging, nunca producción
+cd Backend/load-tests && k6 run smoke.js     # smoke test rápido
+k6 run load.js                               # carga sostenida (~3 min)
 ```
 
 ---
@@ -408,9 +425,10 @@ npm run test:coverage   # Reporte en Frontend/coverage/index.html
 ```
 Logify/
 ├── Frontend/                   # React 18 SPA + PWA (Vite 6) + Web Push
+│   ├── e2e/                    # Playwright: specs, auth.setup por rol, snapshots visuales
 │   └── src/
 │       ├── app/                # Auth, router, RBAC (access.ts)
-│       ├── hooks/              # useApiQuery, useBusinessMode, usePosCart...
+│       ├── hooks/               # useApiQuery, useBusinessMode, usePosCart, useCountUp, useStaggerReveal...
 │       ├── components/pos/     # Modales del POS: escáner, caja, monto libre, extras
 │       ├── pages/              # 20+ páginas por rol (incluye purchases-page, billing-page)
 │       ├── sw.ts               # Service worker propio (precache + push)
@@ -422,15 +440,17 @@ Logify/
 │   ├── notification-service/   # Node.js :8085 — trazabilidad + alertas + Web Push
 │   ├── nginx/                  # Config API Gateway :8080
 │   ├── shared/                 # app, db, logger, validate, security, email
+│   ├── load-tests/             # Pruebas de carga con k6 (smoke.js, load.js)
+│   ├── postgres/backup.sh      # Backup diario (cron) para despliegue en VPS
+│   ├── Caddyfile                # Proxy TLS automático para despliegue en VPS
 │   └── seed.sql                # Datos de prueba
 ├── Landing/                    # Landing pública (Next.js, deploy en Vercel)
-├── wiki/                       # Documentación técnica del proyecto
+├── wiki/                       # Documentación técnica del proyecto (incluye Despliegue-VPS.md)
 ├── docs/
 │   ├── technical/               # Arquitectura, persistencia, informe de pruebas (HTML)
 │   └── api/                     # Colección Postman
-├── RENDER_DEPLOY.md            # Guía de despliegue (Render + Neon + Vercel)
-├── render.yaml                 # Blueprint de Render
-└── docker-compose.yml          # Orquestación completa local
+├── docker-compose.yml          # Orquestación completa local
+└── docker-compose.prod.yml     # Orquestación para VPS (sin puertos internos expuestos, con Caddy/TLS)
 ```
 
 ---

@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Lock, MapPinned, PackageCheck, Truck, User } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { gsap } from "gsap";
 import { getDefaultPathForRole, isPathAllowedForRole } from "@/app/access";
 import { useAuth } from "@/app/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDocumentMeta } from "@/hooks/use-document-meta";
+import { useStaggerReveal } from "@/hooks/use-stagger-reveal";
 
 const FEATURES = [
   { icon: Truck, text: "Seguimiento de despachos en tiempo real, desde bodega hasta la entrega." },
@@ -13,6 +16,11 @@ const FEATURES = [
 ];
 
 export function LoginPage() {
+  useDocumentMeta({
+    title: "Iniciar sesión",
+    description: "Inicia sesión en Logify, el dashboard logístico para PYMEs.",
+    canonicalPath: "/login"
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const { session, login, loading, error } = useAuth();
@@ -20,6 +28,28 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const routeSvgRef = useRef<SVGSVGElement>(null);
+  const featuresRef = useStaggerReveal<HTMLUListElement>(true);
+
+  useEffect(() => {
+    if (!routeSvgRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const ctx = gsap.context(() => {
+      const paths = gsap.utils.toArray<SVGPathElement>(".route-path");
+      const dots = gsap.utils.toArray<SVGCircleElement>(".route-dot");
+
+      gsap.set(dots, { transformOrigin: "center", scale: 0, opacity: 0 });
+      gsap.to(dots, { scale: 1, opacity: 1, duration: 0.5, stagger: 0.15, delay: 0.3, ease: "back.out(2)" });
+
+      // Flujo continuo y sutil de las rutas punteadas, evocando trazabilidad en tiempo real.
+      paths.forEach((path) => {
+        gsap.to(path, { strokeDashoffset: -33, duration: 2.2, repeat: -1, ease: "none" });
+      });
+    }, routeSvgRef);
+
+    return () => ctx.revert();
+  }, []);
 
   const from = (location.state as { from?: string; deniedFrom?: string } | null)?.from;
   const deniedFrom = (location.state as { from?: string; deniedFrom?: string } | null)?.deniedFrom;
@@ -50,17 +80,18 @@ export function LoginPage() {
       {/* Panel de marca — oculto en mobile */}
       <div className="relative hidden overflow-hidden bg-[#0F2036] lg:flex lg:flex-col lg:justify-between lg:p-14">
         <svg
+          ref={routeSvgRef}
           className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.14]"
           viewBox="0 0 600 800"
           fill="none"
           aria-hidden="true"
         >
-          <path d="M-20 620 C 120 560, 180 460, 140 340 S 260 140, 420 180 S 560 60, 660 20" stroke="#6BB3E8" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
-          <path d="M-40 220 C 100 260, 160 180, 260 220 S 420 340, 520 300 S 640 400, 700 460" stroke="#6BB3E8" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
-          <circle cx="140" cy="340" r="5" fill="#6BB3E8" />
-          <circle cx="420" cy="180" r="5" fill="#6BB3E8" />
-          <circle cx="260" cy="220" r="5" fill="#6BB3E8" />
-          <circle cx="520" cy="300" r="5" fill="#6BB3E8" />
+          <path className="route-path" d="M-20 620 C 120 560, 180 460, 140 340 S 260 140, 420 180 S 560 60, 660 20" stroke="#6BB3E8" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
+          <path className="route-path" d="M-40 220 C 100 260, 160 180, 260 220 S 420 340, 520 300 S 640 400, 700 460" stroke="#6BB3E8" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
+          <circle className="route-dot" cx="140" cy="340" r="5" fill="#6BB3E8" />
+          <circle className="route-dot" cx="420" cy="180" r="5" fill="#6BB3E8" />
+          <circle className="route-dot" cx="260" cy="220" r="5" fill="#6BB3E8" />
+          <circle className="route-dot" cx="520" cy="300" r="5" fill="#6BB3E8" />
         </svg>
 
         <div className="relative z-10 flex items-center gap-3">
@@ -78,7 +109,7 @@ export function LoginPage() {
             Del pedido a la entrega, sin planillas sueltas ni datos desincronizados.
           </p>
 
-          <ul className="mt-8 space-y-4">
+          <ul ref={featuresRef} className="mt-8 space-y-4">
             {FEATURES.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10">

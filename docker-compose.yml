@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}
     command: >
       postgres
       -c shared_buffers=64MB
@@ -31,10 +31,10 @@ services:
     container_name: logify-orders
     restart: unless-stopped
     environment:
-      - DB_URL=postgresql://postgres:admin123@postgres-db:5432/orders_db
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/orders_db
       - INVENTORY_SERVICE_URL=http://inventory-service:8082
       - SHIPPING_SERVICE_URL=http://shipping-service:8084
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
       - PORT=8081
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
@@ -42,7 +42,8 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL}
-      - JWT_SECRET=${JWT_SECRET:-logify-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8081:8081"
@@ -59,10 +60,11 @@ services:
     container_name: logify-inventory
     restart: unless-stopped
     environment:
-      - DB_URL=postgresql://postgres:admin123@postgres-db:5432/inventory_db
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/inventory_db
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
       - PORT=8082
-      - JWT_SECRET=${JWT_SECRET:-logify-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8082:8082"
@@ -79,9 +81,9 @@ services:
     container_name: logify-shipping
     restart: unless-stopped
     environment:
-      - DB_URL=postgresql://postgres:admin123@postgres-db:5432/shipping_db
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/shipping_db
       - NOTIFICATION_SERVICE_URL=http://notification-service:8085
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
       - PORT=8084
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
@@ -89,7 +91,8 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL}
-      - JWT_SECRET=${JWT_SECRET:-logify-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
     ports:
       - "8084:8084"
@@ -106,10 +109,11 @@ services:
     container_name: logify-notification
     restart: unless-stopped
     environment:
-      - DB_URL=postgresql://postgres:admin123@postgres-db:5432/notification_db
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
+      - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/notification_db
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
       - PORT=8085
-      - JWT_SECRET=${JWT_SECRET:-logify-jwt-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
+      - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}

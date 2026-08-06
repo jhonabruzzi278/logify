@@ -2,7 +2,7 @@
 
 jest.mock('uuid', () => ({ v4: jest.fn().mockReturnValue('uuid-1234-test') }));
 jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
-jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
+jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
 jest.mock('../shared/auth', () => ({
@@ -21,7 +21,7 @@ const { createPool } = require('../shared/db');
 const mockQuery = jest.fn();
 createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn() });
 
-const { app } = require('./index');
+const { app, ensureTables, ensureTenantColumns, ensureTenantConstraints } = require('./index');
 
 const mockShipment = {
   id: 1, order_id: 1, customer_id: 10, sku: 'COCA-2L', quantity: 5,
@@ -285,5 +285,307 @@ describe('shipping-service', () => {
       const res = await request(app).get('/api/shipments/1/qr');
       expect(res.status).toBe(500);
     });
+  });
+
+  // ─── PUT /api/shipments/:id/stage — ramas EN_REPARTO/ENTREGADO con email ────
+
+  describe('PUT /api/shipments/:id/stage — notificacion por email', () => {
+    function fetchByUrl(map) {
+      return jest.fn((url) => {
+        for (const [pattern, response] of map) {
+          if (url.includes(pattern)) return Promise.resolve(response);
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+    }
+
+    it('EN_REPARTO con cliente con email: sincroniza orden y envia email (demo mode)', async () => {
+      const enReparto = { ...mockShipment, status: 'EN_REPARTO' };
+      mockQuery
+        .mockResolvedValueOnce({ rows: [mockShipment] })
+        .mockResolvedValueOnce({ rows: [enReparto] });
+      global.fetch = fetchByUrl([
+        ['/api/orders/1/status', { ok: true, json: async () => ({}) }],
+        ['/api/orders/1', { ok: true, json: async () => ({ client_code: 'SL-ABC123' }) }],
+        ['/api/customers/10', { ok: true, json: async () => ({ name: 'Juan', email: 'juan@mail.cl' }) }],
+      ]);
+      const res = await request(app).put('/api/shipments/1/stage?stage=EN_REPARTO');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('EN_REPARTO');
+    });
+
+    it('EN_REPARTO sin customer_id: no intenta enviar email', async () => {
+      const shipmentSinCliente = { ...mockShipment, customer_id: 0 };
+      const enReparto = { ...shipmentSinCliente, status: 'EN_REPARTO' };
+      mockQuery
+        .mockResolvedValueOnce({ rows: [shipmentSinCliente] })
+        .mockResolvedValueOnce({ rows: [enReparto] });
+      const res = await request(app).put('/api/shipments/1/stage?stage=EN_REPARTO');
+      expect(res.status).toBe(200);
+    });
+
+    it('EN_REPARTO: sigue OK aunque falle la sincronizacion con orders-service', async () => {
+      const enReparto = { ...mockShipment, status: 'EN_REPARTO' };
+      mockQuery
+        .mockResolvedValueOnce({ rows: [mockShipment] })
+        .mockResolvedValueOnce({ rows: [enReparto] });
+      global.fetch = jest.fn().mockRejectedValue(new Error('orders-service down'));
+      const res = await request(app).put('/api/shipments/1/stage?stage=EN_REPARTO');
+      expect(res.status).toBe(200);
+    });
+
+    it('ENTREGADO con customerCode incorrecto → 400', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = fetchByUrl([
+        ['/api/orders/1', { ok: true, json: async () => ({ client_code: 'SL-REAL01' }) }],
+      ]);
+      const res = await request(app)
+        .put('/api/shipments/1/stage?stage=ENTREGADO')
+        .send({ customerCode: 'SL-EQUIVOCADO' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/código de cliente incorrecto/i);
+    });
+
+    it('ENTREGADO con RUT incorrecto → 400', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = fetchByUrl([
+        ['/api/orders/1', { ok: true, json: async () => ({ client_code: 'SL-REAL01' }) }],
+        ['/api/customers/10', { ok: true, json: async () => ({ rut: '11.111.111-1' }) }],
+      ]);
+      const res = await request(app)
+        .put('/api/shipments/1/stage?stage=ENTREGADO')
+        .send({ customerCode: 'SL-REAL01', recipientRut: '22.222.222-2' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/rut incorrecto/i);
+    });
+
+    it('ENTREGADO con codigo y RUT correctos → 200, envia email', async () => {
+      const entregado = { ...mockShipment, status: 'ENTREGADO', customer_code: 'SL-REAL01', recipient_rut: '11.111.111-1' };
+      mockQuery
+        .mockResolvedValueOnce({ rows: [mockShipment] })
+        .mockResolvedValueOnce({ rows: [entregado] });
+      global.fetch = fetchByUrl([
+        ['/api/orders/1/status', { ok: true, json: async () => ({}) }],
+        ['/api/orders/1', { ok: true, json: async () => ({ client_code: 'SL-REAL01' }) }],
+        ['/api/customers/10', { ok: true, json: async () => ({ name: 'Juan', email: 'juan@mail.cl', rut: '11.111.111-1' }) }],
+      ]);
+      const res = await request(app)
+        .put('/api/shipments/1/stage?stage=ENTREGADO')
+        .send({ customerCode: 'SL-REAL01', recipientRut: '11.111.111-1' });
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ENTREGADO');
+    });
+
+    it('ENTREGADO sin poder validar orden (orders-service falla) igual continua', async () => {
+      const entregado = { ...mockShipment, status: 'ENTREGADO' };
+      mockQuery
+        .mockResolvedValueOnce({ rows: [mockShipment] })
+        .mockResolvedValueOnce({ rows: [entregado] });
+      global.fetch = jest.fn().mockRejectedValue(new Error('orders-service down'));
+      const res = await request(app)
+        .put('/api/shipments/1/stage?stage=ENTREGADO')
+        .send({ customerCode: 'X', recipientRut: 'Y' });
+      expect(res.status).toBe(200);
+    });
+
+    it('CANCELADO sincroniza estado en orders-service', async () => {
+      const cancelado = { ...mockShipment, status: 'CANCELADO' };
+      mockQuery
+        .mockResolvedValueOnce({ rows: [mockShipment] })
+        .mockResolvedValueOnce({ rows: [cancelado] });
+      const res = await request(app).put('/api/shipments/1/stage?stage=CANCELADO');
+      expect(res.status).toBe(200);
+      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/status?status=CANCELADO'), expect.anything());
+    });
+
+    it('EN_PREPARACION (rama else sin sync a orders) → 200', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ ...mockShipment, status: 'CANCELADO' }] })
+        .mockResolvedValueOnce({ rows: [{ ...mockShipment, status: 'EN_PREPARACION' }] });
+      const res = await request(app).put('/api/shipments/1/stage?stage=EN_PREPARACION');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('EN_PREPARACION');
+    });
+  });
+
+  // ─── GET /api/shipments/:id/qr-image ────────────────────────────────────────
+
+  describe('GET /api/shipments/:id/qr-image', () => {
+    it('retorna imagen png cuando el envío existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+      const res = await request(app).get('/api/shipments/1/qr-image');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('image/png');
+    });
+
+    it('retorna 404 si el envío no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/shipments/999/qr-image');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si el servicio de QR falla', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = jest.fn().mockResolvedValue({ ok: false });
+      const res = await request(app).get('/api/shipments/1/qr-image');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── GET /api/shipments/:id/weather ──────────────────────────────────────────
+
+  describe('GET /api/shipments/:id/weather', () => {
+    const shipmentSinCliente = { ...mockShipment, customer_id: 0 };
+
+    function weatherFetch(code) {
+      return jest.fn((url) => {
+        if (url.includes('open-meteo')) {
+          return Promise.resolve({ ok: true, json: async () => ({ current: { temperature_2m: 20, relative_humidity_2m: 50, precipitation: 0, wind_speed_10m: 5, weather_code: code } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+    }
+
+    it('usa lat/lon por defecto cuando no hay query ni cliente geolocalizable', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [shipmentSinCliente] });
+      global.fetch = weatherFetch(1);
+      const res = await request(app).get('/api/shipments/1/weather');
+      expect(res.status).toBe(200);
+      expect(res.body.location).toEqual({ lat: -33.4489, lon: -70.6693 });
+      expect(res.body.deliveryRisk).toBe('BAJO');
+    });
+
+    it('condiciones adversas → deliveryRisk ALTO con recomendacion', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [shipmentSinCliente] });
+      global.fetch = weatherFetch(61);
+      const res = await request(app).get('/api/shipments/1/weather');
+      expect(res.status).toBe(200);
+      expect(res.body.deliveryRisk).toBe('ALTO');
+      expect(res.body.recommendation).toMatch(/demora/i);
+    });
+
+    it('geolocaliza la direccion del cliente cuando no se pasa lat/lon', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = jest.fn((url) => {
+        if (url.includes('/api/customers/10')) return Promise.resolve({ ok: true, json: async () => ({ address: 'Av. Siempre Viva 123' }) });
+        if (url.includes('nominatim')) return Promise.resolve({ ok: true, json: async () => ([{ lat: '-33.5', lon: '-70.7' }]) });
+        if (url.includes('open-meteo')) return Promise.resolve({ ok: true, json: async () => ({ current: { temperature_2m: 20, relative_humidity_2m: 50, precipitation: 0, wind_speed_10m: 5, weather_code: 1 } }) });
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+      const res = await request(app).get('/api/shipments/1/weather');
+      expect(res.status).toBe(200);
+      expect(res.body.location).toEqual({ lat: -33.5, lon: -70.7 });
+    });
+
+    it('respeta lat/lon explicitos aunque el cliente tenga direccion', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = weatherFetch(1);
+      const res = await request(app).get('/api/shipments/1/weather?lat=-1&lon=-2');
+      expect(res.status).toBe(200);
+      expect(res.body.location).toEqual({ lat: -1, lon: -2 });
+    });
+
+    it('retorna 404 si el envío no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/shipments/999/weather');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si el servicio de clima falla', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [shipmentSinCliente] });
+      global.fetch = jest.fn().mockResolvedValue({ ok: false });
+      const res = await request(app).get('/api/shipments/1/weather');
+      expect(res.status).toBe(500);
+    });
+
+    it('continua con default si el geocoding del cliente falla', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = jest.fn((url) => {
+        if (url.includes('/api/customers/10')) return Promise.reject(new Error('down'));
+        if (url.includes('open-meteo')) return Promise.resolve({ ok: true, json: async () => ({ current: { temperature_2m: 20, relative_humidity_2m: 50, precipitation: 0, wind_speed_10m: 5, weather_code: 1 } }) });
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+      const res = await request(app).get('/api/shipments/1/weather');
+      expect(res.status).toBe(200);
+      expect(res.body.location).toEqual({ lat: -33.4489, lon: -70.6693 });
+    });
+  });
+
+  // ─── GET /api/shipments/:id/route ───────────────────────────────────────────
+
+  describe('GET /api/shipments/:id/route', () => {
+    const okRoute = { code: 'Ok', routes: [{ distance: 15000, duration: 1200, geometry: { type: 'LineString', coordinates: [] } }] };
+
+    it('calcula ruta con destino explicito', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = jest.fn((url) => {
+        if (url.includes('router.project-osrm.org')) return Promise.resolve({ ok: true, json: async () => okRoute });
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+      const res = await request(app).get('/api/shipments/1/route?dest_lat=-33.5&dest_lon=-70.7');
+      expect(res.status).toBe(200);
+      expect(res.body.distanceKm).toBe(15);
+      expect(res.body.durationMin).toBe(20);
+      expect(res.body.destination).toEqual({ lat: -33.5, lon: -70.7 });
+    });
+
+    it('geolocaliza destino desde la direccion del cliente', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = jest.fn((url) => {
+        if (url.includes('/api/customers/10')) return Promise.resolve({ ok: true, json: async () => ({ address: 'Direccion X' }) });
+        if (url.includes('nominatim')) return Promise.resolve({ ok: true, json: async () => ([{ lat: '-33.5', lon: '-70.7' }]) });
+        if (url.includes('router.project-osrm.org')) return Promise.resolve({ ok: true, json: async () => okRoute });
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+      const res = await request(app).get('/api/shipments/1/route');
+      expect(res.status).toBe(200);
+      expect(res.body.destination).toEqual({ lat: -33.5, lon: -70.7 });
+    });
+
+    it('retorna 400 si no se puede determinar destino', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockShipment, customer_id: 0 }] });
+      const res = await request(app).get('/api/shipments/1/route');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/destino/i);
+    });
+
+    it('retorna 400 si OSRM no encuentra ruta', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = jest.fn((url) => {
+        if (url.includes('router.project-osrm.org')) return Promise.resolve({ ok: true, json: async () => ({ code: 'NoRoute' }) });
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+      const res = await request(app).get('/api/shipments/1/route?dest_lat=-33.5&dest_lon=-70.7');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/no se encontró ruta/i);
+    });
+
+    it('retorna 404 si el envío no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/shipments/999/route?dest_lat=1&dest_lon=1');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si OSRM responde con error http', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      global.fetch = jest.fn((url) => {
+        if (url.includes('router.project-osrm.org')) return Promise.resolve({ ok: false });
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      });
+      const res = await request(app).get('/api/shipments/1/route?dest_lat=-33.5&dest_lon=-70.7');
+      expect(res.status).toBe(500);
+    });
+  });
+});
+
+// ─── BOOTSTRAP CONTRA DB VACÍA ──────────────────────────────────────────────
+// Ver orders-service/src/index.test.js para el contexto del bug del 2026-08-06.
+describe('bootstrap (ensureTables/ensureTenantColumns/ensureTenantConstraints) contra DB vacía', () => {
+  it('corre sin lanzar excepciones cuando las tablas/columnas no existen todavía', async () => {
+    mockQuery.mockResolvedValue({ rows: [] });
+    await ensureTables();
+    await ensureTenantColumns();
+    await ensureTenantConstraints();
   });
 });

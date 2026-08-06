@@ -1,6 +1,6 @@
 # Project Metadata
 
-**Project Name:** Logify (repo/folder name: SmartLogix — the product was rebranded from "SmartLogix" to "Logify" mid-project; the folder/repo names were not renamed)
+**Project Name:** Logify (the product was rebranded from "SmartLogix" to "Logify" mid-project; the folder/repo names were renamed to match on 2026-08-05)
 **Owner:** JONAHBRUZZI (`jon.guerra@duocuc.cl`) — GitHub: [jhonabruzzi278/logify](https://github.com/jhonabruzzi278/logify.git)
 **Analyzed On:** 2026-07-19
 **Current Phase:** **Construction — Late Construction / Deployment-Readiness** (see `requirements/INTENT.md` and phase-detection notes below)

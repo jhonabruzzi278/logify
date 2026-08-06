@@ -8,6 +8,28 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icon-app.svg" />
     <title>Logify</title>
+
+    <!-- Open Graph / redes sociales.
+         og-image.png (1200x630, PNG/JPG) todavía no existe: agregar el archivo
+         real en public/og-image.png antes de desplegar — SVG no se renderiza
+         de forma confiable como preview en Facebook/LinkedIn/WhatsApp. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Logify" />
+    <meta property="og:title" content="Logify — Dashboard logístico para PYMEs" />
+    <meta property="og:description" content="Logify dashboard logistico para PYMEs." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Logify",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "description": "Dashboard logístico para PYMEs: inventario, pedidos, envíos, punto de venta y facturación."
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
