@@ -212,21 +212,44 @@ docker compose -f docker-compose.prod.yml logs -f orders-service
 
 ---
 
-## 10. Actualizar (redeploy)
+## 10. Actualizar (redeploy) — automático
+
+**Desde el 2026-08-07 el redeploy ya no es manual.** Cada push a `main`
+con el CI en verde dispara `.github/workflows/deploy.yml`, que se
+conecta por SSH al VPS y corre `Backend/scripts/02-vps-deploy.sh`. Ese
+script:
+
+1. Hace `git reset --hard origin/main` — **no** `git pull` con merge.
+   El VPS deja de tener working tree propio: es un espejo exacto de
+   `main`. Cualquier edición manual hecha directo por SSH se pierde en
+   el próximo deploy, a propósito — el incidente del 2026-08-06 (ver
+   `aidlc-docs/operations/POST_MORTEMS/2026-08-06-signup-404-produccion.md`)
+   pasó justamente porque el VPS y `main` habían divergido.
+2. Reconstruye y levanta los contenedores esperando a que los
+   healthchecks pasen (`docker compose up -d --build --wait`).
+3. Reinicia `api-gateway` siempre — `nginx.conf` es un bind mount,
+   `--build` no lo recarga solo.
+4. Prueba `https://api.logify.cl/healthz` de verdad (con reintentos).
+   Si falla, **revierte solo** al commit anterior y el job de GitHub
+   Actions queda en rojo — nunca deja el VPS a medio desplegar sin que
+   quede visible.
+
+**Ya no hagas `git pull` ni edites archivos a mano por SSH en este
+directorio** — se va a pisar en el próximo deploy. Si necesitás
+desplegar sin un commit nuevo (ej. para reintentar tras arreglar algo
+externo al repo), disparalo a mano desde GitHub: pestaña **Actions →
+Deploy VPS → Run workflow**.
+
+Credenciales: el pipeline usa una llave SSH dedicada (`VPS_SSH_KEY` en
+GitHub Secrets, distinta de cualquier llave personal), autorizada en
+`~/.ssh/authorized_keys` del usuario `deploy` en el VPS.
+
+Para debug manual, el script también se puede correr a mano:
 
 ```bash
-cd logify
-git pull
-docker compose -f docker-compose.prod.yml up -d --build
+cd ~/logify
+bash Backend/scripts/02-vps-deploy.sh
 ```
-
-Esto reconstruye solo las imágenes cuyo código cambió y recrea esos
-contenedores; Postgres no se toca (mismo volumen).
-
-> `main` tiene branch protection: no se puede pushear directo ni mergear un
-> PR si el CI (`.github/workflows/ci.yml`) no está en verde — ver
-> [Flujo-Git.md](Flujo-Git.md). El `git pull` de este paso siempre trae
-> código que ya pasó tests.
 
 ---
 
@@ -236,6 +259,9 @@ contenedores; Postgres no se toca (mismo volumen).
   4 microservicios, Frontend (typecheck + vitest + build) y Landing
   (build) en cada PR y push a `main`, con branch protection obligatoria
   en `main` (ver [Flujo-Git.md](Flujo-Git.md)).
+- ~~**Redeploy automático**~~ ✅ Hecho — ver paso 10 de arriba
+  (`.github/workflows/deploy.yml` + `Backend/scripts/02-vps-deploy.sh`),
+  con rollback automático si el health check post-deploy falla.
 - ~~**Monitoreo básico**~~ ✅ Hecho — Uptime Kuma self-hosted en
   `status.tu-dominio.cl` (paso 6 de esta guía), ver
   [Monitoreo.md](Monitoreo.md) para configurar los monitores y
@@ -244,14 +270,11 @@ contenedores; Postgres no se toca (mismo volumen).
 - **Alertas de disco**: en un VPS chico, un log o backup que crece sin
   límite puede llenar el disco silenciosamente. Un check de cron simple
   (`df -h` + email si pasa 80%) es suficiente para este tamaño de proyecto.
-- **Verificar que el VPS esté al día con `main` después de cada merge**:
-  el paso 9 (`git pull` + rebuild) es manual, nadie lo fuerza. El
-  2026-08-06 esto causó un incidente real (`/api/signup` 404 en
-  producción porque el VPS quedó 9 commits atrás) — ver
-  `aidlc-docs/operations/POST_MORTEMS/2026-08-06-signup-404-produccion.md`.
-  Antes de dar un merge por "desplegado", confirmar con
-  `git log -1 --oneline` en el VPS contra `origin/main`. Recordatorio:
-  si el cambio toca `Backend/nginx/nginx.conf`, `docker compose up -d --build`
-  **no** recarga nginx solo (el archivo va montado como volumen) — hace
-  falta `docker compose -f docker-compose.prod.yml restart api-gateway`
-  explícito.
+- **Restringir la llave SSH de deploy con forced-command**: hoy
+  `VPS_SSH_KEY` puede abrir una sesión normal como `deploy`. Se puede
+  endurecer agregando `command="cd ~/logify && bash Backend/scripts/02-vps-deploy.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty`
+  antes de la clave pública en `authorized_keys`, para que esa llave
+  específica *solo* pueda correr el script de deploy aunque se filtre.
+  No aplicado todavía por el riesgo de dejar el pipeline sin poder
+  desplegar si algo queda mal configurado — hacerlo con cuidado y
+  probando el path de deploy inmediatamente después.
