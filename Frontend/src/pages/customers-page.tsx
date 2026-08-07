@@ -55,6 +55,18 @@ export function CustomersPage() {
   const debouncedRut = useDebounce(form.rut, 400);
   const debouncedAddress = useDebounce(form.address, 400);
 
+  // form.customerType se inicializa una sola vez con el segmentType del
+  // primer render. Sin este sync, cambiar de modo B2B/B2C y abrir "Nuevo
+  // cliente" sin haber cerrado antes el dialogo en ese modo guarda el
+  // cliente con el customerType viejo -- queda invisible en la lista
+  // filtrada por segmentType (bug real: cliente creado en modo B2B con
+  // customerType "individual").
+  useEffect(() => {
+    if (!editCustomer) {
+      setForm((f) => ({ ...f, customerType: segmentType }));
+    }
+  }, [segmentType, editCustomer]);
+
   const { data: customers, loading, refresh } = useApiQuery<ApiCustomer[], Customer[]>({
     path: "/api/customers", transform: (r) => r.map(adaptCustomer)
   });
