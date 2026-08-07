@@ -86,6 +86,13 @@ forma consistente entre bases separadas).
   proveedor de pago está integrado aún. Pendiente: panel de super-admin con
   UI (hoy los cupones se gestionan por API con secreto compartido) y
   activar un proveedor de cobro cuando corresponda.
+- **Recuperación y eliminación de tenants** (mismo secreto `X-Admin-Key`,
+  ver `Backend/shared/admin.js`): `POST /api/admin/tenants/:slug/reset-owner`
+  crea o resetea un usuario `owner` para un tenant bloqueado (ver postmortem
+  `2026-08-07-admin-autoeliminacion.md`); `DELETE /api/admin/tenants/:slug`
+  elimina el tenant y todos sus datos de forma irreversible en los 4
+  servicios (runbook completo en
+  `aidlc-docs/operations/INCIDENT_RUNBOOKS.md`).
 
 Ver [README.md](../README.md#roadmap-multi-tenant) para el estado general
 del roadmap.

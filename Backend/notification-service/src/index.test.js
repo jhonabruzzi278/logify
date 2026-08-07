@@ -523,6 +523,43 @@ describe('notification-service', () => {
       expect(res.status).toBe(500);
     });
   });
+
+  // ─── DELETE /api/admin/tenants/:tenantId/purge ────────────────────────────────
+
+  describe('DELETE /api/admin/tenants/:tenantId/purge', () => {
+    const ADMIN_KEY = 'test-admin-key';
+    beforeAll(() => { process.env.PLATFORM_ADMIN_KEY = ADMIN_KEY; });
+    afterAll(() => { delete process.env.PLATFORM_ADMIN_KEY; });
+
+    it('retorna 401 sin la clave de administracion', async () => {
+      const res = await request(app).delete('/api/admin/tenants/5/purge');
+      expect(res.status).toBe(401);
+    });
+
+    it('retorna 400 para tenantId invalido', async () => {
+      const res = await request(app).delete('/api/admin/tenants/abc/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 400 al intentar purgar el tenant demo (id=1)', async () => {
+      const res = await request(app).delete('/api/admin/tenants/1/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(400);
+    });
+
+    it('purga notification_records y push_subscriptions y retorna los conteos', async () => {
+      mockQuery.mockResolvedValue({ rows: [], rowCount: 4 });
+      const res = await request(app).delete('/api/admin/tenants/5/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(200);
+      expect(res.body.tenantId).toBe(5);
+      expect(res.body.counts).toMatchObject({ notification_records: 4, push_subscriptions: 4 });
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).delete('/api/admin/tenants/5/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(500);
+    });
+  });
 });
 
 // ─── BOOTSTRAP CONTRA DB VACÍA ──────────────────────────────────────────────

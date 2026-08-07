@@ -2,6 +2,7 @@
 const { validateShipmentBody, validateShipmentStage } = require('../shared/validate');
 const { sendEmail, buildShipmentUpdateEmail } = require('../shared/email');
 const { authMiddleware, requireTenant } = require('../shared/auth');
+const { requireAdminKey } = require('../shared/admin');
 const log = require('../shared/logger');
 
 const { app, pool, sendError, start } = createApp('shipping_db', process.env.PORT || 8084);
@@ -299,6 +300,22 @@ app.get('/api/shipments/:id/route', authMiddleware, requireTenant, async (req, r
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+
+// Purga total de un tenant (llamada internamente por orders-service al
+// eliminar una empresa completa, ver DELETE /api/admin/tenants/:slug ahi).
+app.delete('/api/admin/tenants/:tenantId/purge', requireAdminKey, async (req, res) => {
+  const tenantId = parseInt(req.params.tenantId, 10);
+  if (!Number.isInteger(tenantId) || tenantId <= 0) return res.status(400).json({ error: 'tenantId invalido' });
+  if (tenantId === 1) return res.status(400).json({ error: 'No se puede purgar el tenant demo (id=1)' });
+  try {
+    const counts = {};
+    for (const table of ['shipments', 'processed_events']) {
+      const r = await pool.query(`DELETE FROM ${table} WHERE tenant_id=$1`, [tenantId]);
+      counts[table] = r.rowCount;
+    }
+    res.json({ message: 'shipping-service purgado', tenantId, counts });
+  } catch (err) { sendError(res, 500, 'Failed to purge tenant data', err); }
+});
 
 if (require.main === module) {
   (async () => { await ensureTables(); await ensureTenantConstraints(); start(); })();

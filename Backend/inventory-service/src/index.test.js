@@ -1079,6 +1079,46 @@ describe('inventory-service', () => {
       expect(res.status).toBe(500);
     });
   });
+
+  // ─── DELETE /api/admin/tenants/:tenantId/purge ────────────────────────────────
+
+  describe('DELETE /api/admin/tenants/:tenantId/purge', () => {
+    const ADMIN_KEY = 'test-admin-key';
+    beforeAll(() => { process.env.PLATFORM_ADMIN_KEY = ADMIN_KEY; });
+    afterAll(() => { delete process.env.PLATFORM_ADMIN_KEY; });
+
+    it('retorna 401 sin la clave de administracion', async () => {
+      const res = await request(app).delete('/api/admin/tenants/5/purge');
+      expect(res.status).toBe(401);
+    });
+
+    it('retorna 400 para tenantId invalido', async () => {
+      const res = await request(app).delete('/api/admin/tenants/abc/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 400 al intentar purgar el tenant demo (id=1)', async () => {
+      const res = await request(app).delete('/api/admin/tenants/1/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(400);
+    });
+
+    it('purga todas las tablas tenant-scoped y retorna los conteos', async () => {
+      mockQuery.mockResolvedValue({ rows: [], rowCount: 2 });
+      const res = await request(app).delete('/api/admin/tenants/5/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(200);
+      expect(res.body.tenantId).toBe(5);
+      expect(res.body.counts).toMatchObject({
+        sales: 2, purchases: 2, cash_sessions: 2, processed_events: 2, inventory: 2, suppliers: 2,
+      });
+    });
+
+    it('retorna 500 y hace rollback si una query falla', async () => {
+      mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).delete('/api/admin/tenants/5/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(500);
+    });
+  });
 });
 
 // ─── BOOTSTRAP CONTRA DB VACÍA ──────────────────────────────────────────────

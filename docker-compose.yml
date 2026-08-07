@@ -39,6 +39,7 @@ services:
       - DB_RUNTIME_PASSWORD=${DB_RUNTIME_PASSWORD:?Definí DB_RUNTIME_PASSWORD en tu .env, generalo con openssl rand -base64 32}
       - INVENTORY_SERVICE_URL=http://inventory-service:8082
       - SHIPPING_SERVICE_URL=http://shipping-service:8084
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8085
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
       - PORT=8081
       - SMTP_HOST=${SMTP_HOST}
@@ -73,6 +74,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+      - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
     ports:
       - "8082:8082"
     depends_on:
@@ -101,6 +103,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+      - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
     ports:
       - "8084:8084"
     depends_on:
@@ -125,6 +128,7 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:logistica@logify.cl}
+      - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
     ports:
       - "8085:8085"
     depends_on:
