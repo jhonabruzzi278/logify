@@ -13,38 +13,4 @@ function requireAdminKey(req, res, next) {
   next();
 }
 
-// Handler generico de purga total para un tenant, reusado por
-// inventory-service, shipping-service y notification-service (cada uno pasa
-// su propio pool y lista de tablas tenant-scoped). orders-service llama a
-// estos tres via HTTP y purga sus propias tablas por separado, ver
-// DELETE /api/admin/tenants/:slug ahi.
-function createTenantPurgeHandler(pool, tables, serviceLabel) {
-  return async function purgeTenant(req, res) {
-    const tenantId = Number.parseInt(req.params.tenantId, 10);
-    if (!Number.isInteger(tenantId) || tenantId <= 0) {
-      return res.status(400).json({ error: 'tenantId invalido' });
-    }
-    if (tenantId === 1) {
-      return res.status(400).json({ error: 'No se puede purgar el tenant demo (id=1)' });
-    }
-    let client;
-    try {
-      client = await pool.connect();
-      await client.query('BEGIN');
-      const counts = {};
-      for (const table of tables) {
-        const r = await client.query(`DELETE FROM ${table} WHERE tenant_id=$1`, [tenantId]);
-        counts[table] = r.rowCount;
-      }
-      await client.query('COMMIT');
-      res.json({ message: `${serviceLabel} purgado`, tenantId, counts });
-    } catch (err) {
-      if (client) await client.query('ROLLBACK').catch(() => {});
-      res.status(500).json({ error: 'Failed to purge tenant data' });
-    } finally {
-      if (client) client.release();
-    }
-  };
-}
-
-module.exports = { requireAdminKey, createTenantPurgeHandler };
+module.exports = { requireAdminKey };
