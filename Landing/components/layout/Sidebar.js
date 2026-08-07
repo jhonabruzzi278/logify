@@ -33,7 +33,7 @@ export default function Sidebar({ openClass, handleMobileMenuClose }) {
                         </ul>
                     </nav>
                     <div className="space-y-3 pt-4 border-t border-gray-200">
-                        <Link href="https://app.logify.cl" onClick={handleMobileMenuClose}
+                        <Link href="/acceso" onClick={handleMobileMenuClose}
                             className="block w-full text-center text-sm font-bold text-brand-2 bg-brand-1 hover:bg-yellow-400 py-3 rounded-lg transition-colors"
                         >Iniciar Sesión</Link>
                         <a href="#demo" onClick={handleMobileMenuClose}

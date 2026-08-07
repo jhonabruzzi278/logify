@@ -23,6 +23,14 @@
 #      que quede visible en GitHub Actions.
 #
 # Es idempotente: si ya estaba al dia con origin/main, no hace nada.
+#
+# Sincronizacion de credenciales (SYNC_ENV_FROM_CI=1): cuando el workflow
+# "Deploy VPS" invoca este script via SSH, exporta esa variable junto con
+# SMTP_HOST/PORT/USER/PASS/FROM/REPLY_TO y SUPPORT_WHATSAPP_URL (leidas de
+# GitHub Secrets/Variables) -- este script las escribe en el .env local del
+# VPS antes de levantar los contenedores, para que el .env del VPS nunca
+# quede desincronizado de lo configurado en GitHub. Si se corre a mano por
+# SSH sin esa variable, no toca el .env (deja lo que ya haya).
 
 set -euo pipefail
 
@@ -31,6 +39,34 @@ cd "$REPO_DIR"
 
 HEALTH_URL="https://api.logify.cl/healthz"
 COMPOSE="docker compose -f docker-compose.prod.yml"
+
+sync_env_var() {
+  local key="$1" value="$2"
+  [ -z "$value" ] && return 0
+  if grep -q "^${key}=" .env 2>/dev/null; then
+    sed -i "s|^${key}=.*|${key}=${value}|" .env
+  else
+    echo "${key}=${value}" >> .env
+  fi
+}
+
+sync_env_from_ci() {
+  [ "${SYNC_ENV_FROM_CI:-}" = "1" ] || return 0
+  local before
+  before="$(sha256sum .env 2>/dev/null || true)"
+  echo "==> Sincronizando credenciales desde GitHub Actions al .env del VPS..."
+  sync_env_var SMTP_HOST "${SMTP_HOST:-}"
+  sync_env_var SMTP_PORT "${SMTP_PORT:-}"
+  sync_env_var SMTP_USER "${SMTP_USER:-}"
+  sync_env_var SMTP_PASS "${SMTP_PASS:-}"
+  sync_env_var SMTP_FROM "${SMTP_FROM:-}"
+  sync_env_var SMTP_REPLY_TO "${SMTP_REPLY_TO:-}"
+  sync_env_var SUPPORT_WHATSAPP_URL "${SUPPORT_WHATSAPP_URL:-}"
+  if [ "$before" != "$(sha256sum .env 2>/dev/null || true)" ]; then
+    echo "==> .env cambio -- se forzara redeploy aunque el commit no haya cambiado."
+    ENV_CHANGED=1
+  fi
+}
 
 deploy_current_commit() {
   echo "==> Reconstruyendo y levantando contenedores..."
@@ -62,7 +98,10 @@ git reset --hard origin/main
 NEW_SHA="$(git rev-parse HEAD)"
 echo "==> Nuevo commit: $NEW_SHA"
 
-if [ "$PREVIOUS_SHA" = "$NEW_SHA" ]; then
+ENV_CHANGED=0
+sync_env_from_ci
+
+if [ "$PREVIOUS_SHA" = "$NEW_SHA" ] && [ "$ENV_CHANGED" != "1" ]; then
   echo "==> Ya estaba al dia con main, nada que desplegar."
   exit 0
 fi

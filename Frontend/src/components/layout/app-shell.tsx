@@ -4,6 +4,7 @@ import { useAuth } from "@/app/auth";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { getVisibleNavItems } from "@/components/layout/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
+import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
 import { Topbar } from "@/components/layout/topbar";
 import { useBusinessMode } from "@/hooks/use-business-mode";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
@@ -100,6 +101,7 @@ export function AppShell() {
       </div>
 
       <MobileNav role={session.role} />
+      <SupportWhatsappButton />
     </div>
   );
 }

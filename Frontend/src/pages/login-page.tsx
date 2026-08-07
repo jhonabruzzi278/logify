@@ -222,6 +222,12 @@ export function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
+            ¿No recuerdas el nombre de tu negocio?{" "}
+            <a href="https://logify.cl/acceso" className="font-medium text-[#4B98CF] hover:underline">
+              Recupéralo aquí
+            </a>
+          </p>
+          <p className="mt-2 text-center text-xs text-muted-foreground">
             ¿Problemas para ingresar?{" "}
             <a href="mailto:soporte@logify.cl" className="font-medium text-[#4B98CF] hover:underline">
               Contacta a soporte

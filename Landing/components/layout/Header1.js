@@ -23,7 +23,7 @@ export default function Header1({ scroll, handleMobileMenuOpen }) {
                         })}
                     </nav>
                     <div className="flex items-center gap-2 shrink-0">
-                        <Link href="https://app.logify.cl"
+                        <Link href="/acceso"
                             className="hidden sm:inline-flex text-sm font-semibold text-brand-2 border-2 border-grey-300 hover:border-brand-2 px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-brand-1 focus:ring-offset-2"
                             aria-label="Acceso Clientes al software Logify"
                         >Acceso Clientes</Link>

@@ -1,19 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import Layout from "@/components/layout/Layout"
+import { slugify } from "@/util/tenant"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.logify.cl"
-
-function slugify(value) {
-    return (value || "")
-        .toLowerCase()
-        .normalize("NFD").replace(/[̀-ͯ]/g, "")
-        .replace(/[^a-z0-9\s-]/g, "")
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .slice(0, 63)
-}
 
 const INITIAL_FORM = {
     companyName: "", slug: "", contactEmail: "",
@@ -95,9 +85,19 @@ export default function Registro() {
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#16BA8F" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                                 </div>
                                 <h2 className="text-brand-2 font-extrabold text-2xl mb-3">Tu cuenta está lista</h2>
-                                <p className="text-grey-500 mb-6">
+                                <p className="text-grey-500 mb-4">
                                     Ingresa con el usuario <strong className="text-brand-2">{success.ownerUsername}</strong> en tu panel:
                                 </p>
+
+                                <div className="bg-brand-1/10 border-2 border-brand-1/30 rounded-xl px-5 py-4 mb-6 text-left">
+                                    <p className="text-xs font-semibold text-grey-500 uppercase tracking-wide mb-1">El nombre de tu negocio en Logify es</p>
+                                    <p className="text-brand-2 font-extrabold text-xl mb-2 break-all">{success.tenantSlug}</p>
+                                    <p className="text-xs text-grey-500 leading-relaxed">
+                                        Guarda este dato: es lo que usas para volver a entrar a tu panel.
+                                        Si alguna vez lo olvidas, entra a <Link href="/acceso" className="text-brand-4 font-semibold">logify.cl/acceso</Link> y te llevamos directo.
+                                    </p>
+                                </div>
+
                                 <p className="mb-8">
                                     <a href={`${success.appUrl}/login`} className="font-bold text-brand-4 break-all">{success.appUrl}/login</a>
                                 </p>

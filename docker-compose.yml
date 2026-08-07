@@ -47,12 +47,14 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
+      - SMTP_REPLY_TO=${SMTP_REPLY_TO:-}
       - APP_URL=${APP_URL}
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
       - SIGNUP_RATE_LIMIT_MAX=${SIGNUP_RATE_LIMIT_MAX:-5}
+      - SUPPORT_WHATSAPP_URL=${SUPPORT_WHATSAPP_URL:-https://wa.me/56938980598}
     ports:
       - "8081:8081"
     depends_on:
@@ -99,6 +101,7 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
+      - SMTP_REPLY_TO=${SMTP_REPLY_TO:-}
       - APP_URL=${APP_URL}
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
