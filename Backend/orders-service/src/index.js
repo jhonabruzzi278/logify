@@ -1,6 +1,6 @@
 ﻿const { createApp } = require('../shared/app');
 const { validateOrderBody, validateOrderStatus } = require('../shared/validate');
-const { sendEmail, buildOrderConfirmationEmail } = require('../shared/email');
+const { sendEmail, buildOrderConfirmationEmail, buildWelcomeEmail } = require('../shared/email');
 const { signToken, authMiddleware, requireRole, requireTenant, extractRoleFromRequest } = require('../shared/auth');
 const { attachTenantDb } = require('../shared/rls');
 const { registerSecurityModule, validatePasswordStrength } = require('./security-module');
@@ -26,6 +26,7 @@ const DEFAULT_TENANT_SLUG = 'logify';
 const RESERVED_TENANT_SLUGS = new Set(['www', 'api', 'app', 'admin', 'mail', 'logify', 'static', 'landing', 'demo', 'status']);
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 const TRIAL_DAYS = 90;
+const SUPPORT_WHATSAPP_URL = process.env.SUPPORT_WHATSAPP_URL || 'https://wa.me/56938980598';
 
 let bcrypt;
 
@@ -435,13 +436,15 @@ app.post('/api/signup', signupRateLimit, async (req, res) => {
     await client.query('COMMIT');
 
     const appUrl = `https://${tenant.slug}.logify.cl`;
-    sendEmail({
-      to: contactEmail.trim(),
-      subject: 'Bienvenido a Logify',
-      html: `<p>Hola ${ownerName.trim()}, tu cuenta de <b>${companyName.trim()}</b> ya está lista.</p>
-             <p>Ingresa en <a href="${appUrl}">${appUrl}</a> con el usuario <b>${owner.username}</b>.</p>
-             <p>Tu prueba gratuita vence el ${trialEndsAt.toLocaleDateString('es-CL')}.</p>`
-    }).catch(() => {});
+    const welcomeEmail = buildWelcomeEmail({
+      ownerName: ownerName.trim(),
+      companyName: companyName.trim(),
+      slug: tenant.slug,
+      ownerUsername: owner.username,
+      trialEndsAt: tenant.trial_ends_at,
+      supportWhatsappUrl: SUPPORT_WHATSAPP_URL
+    });
+    sendEmail({ to: contactEmail.trim(), subject: welcomeEmail.subject, html: welcomeEmail.html }).catch(() => {});
 
     res.status(201).json({ tenantSlug: tenant.slug, appUrl, trialEndsAt: tenant.trial_ends_at, ownerUsername: owner.username });
   } catch (err) {

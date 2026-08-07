@@ -5,9 +5,10 @@ const SMTP_PORT = process.env.SMTP_PORT || '587';
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || 'no-reply@logify.cl';
+const SMTP_REPLY_TO = process.env.SMTP_REPLY_TO || '';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
-async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, subject, html, replyTo }) {
   if (!to) {
     log.warn('Email skipped: no recipient');
     return { sent: false, reason: 'No recipient' };
@@ -27,7 +28,7 @@ async function sendEmail({ to, subject, html }) {
       secure: SMTP_PORT === '465',
       auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
     });
-    await transporter.sendMail({ from: SMTP_FROM, to, subject, html });
+    await transporter.sendMail({ from: SMTP_FROM, to, subject, html, replyTo: replyTo || SMTP_REPLY_TO || undefined });
     log.info('Email sent', { to, subject });
     return { sent: true, to, subject };
   } catch (err) {
@@ -334,6 +335,64 @@ function buildShipmentDeliveredEmail({ customerName, orderId, clientCode, tracki
   };
 }
 
+// ── EMAIL 4: Bienvenida (signup) ───────────────────────────────────────────────
+function buildWelcomeEmail({ ownerName, companyName, slug, ownerUsername, trialEndsAt, supportWhatsappUrl }) {
+  const appUrl = `https://${slug}.logify.cl`;
+  const loginUrl = `${appUrl}/login`;
+  const firstName = escapeHtml(ownerName ? ownerName.split(' ')[0] : 'Hola');
+  const trialDate = trialEndsAt ? new Date(trialEndsAt).toLocaleDateString('es-CL') : '';
+
+  const content = `
+    <!-- Status banner -->
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="background:#E8F5E9;padding:16px 40px" align="center">
+          <span style="font-size:13px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:1px">&#127881; Cuenta creada</span>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Main content -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 40px">
+      <tr>
+        <td>
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0D1B2A">Bienvenido, ${firstName}</h1>
+          <p style="margin:0 0 24px;font-size:15px;color:#64748B;line-height:1.6">
+            La cuenta de <strong style="color:#0D1B2A">${escapeHtml(companyName)}</strong> en Logify ya está lista para usarse.
+          </p>
+
+          <!-- Nombre del negocio / subdominio -->
+          ${codeBlock({
+            label: 'El nombre de tu negocio en Logify es',
+            code: slug,
+            description: 'Guarda este dato: es el que usas para entrar a tu panel<br>(<strong>' + escapeHtml(slug) + '.logify.cl</strong>) cada vez que inicies sesión.',
+            color: '#4B98CF',
+            bgColor: '#EBF4FF'
+          })}
+
+          <table width="100%" cellpadding="0" cellspacing="0">
+            ${infoRow('Tu panel', `${slug}.logify.cl`)}
+            ${infoRow('Usuario', ownerUsername)}
+            ${trialDate ? infoRow('Tu prueba gratuita vence', trialDate) : ''}
+          </table>
+
+          ${ctaButton(loginUrl, 'Ingresar a mi panel →')}
+
+          ${alertBox('&#128161; <strong>Tip:</strong> si alguna vez olvidas el nombre de tu negocio, entra a <a href="https://logify.cl/acceso" style="color:#0D1B2A">logify.cl/acceso</a> y te llevamos directo a tu panel.')}
+
+          ${supportWhatsappUrl ? `<p style="margin:24px 0 0;font-size:14px;color:#64748B;text-align:center;line-height:1.6">
+            ¿Dudas para arrancar? <a href="${escapeHtml(supportWhatsappUrl)}" style="color:#4B98CF;font-weight:700;text-decoration:none">Escríbenos por WhatsApp</a>
+          </p>` : ''}
+        </td>
+      </tr>
+    </table>`;
+
+  return {
+    subject: `Bienvenido a Logify — ${companyName}`,
+    html: layout(content)
+  };
+}
+
 // ── Backwards-compatible wrapper para EN_REPARTO / ENTREGADO ──────────────────
 function buildShipmentUpdateEmail({ customerName, orderId, clientCode, trackingCode, stage }) {
   if (stage === 'ENTREGADO') {
@@ -347,5 +406,6 @@ module.exports = {
   buildOrderConfirmationEmail,
   buildShipmentUpdateEmail,
   buildShipmentInTransitEmail,
-  buildShipmentDeliveredEmail
+  buildShipmentDeliveredEmail,
+  buildWelcomeEmail
 };
