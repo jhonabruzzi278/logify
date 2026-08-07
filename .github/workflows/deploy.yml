@@ -1,0 +1,41 @@
+name: Deploy VPS
+
+# Se dispara cuando el workflow "CI" (.github/workflows/ci.yml) termina
+# de correr sobre main -- nunca antes de que los tests pasen. Vive en un
+# workflow separado (no como job dentro de ci.yml) a proposito: ci.yml
+# tiene concurrency con cancel-in-progress=true (cancela runs viejos del
+# mismo ref cuando llega uno nuevo), y no queremos que un push nuevo
+# pueda matar un deploy a mitad de camino -- este workflow tiene su
+# propio grupo de concurrencia, con cancel-in-progress=false (encola en
+# vez de cancelar).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: vps-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy backend to VPS
+    runs-on: ubuntu-latest
+    # Corre si lo dispara un push a main con CI en verde, o si alguien
+    # lo dispara a mano desde la pestaña Actions (redeploy sin commit
+    # nuevo -- ver wiki/Despliegue-VPS.md).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Deploy vía SSH (Backend/scripts/02-vps-deploy.sh)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            cd ~/logify
+            bash Backend/scripts/02-vps-deploy.sh
