@@ -2,7 +2,7 @@
 
 const faqs = [
     { q: "¿Qué necesito para usar Logify?", a: "Solo un navegador web moderno y conexión a internet. Logify funciona 100% en la nube, no necesitas instalar nada." },
-    { q: "¿Puedo probar Logify antes de pagar?", a: "Sí, ofrecemos 14 días de prueba gratuita en cualquier plan. Sin compromiso y sin necesidad de tarjeta de crédito." },
+    { q: "¿Puedo probar Logify antes de pagar?", a: "Sí, ofrecemos 90 días de prueba gratuita en cualquier plan. Sin compromiso y sin necesidad de tarjeta de crédito." },
     { q: "¿Logify funciona para cualquier tipo de negocio?", a: "Logify está diseñado para pequeños y medianos comercios: almacenes, minimarkets, botillerías, ferias, tiendas de barrio, y cualquier negocio que necesite POS, inventario y despachos." },
     { q: "¿El stock se actualiza automáticamente?", a: "Sí. Cuando vendes desde el POS o confirmas un pedido, el stock se descuenta automáticamente. También recibirás alertas cuando un producto tenga stock crítico." },
     { q: "¿Cómo funciona el sistema de despachos?", a: "Cuando confirmas un pedido, se crea un despacho automáticamente. El repartidor usa un código QR para marcar el retiro, y la entrega se confirma con el código del cliente y su RUT." },

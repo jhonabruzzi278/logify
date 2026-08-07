@@ -28,7 +28,7 @@ export default function Requestquote1() {
                         </h2>
                         <p className="text-lg text-white/80 mb-10">Cuéntanos sobre tu negocio y te mostraremos como Logify puede ayudarte. Sin compromiso, sin tarjeta de credito.</p>
                         <div className="space-y-5">
-                            {[["Demo personalizada","Adaptada a las necesidades de tu negocio"],["14 días de prueba gratis","Acceso completo a todas las funcionalidades"],["Sin compromiso","Cancela cuando quieras, sin preguntas"]].map(([title, desc], i) => (
+                            {[["Demo personalizada","Adaptada a las necesidades de tu negocio"],["90 días de prueba gratis","Acceso completo a todas las funcionalidades"],["Sin compromiso","Cancela cuando quieras, sin preguntas"]].map(([title, desc], i) => (
                                 <div key={i} className="flex items-start gap-4">
                                     <div className="w-12 h-12 rounded-xl bg-brand-1 flex items-center justify-center shrink-0">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#034460" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
