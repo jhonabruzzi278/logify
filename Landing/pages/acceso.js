@@ -27,17 +27,17 @@ export default function Acceso() {
 
                     <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-2xl shadow-black/30">
                         <form onSubmit={handleSubmit}>
-                            <label className="block text-brand-2 font-semibold text-sm mb-1.5">Subdominio de tu empresa</label>
+                            <label htmlFor="slug" className="block text-brand-2 font-semibold text-sm mb-1.5">Subdominio de tu empresa</label>
                             <div className="flex items-stretch">
                                 <input
+                                    id="slug"
                                     name="slug"
                                     type="text"
                                     placeholder="acme"
-                                    autoFocus
                                     required
                                     value={slug}
                                     onChange={(e) => setSlug(e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-r-0 border-grey-300 rounded-l-xl text-sm bg-grey-100 focus:border-brand-1 focus:bg-white outline-none transition-all"
+                                    className="w-full px-4 py-3 border-2 border-r-0 border-grey-300 rounded-l-xl text-sm bg-grey-100 focus:border-brand-1 focus:bg-white outline-none transition-colors"
                                 />
                                 <span className="inline-flex items-center px-3 border-2 border-grey-300 rounded-r-xl bg-grey-200 text-grey-500 text-sm whitespace-nowrap">.logify.cl</span>
                             </div>
@@ -46,7 +46,7 @@ export default function Acceso() {
                             </p>
 
                             <button type="submit"
-                                className="w-full mt-6 flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-4 rounded-xl hover:bg-yellow-400 hover:-translate-y-0.5 transition-all shadow-lg shadow-brand-1/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+                                className="w-full mt-6 flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-4 rounded-xl hover:bg-yellow-400 hover:-translate-y-0.5 transition-colors shadow-lg shadow-brand-1/30 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
                                 aria-label="Ir a mi panel de Logify"
                             >
                                 Ir a mi panel
