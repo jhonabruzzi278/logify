@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, Edit2, Mail, Search, Trash2, UserPlus, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Edit2, Mail, Search, Trash2, UserPlus, X } from "lucide-react";
 import { getRoleProfile } from "@/app/access";
 import { useAuth } from "@/app/auth";
 import { fetchUsers, registerUser, updateUser, deleteUser, inviteUser } from "@/lib/local-jwt-auth";
@@ -33,6 +33,9 @@ export function UsersPage() {
   const [inviteForm, setInviteForm] = useState({ email: "", role: "ops" as Role });
   const [inviting, setInviting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const loadUsers = useCallback(async () => {
     if (!token) return;
@@ -60,14 +63,23 @@ export function UsersPage() {
     return list;
   }, [users, roleFilter, query]);
 
-  async function handleDelete(id: number) {
-    if (!confirm("Eliminar este usuario?")) return;
+  function handleDelete(user: UserRecord) {
+    setDeleteTarget(user);
+    setDeleteConfirmText("");
+  }
+
+  async function confirmDelete() {
+    if (deleteConfirmText.trim() !== deleteTarget?.username) return;
+    setDeleting(true);
     try {
-      await deleteUser(token, id);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      await deleteUser(token, deleteTarget.id);
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
       setFeedback("Usuario eliminado");
+      setDeleteTarget(null);
     } catch (e: any) {
       setFeedback(e.message || "Error al eliminar");
+    } finally {
+      setDeleting(false);
     }
     setTimeout(() => setFeedback(null), 3000);
   }
@@ -287,7 +299,13 @@ export function UsersPage() {
                     )}
                     <p className="text-xs text-[#6B7280]">{user.username}</p>
                   </div>
-                  <button onClick={() => handleDelete(user.id)} className="rounded p-1 text-[#6B7280] hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(user)}
+                    disabled={user.username === session?.username}
+                    title={user.username === session?.username ? "No puedes eliminar tu propia cuenta" : "Eliminar usuario"}
+                    className="rounded p-1 text-[#6B7280] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[#6B7280]"
+                  ><Trash2 className="h-4 w-4" /></button>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs text-[#6B7280]">
                   <span className="font-semibold text-[#4B98CF]">{getRoleProfile(user.role).label}</span>
@@ -382,7 +400,13 @@ export function UsersPage() {
                     {user.last_login_at ? new Date(user.last_login_at).toLocaleString("es-CL") : "Nunca"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(user.id)} className="rounded p-1 text-[#6B7280] hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                    <button
+                    type="button"
+                    onClick={() => handleDelete(user)}
+                    disabled={user.username === session?.username}
+                    title={user.username === session?.username ? "No puedes eliminar tu propia cuenta" : "Eliminar usuario"}
+                    className="rounded p-1 text-[#6B7280] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[#6B7280]"
+                  ><Trash2 className="h-4 w-4" /></button>
                   </td>
                 </tr>
               ))}
@@ -448,6 +472,53 @@ export function UsersPage() {
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-lg border border-[#DCE0E2] bg-white p-5 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[#112b4a]">Eliminar usuario</h3>
+                <p className="mt-1 text-xs text-[#6B7280]">
+                  Vas a eliminar a <strong className="text-[#112b4a]">{deleteTarget.name}</strong> ({deleteTarget.username}).
+                  Esta acción es irreversible y no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <label className="mt-4 block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">
+              Escribe <span className="font-mono normal-case text-red-500">{deleteTarget.username}</span> para confirmar
+            </label>
+            <input
+              autoFocus
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && deleteConfirmText.trim() === deleteTarget.username) confirmDelete(); }}
+              className="mt-1.5 h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm outline-none focus:border-red-400"
+              placeholder={deleteTarget.username}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting || deleteConfirmText.trim() !== deleteTarget.username}
+                className="h-9 rounded bg-red-500 px-4 text-xs font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deleting ? "Eliminando..." : "Eliminar definitivamente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -955,11 +955,12 @@ describe('orders-service', () => {
   // ─── DELETE /api/auth/users/:id ───────────────────────────────────────────────
 
   describe('DELETE /api/auth/users/:id', () => {
-    it('elimina usuario existente', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin' }] });
-      const res = await request(app).delete('/api/auth/users/1');
+    it('elimina usuario existente que no es el propio ni el ultimo admin', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 2, username: 'empleado', role: 'ops' }] }); // SELECT target
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 2, username: 'empleado' }] }); // DELETE ... RETURNING
+      const res = await request(app).delete('/api/auth/users/2');
       expect(res.status).toBe(200);
-      expect(res.body.user.username).toBe('admin');
+      expect(res.body.user.username).toBe('empleado');
     });
 
     it('retorna 404 si no existe', async () => {
@@ -968,10 +969,94 @@ describe('orders-service', () => {
       expect(res.status).toBe(404);
     });
 
+    it('retorna 400 si el usuario intenta eliminar su propia cuenta', async () => {
+      // req.user.sub mockeado es 'admin' (ver mock de shared/auth arriba)
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', role: 'owner' }] });
+      const res = await request(app).delete('/api/auth/users/1');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/propia cuenta/i);
+    });
+
+    it('retorna 400 al intentar eliminar al unico owner del tenant', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 3, username: 'otro-owner', role: 'owner' }] }); // SELECT target
+      mockQuery.mockResolvedValueOnce({ rows: [{ count: 1 }] }); // COUNT owners
+      const res = await request(app).delete('/api/auth/users/3');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/administrador/i);
+    });
+
+    it('permite eliminar a un owner si hay mas de uno en el tenant', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 3, username: 'otro-owner', role: 'owner' }] }); // SELECT target
+      mockQuery.mockResolvedValueOnce({ rows: [{ count: 2 }] }); // COUNT owners
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 3, username: 'otro-owner' }] }); // DELETE ... RETURNING
+      const res = await request(app).delete('/api/auth/users/3');
+      expect(res.status).toBe(200);
+      expect(res.body.user.username).toBe('otro-owner');
+    });
+
     it('retorna 500 si BD falla', async () => {
       mockQuery.mockRejectedValueOnce(new Error('DB down'));
       const res = await request(app).delete('/api/auth/users/1');
       expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── POST /api/admin/tenants/:slug/reset-owner ────────────────────────────────
+
+  describe('POST /api/admin/tenants/:slug/reset-owner', () => {
+    const ADMIN_KEY = 'test-admin-key';
+    const TENANT_ROW = { id: 5, slug: 'tenant-bloqueado', status: 'active' };
+
+    beforeAll(() => { process.env.PLATFORM_ADMIN_KEY = ADMIN_KEY; });
+    afterAll(() => { delete process.env.PLATFORM_ADMIN_KEY; });
+
+    it('retorna 401 sin la clave de administracion', async () => {
+      const res = await request(app)
+        .post('/api/admin/tenants/tenant-bloqueado/reset-owner')
+        .send({ username: 'nuevo.owner', password: 'ClaveFuerte1!', name: 'Nuevo Owner' });
+      expect(res.status).toBe(401);
+    });
+
+    it('retorna 404 si el tenant no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // resolveTenant
+      const res = await request(app)
+        .post('/api/admin/tenants/no-existe/reset-owner')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ username: 'nuevo.owner', password: 'ClaveFuerte1!', name: 'Nuevo Owner' });
+      expect(res.status).toBe(404);
+    });
+
+    it('crea un owner nuevo si el username no existe en el tenant', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] }); // resolveTenant
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT id FROM users (no existe)
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 10, username: 'nuevo.owner', name: 'Nuevo Owner', role: 'owner' }] }); // INSERT
+      const res = await request(app)
+        .post('/api/admin/tenants/tenant-bloqueado/reset-owner')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ username: 'nuevo.owner', password: 'ClaveFuerte1!', name: 'Nuevo Owner' });
+      expect(res.status).toBe(201);
+      expect(res.body.user.role).toBe('owner');
+      expect(res.body.tenantSlug).toBe('tenant-bloqueado');
+    });
+
+    it('resetea password y rol si el username ya existe en el tenant', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] }); // resolveTenant
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] }); // SELECT id FROM users (existe)
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 7, username: 'jarol.ortega', name: 'Jarol Ortega', role: 'owner' }] }); // UPDATE
+      const res = await request(app)
+        .post('/api/admin/tenants/tenant-bloqueado/reset-owner')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ username: 'jarol.ortega', password: 'ClaveFuerte1!', name: 'Jarol Ortega' });
+      expect(res.status).toBe(200);
+      expect(res.body.message).toMatch(/actualizado/i);
+    });
+
+    it('retorna 400 si la contraseña no cumple requisitos minimos', async () => {
+      const res = await request(app)
+        .post('/api/admin/tenants/tenant-bloqueado/reset-owner')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ username: 'nuevo.owner', password: '123', name: 'Nuevo Owner' });
+      expect(res.status).toBe(400);
     });
   });
 

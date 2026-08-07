@@ -525,8 +525,24 @@ app.put('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, requ
 
 app.delete('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
+    const target = (await req.db.query('SELECT id, username, role FROM users WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
+    if (!target) return res.status(404).json({ error: 'Usuario no encontrado' });
+    // req.user.sub es el username del token (ver shared/auth.js signToken) -- el
+    // JWT no lleva el id numerico, por eso se compara por username. Sin este
+    // check un admin puede autoeliminarse y quedar sin forma de volver a
+    // entrar (no hay panel de super-admin todavia, ver Fase 4E pendiente).
+    if (target.username === req.user.sub) {
+      return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta.' });
+    }
+    if (target.role === 'owner') {
+      const ownerCount = (await req.db.query(
+        "SELECT COUNT(*)::int AS count FROM users WHERE tenant_id=$1 AND role='owner'", [req.tenantId]
+      )).rows[0].count;
+      if (ownerCount <= 1) {
+        return res.status(400).json({ error: 'No puedes eliminar al único administrador de la cuenta.' });
+      }
+    }
     const r = await req.db.query('DELETE FROM users WHERE id=$1 AND tenant_id=$2 RETURNING id, username', [req.params.id, req.tenantId]);
-    if (!r.rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json({ message: 'Usuario eliminado', user: r.rows[0] });
   } catch (err) { sendError(res, 500, 'Failed to delete user', err); }
 });
@@ -1066,6 +1082,48 @@ app.post('/api/admin/coupons', requireAdminKey, async (req, res) => {
     if (err.code === '23505') return res.status(409).json({ error: 'Ya existe un cupón con ese código' });
     sendError(res, 500, 'Failed to create coupon', err);
   }
+});
+
+// Recuperacion de tenants bloqueados (ver postmortem
+// 2026-08-07-admin-autoeliminacion.md): si el unico admin de un tenant se
+// elimina a si mismo (bug ya corregido, pero esto recupera cuentas ya
+// afectadas) no hay panel de super-admin para recrearlo. Este endpoint
+// crea o resetea un usuario 'owner' para un tenant via su slug, protegido
+// con el mismo PLATFORM_ADMIN_KEY que /api/admin/coupons.
+app.post('/api/admin/tenants/:slug/reset-owner', requireAdminKey, async (req, res) => {
+  try {
+    const { username, password, name } = req.body;
+    if (!username?.trim()) return res.status(400).json({ error: 'El usuario es obligatorio' });
+    if (!name?.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    const passwordErrors = validatePasswordStrength(password);
+    if (passwordErrors.length) return res.status(400).json({ error: passwordErrors.join('. ') });
+
+    const tenant = await resolveTenant(req.params.slug);
+    if (!tenant) return res.status(404).json({ error: 'Tenant no encontrado' });
+
+    bcrypt = require('bcryptjs');
+    const usernameNorm = username.trim().toLowerCase();
+    const hash = await bcrypt.hash(password, 10);
+    const existing = (await pool.query('SELECT id FROM users WHERE username=$1 AND tenant_id=$2', [usernameNorm, tenant.id])).rows[0];
+
+    let user, created;
+    if (existing) {
+      user = (await pool.query(
+        `UPDATE users SET password_hash=$1, role='owner', name=$2, updated_at=NOW() WHERE id=$3
+         RETURNING id, username, name, role`,
+        [hash, name.trim(), existing.id]
+      )).rows[0];
+      created = false;
+    } else {
+      user = (await pool.query(
+        `INSERT INTO users (username, password_hash, name, role, tenant_id)
+         VALUES ($1,$2,$3,'owner',$4) RETURNING id, username, name, role`,
+        [usernameNorm, hash, name.trim(), tenant.id]
+      )).rows[0];
+      created = true;
+    }
+    res.status(created ? 201 : 200).json({ message: created ? 'Owner creado' : 'Owner actualizado', user, tenantSlug: tenant.slug });
+  } catch (err) { sendError(res, 500, 'Failed to reset tenant owner', err); }
 });
 
 app.get('/api/admin/coupons', requireAdminKey, async (req, res) => {
