@@ -76,16 +76,19 @@ ssh-copy-id deploy@IP_DEL_VPS
 
 ## 3. DNS
 
-En el panel de tu dominio, agregá un registro **A** apuntando el
-subdominio de la API a la IP del VPS:
+En el panel de tu dominio, agregá dos registros **A** apuntando a la IP
+del VPS: uno para la API y otro para la página pública de status
+(Uptime Kuma, ver [Monitoreo.md](Monitoreo.md)):
 
 ```
 Tipo   Nombre   Valor
 A      api      <IP_DEL_VPS>
+A      status   <IP_DEL_VPS>
 ```
 
-Esto deja `api.tu-dominio.cl` resuelto al VPS. Esperá unos minutos a que
-propague (`dig api.tu-dominio.cl` para confirmar).
+Esto deja `api.tu-dominio.cl` y `status.tu-dominio.cl` resueltos al VPS.
+Esperá unos minutos a que propague (`dig api.tu-dominio.cl` y
+`dig status.tu-dominio.cl` para confirmar).
 
 ---
 
@@ -107,12 +110,16 @@ POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=')   # generalo y pegalo
 JWT_SECRET=$(openssl rand -base64 48)                         # generalo y pegalo, distinto al de local
 ALLOWED_ORIGINS=https://tu-dominio.cl,https://www.tu-dominio.cl,https://tu-proyecto.vercel.app
 API_DOMAIN=api.tu-dominio.cl
+STATUS_DOMAIN=status.tu-dominio.cl
 ACME_EMAIL=tu-correo@tu-dominio.cl
 ```
 
-`API_DOMAIN` y `ACME_EMAIL` los usa Caddy para pedir el certificado TLS
-automáticamente contra Let's Encrypt — no hace falta tocar certbot ni nada
-manual.
+`API_DOMAIN`, `STATUS_DOMAIN` y `ACME_EMAIL` los usa Caddy para pedir los
+certificados TLS automáticamente contra Let's Encrypt — no hace falta
+tocar certbot ni nada manual. **Los tres son obligatorios**:
+`docker-compose.prod.yml` falla explícitamente al levantar Caddy si falta
+alguno (incluido `STATUS_DOMAIN`, aunque no uses la página de status
+todavía — podés apuntarlo igual y simplemente no anunciarla).
 
 `ALLOWED_ORIGINS` debe listar los dominios **reales** desde donde el
 frontend en Vercel va a llamar a la API (CORS los rechaza si no están acá).
@@ -143,7 +150,16 @@ docker compose -f docker-compose.prod.yml logs -f caddy
 
 ---
 
-## 6. Apuntar el frontend (Vercel) a la nueva API
+## 6. Configurar Uptime Kuma (status.tu-dominio.cl)
+
+Entrá a `https://status.tu-dominio.cl` — la primera vez pide crear el
+usuario admin. Después, seguí [Monitoreo.md](Monitoreo.md) para agregar
+los monitores recomendados (los 4 microservicios, el gateway, frontend y
+landing) y las notificaciones.
+
+---
+
+## 7. Apuntar el frontend (Vercel) a la nueva API
 
 En el proyecto de Vercel (Frontend), agregar/actualizar la variable de entorno:
 
@@ -155,7 +171,7 @@ y redeployar. El resto de la configuración de Vercel no cambia.
 
 ---
 
-## 7. Backups de Postgres
+## 8. Backups de Postgres
 
 Corré el script de post-clone, que activa el backup automático:
 
@@ -182,7 +198,7 @@ gunzip -c Backend/postgres/backups/orders_db_2026-08-05.sql.gz | \
 
 ---
 
-## 8. Logs
+## 9. Logs
 
 La rotación de logs de Docker ya quedó configurada por el script del
 paso 2 (`00-vps-server-setup.sh`) — sin eso, Docker no rota logs y con
@@ -196,7 +212,7 @@ docker compose -f docker-compose.prod.yml logs -f orders-service
 
 ---
 
-## 9. Actualizar (redeploy)
+## 10. Actualizar (redeploy)
 
 ```bash
 cd logify
@@ -207,22 +223,24 @@ docker compose -f docker-compose.prod.yml up -d --build
 Esto reconstruye solo las imágenes cuyo código cambió y recrea esos
 contenedores; Postgres no se toca (mismo volumen).
 
-> **Antes de mergear a la rama que despliega**: el CI (`.github/workflows/ci.yml`)
-> ya corre `npm test` en los 4 servicios de `Backend/`, Frontend y Landing
-> en cada PR — revisá que esté verde antes de mergear.
+> `main` tiene branch protection: no se puede pushear directo ni mergear un
+> PR si el CI (`.github/workflows/ci.yml`) no está en verde — ver
+> [Flujo-Git.md](Flujo-Git.md). El `git pull` de este paso siempre trae
+> código que ya pasó tests.
 
 ---
 
-## 10. Pendientes recomendados (no bloqueantes, pero valen la pena)
+## 11. Pendientes recomendados (no bloqueantes, pero valen la pena)
 
 - ~~**CI/CD**~~ ✅ Hecho — `.github/workflows/ci.yml` corre tests en los
   4 microservicios, Frontend (typecheck + vitest + build) y Landing
-  (build) en cada PR y push a `main`.
-- **Monitoreo básico**: un uptime checker externo gratuito (UptimeRobot,
-  Better Uptime) pegándole a `/healthz` cada 5 min, con alerta a tu correo.
-  Requiere crear una cuenta ahí — no es algo automatizable desde el repo,
-  pero toma 2 minutos: registrate, agregá un monitor HTTP(S) apuntando a
-  `https://api.tu-dominio.cl/healthz`, y configurá el intervalo en 5 min.
+  (build) en cada PR y push a `main`, con branch protection obligatoria
+  en `main` (ver [Flujo-Git.md](Flujo-Git.md)).
+- ~~**Monitoreo básico**~~ ✅ Hecho — Uptime Kuma self-hosted en
+  `status.tu-dominio.cl` (paso 6 de esta guía), ver
+  [Monitoreo.md](Monitoreo.md) para configurar los monitores y
+  notificaciones. Ya no hace falta una cuenta externa (UptimeRobot,
+  Better Uptime, etc.) como se sugería acá antes.
 - **Alertas de disco**: en un VPS chico, un log o backup que crece sin
   límite puede llenar el disco silenciosamente. Un check de cron simple
   (`df -h` + email si pasa 80%) es suficiente para este tamaño de proyecto.
