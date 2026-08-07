@@ -4,6 +4,7 @@ const { sendEmail, buildOrderConfirmationEmail } = require('../shared/email');
 const { signToken, authMiddleware, requireRole, requireTenant, extractRoleFromRequest } = require('../shared/auth');
 const { attachTenantDb } = require('../shared/rls');
 const { registerSecurityModule, validatePasswordStrength } = require('./security-module');
+const { requireAdminKey } = require('../shared/admin');
 const log = require('../shared/logger');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
@@ -13,6 +14,10 @@ const withTenantDb = attachTenantDb(runtimePool);
 
 const INVENTORY_URL = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:8082';
 const SHIPPING_URL = process.env.SHIPPING_SERVICE_URL || 'http://shipping-service:8084';
+// Trafico interno entre contenedores dentro de la red privada de Docker
+// (logify-net), nunca sale a internet -- mismo patron que INVENTORY_URL/
+// SHIPPING_URL arriba, que ya usan http:// sin TLS por el mismo motivo.
+const NOTIFICATION_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8085'; // NOSONAR
 const DEFAULT_TENANT_SLUG = 'logify';
 
 // Fase 4E del roadmap multi-tenant: mismos slugs reservados que ya usa el
@@ -1056,18 +1061,8 @@ app.post('/api/auth/invite/:token/accept', async (req, res) => {
 // ═══ ADMIN DE CUPONES (Fase 4E) ═══════════════════════════════════════════════════
 // No hay rol de super-admin en el sistema todavia (ver wiki/Multi-Tenant.md,
 // Fase 4E pendiente: panel de super-admin). Mientras tanto, estos endpoints
-// se protegen con un secreto compartido de plataforma via header, pensados
-// para gestionarse por curl/Postman, no por UI.
-function requireAdminKey(req, res, next) {
-  const configured = process.env.PLATFORM_ADMIN_KEY;
-  if (!configured) return res.status(503).json({ error: 'PLATFORM_ADMIN_KEY no configurado' });
-  const provided = req.headers['x-admin-key'];
-  if (!provided || provided !== configured) {
-    return res.status(401).json({ error: 'Clave de administración inválida' });
-  }
-  next();
-}
-
+// se protegen con un secreto compartido de plataforma via header (ver
+// shared/admin.js), pensados para gestionarse por curl/Postman, no por UI.
 app.post('/api/admin/coupons', requireAdminKey, async (req, res) => {
   try {
     const { code, extraTrialDays, maxRedemptions, expiresAt } = req.body;
@@ -1124,6 +1119,72 @@ app.post('/api/admin/tenants/:slug/reset-owner', requireAdminKey, async (req, re
     }
     res.status(created ? 201 : 200).json({ message: created ? 'Owner creado' : 'Owner actualizado', user, tenantSlug: tenant.slug });
   } catch (err) { sendError(res, 500, 'Failed to reset tenant owner', err); }
+});
+
+// Eliminacion completa e irreversible de un tenant y todos sus datos. Los 4
+// microservicios tienen bases de datos separadas (Postgres no soporta FK
+// cross-database, ver Backend/shared/app.js), asi que este endpoint orquesta
+// la purga en inventory-service, shipping-service y notification-service via
+// HTTP interno antes de borrar los datos propios de orders-service y,
+// finalmente, la fila de tenants. No hay soft-delete ni papelera: pensado
+// para gestionarse por curl con el mismo PLATFORM_ADMIN_KEY, requiriendo
+// re-escribir el slug en el body como confirmacion extra (un typo en la URL
+// no alcanza para borrar el tenant equivocado).
+app.delete('/api/admin/tenants/:slug', requireAdminKey, async (req, res) => {
+  const slug = (req.params.slug || '').trim().toLowerCase();
+  try {
+    if (slug === DEFAULT_TENANT_SLUG) {
+      return res.status(400).json({ error: 'No se puede eliminar el tenant demo de la plataforma' });
+    }
+    if (req.body?.confirmSlug !== slug) {
+      return res.status(400).json({ error: 'Falta confirmar: confirmSlug en el body debe ser igual al slug de la URL' });
+    }
+    const tenant = await resolveTenant(slug);
+    if (!tenant) return res.status(404).json({ error: 'Tenant no encontrado' });
+
+    const adminKey = process.env.PLATFORM_ADMIN_KEY;
+    const remoteServices = [
+      { name: 'inventory-service', url: `${INVENTORY_URL}/api/admin/tenants/${tenant.id}/purge` },
+      { name: 'shipping-service', url: `${SHIPPING_URL}/api/admin/tenants/${tenant.id}/purge` },
+      { name: 'notification-service', url: `${NOTIFICATION_URL}/api/admin/tenants/${tenant.id}/purge` },
+    ];
+    const purged = {};
+    for (const { name, url } of remoteServices) {
+      let response;
+      try {
+        response = await fetch(url, { method: 'DELETE', headers: { 'x-admin-key': adminKey } });
+      } catch (err) {
+        return res.status(502).json({ error: `No se pudo contactar a ${name}: ${err.message}`, purgedSoFar: purged });
+      }
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        return res.status(502).json({ error: `Fallo al purgar ${name}: HTTP ${response.status} ${body}`, purgedSoFar: purged });
+      }
+      purged[name] = await response.json().catch(() => ({}));
+    }
+
+    // Todos los servicios remotos purgaron OK -- recien ahora se tocan los
+    // datos locales (orden inverso al del reintento: si esto fallara, el
+    // DELETE completo es reintentable porque los DELETE WHERE tenant_id=$1
+    // de arriba son idempotentes).
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const localCounts = {};
+      for (const table of ['customer_credit_movements', 'orders', 'customers', 'user_invitations', 'users', 'coupon_redemptions']) {
+        const r = await client.query(`DELETE FROM ${table} WHERE tenant_id=$1`, [tenant.id]);
+        localCounts[table] = r.rowCount;
+      }
+      await client.query('DELETE FROM tenants WHERE id=$1', [tenant.id]);
+      await client.query('COMMIT');
+      res.json({ message: 'Tenant eliminado completamente', tenantSlug: slug, purged: { ...purged, 'orders-service': localCounts } });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) { sendError(res, 500, 'Failed to delete tenant', err); }
 });
 
 app.get('/api/admin/coupons', requireAdminKey, async (req, res) => {

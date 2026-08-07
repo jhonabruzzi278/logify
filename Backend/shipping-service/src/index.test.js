@@ -19,7 +19,9 @@ const request = require('supertest');
 const { createPool } = require('../shared/db');
 
 const mockQuery = jest.fn();
-createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn() });
+const mockClientRelease = jest.fn();
+const mockClient = { query: mockQuery, release: mockClientRelease };
+createPool.mockReturnValue({ query: mockQuery, connect: jest.fn().mockResolvedValue(mockClient), on: jest.fn(), end: jest.fn() });
 
 const { app, ensureTables, ensureTenantColumns, ensureTenantConstraints } = require('./index');
 
@@ -574,6 +576,43 @@ describe('shipping-service', () => {
         return Promise.resolve({ ok: true, json: async () => ({}) });
       });
       const res = await request(app).get('/api/shipments/1/route?dest_lat=-33.5&dest_lon=-70.7');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── DELETE /api/admin/tenants/:tenantId/purge ────────────────────────────────
+
+  describe('DELETE /api/admin/tenants/:tenantId/purge', () => {
+    const ADMIN_KEY = 'test-admin-key';
+    beforeAll(() => { process.env.PLATFORM_ADMIN_KEY = ADMIN_KEY; });
+    afterAll(() => { delete process.env.PLATFORM_ADMIN_KEY; });
+
+    it('retorna 401 sin la clave de administracion', async () => {
+      const res = await request(app).delete('/api/admin/tenants/5/purge');
+      expect(res.status).toBe(401);
+    });
+
+    it('retorna 400 para tenantId invalido', async () => {
+      const res = await request(app).delete('/api/admin/tenants/abc/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 400 al intentar purgar el tenant demo (id=1)', async () => {
+      const res = await request(app).delete('/api/admin/tenants/1/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(400);
+    });
+
+    it('purga shipments y processed_events y retorna los conteos', async () => {
+      mockQuery.mockResolvedValue({ rows: [], rowCount: 3 });
+      const res = await request(app).delete('/api/admin/tenants/5/purge').set('x-admin-key', ADMIN_KEY);
+      expect(res.status).toBe(200);
+      expect(res.body.tenantId).toBe(5);
+      expect(res.body.counts).toMatchObject({ shipments: 3, processed_events: 3 });
+    });
+
+    it('retorna 500 si BD falla', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+      const res = await request(app).delete('/api/admin/tenants/5/purge').set('x-admin-key', ADMIN_KEY);
       expect(res.status).toBe(500);
     });
   });

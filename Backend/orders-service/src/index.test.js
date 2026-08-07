@@ -1060,6 +1060,79 @@ describe('orders-service', () => {
     });
   });
 
+  // ─── DELETE /api/admin/tenants/:slug ──────────────────────────────────────────
+
+  describe('DELETE /api/admin/tenants/:slug', () => {
+    const ADMIN_KEY = 'test-admin-key';
+    const TENANT_ROW = { id: 9, slug: 'la-isla-barber-studio', status: 'active' };
+
+    beforeAll(() => { process.env.PLATFORM_ADMIN_KEY = ADMIN_KEY; });
+    afterAll(() => { delete process.env.PLATFORM_ADMIN_KEY; });
+
+    it('retorna 401 sin la clave de administracion', async () => {
+      const res = await request(app).delete('/api/admin/tenants/la-isla-barber-studio')
+        .send({ confirmSlug: 'la-isla-barber-studio' });
+      expect(res.status).toBe(401);
+    });
+
+    it('retorna 400 si se intenta eliminar el tenant demo de la plataforma', async () => {
+      const res = await request(app).delete('/api/admin/tenants/logify')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ confirmSlug: 'logify' });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 400 si confirmSlug no coincide con el slug de la URL', async () => {
+      const res = await request(app).delete('/api/admin/tenants/la-isla-barber-studio')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ confirmSlug: 'otro-slug' });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 404 si el tenant no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // resolveTenant
+      const res = await request(app).delete('/api/admin/tenants/no-existe')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ confirmSlug: 'no-existe' });
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 502 y no toca datos locales si falla la purga de un servicio remoto', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] }); // resolveTenant
+      global.fetch = jest.fn().mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'boom' });
+      const res = await request(app).delete('/api/admin/tenants/la-isla-barber-studio')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ confirmSlug: 'la-isla-barber-studio' });
+      expect(res.status).toBe(502);
+      expect(res.body.error).toMatch(/inventory-service/i);
+    });
+
+    it('retorna 502 si no se puede contactar a un servicio remoto', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] }); // resolveTenant
+      global.fetch = jest.fn().mockRejectedValueOnce(new Error('ECONNREFUSED'));
+      const res = await request(app).delete('/api/admin/tenants/la-isla-barber-studio')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ confirmSlug: 'la-isla-barber-studio' });
+      expect(res.status).toBe(502);
+    });
+
+    it('purga los 3 servicios remotos y los datos locales, y elimina el tenant', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [TENANT_ROW] }); // resolveTenant
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ counts: { x: 1 } }) });
+      mockQuery.mockResolvedValue({ rows: [], rowCount: 1 }); // deletes locales dentro de la transaccion
+      const res = await request(app).delete('/api/admin/tenants/la-isla-barber-studio')
+        .set('x-admin-key', ADMIN_KEY)
+        .send({ confirmSlug: 'la-isla-barber-studio' });
+      expect(res.status).toBe(200);
+      expect(res.body.tenantSlug).toBe('la-isla-barber-studio');
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(res.body.purged).toHaveProperty('inventory-service');
+      expect(res.body.purged).toHaveProperty('shipping-service');
+      expect(res.body.purged).toHaveProperty('notification-service');
+      expect(res.body.purged).toHaveProperty('orders-service');
+    });
+  });
+
   // ─── GET /api/orders/track/:clientCode (publico) ─────────────────────────────
 
   describe('GET /api/orders/track/:clientCode', () => {
