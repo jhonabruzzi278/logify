@@ -1093,8 +1093,8 @@ app.post('/api/admin/coupons', requireAdminKey, async (req, res) => {
 app.post('/api/admin/tenants/:slug/reset-owner', requireAdminKey, async (req, res) => {
   try {
     const { username, password, name } = req.body;
-    if (!username || !username.trim()) return res.status(400).json({ error: 'El usuario es obligatorio' });
-    if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    if (!username?.trim()) return res.status(400).json({ error: 'El usuario es obligatorio' });
+    if (!name?.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
     const passwordErrors = validatePasswordStrength(password);
     if (passwordErrors.length) return res.status(400).json({ error: passwordErrors.join('. ') });
 

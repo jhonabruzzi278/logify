@@ -69,7 +69,7 @@ export function UsersPage() {
   }
 
   async function confirmDelete() {
-    if (!deleteTarget || deleteConfirmText.trim() !== deleteTarget.username) return;
+    if (deleteConfirmText.trim() !== deleteTarget?.username) return;
     setDeleting(true);
     try {
       await deleteUser(token, deleteTarget.id);
@@ -300,6 +300,7 @@ export function UsersPage() {
                     <p className="text-xs text-[#6B7280]">{user.username}</p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleDelete(user)}
                     disabled={user.username === session?.username}
                     title={user.username === session?.username ? "No puedes eliminar tu propia cuenta" : "Eliminar usuario"}
@@ -400,6 +401,7 @@ export function UsersPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
+                    type="button"
                     onClick={() => handleDelete(user)}
                     disabled={user.username === session?.username}
                     title={user.username === session?.username ? "No puedes eliminar tu propia cuenta" : "Eliminar usuario"}
@@ -499,12 +501,14 @@ export function UsersPage() {
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setDeleteTarget(null)}
                 className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]"
               >
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={confirmDelete}
                 disabled={deleting || deleteConfirmText.trim() !== deleteTarget.username}
                 className="h-9 rounded bg-red-500 px-4 text-xs font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
