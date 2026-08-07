@@ -1,4 +1,4 @@
-import { readApiConfig } from "@/lib/api-config";
+import { getTenantSlug, readApiConfig } from "@/lib/api-config";
 
 async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
@@ -9,9 +9,16 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
   }
 }
 
+function tenantHeaders(extra?: Record<string, string>): Record<string, string> {
+  const tenantSlug = getTenantSlug();
+  return { ...(extra ?? {}), ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) };
+}
+
 export async function getSecretQuestion(username: string): Promise<string> {
   const { baseUrl } = readApiConfig();
-  const response = await fetch(`${baseUrl}/api/security/forgot-password/question?username=${encodeURIComponent(username.trim().toLowerCase())}`);
+  const response = await fetch(`${baseUrl}/api/security/forgot-password/question?username=${encodeURIComponent(username.trim().toLowerCase())}`, {
+    headers: tenantHeaders(),
+  });
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response, "No se pudo obtener la pregunta secreta."));
   }
@@ -23,7 +30,7 @@ export async function verifySecretAnswer(username: string, secretAnswer: string)
   const { baseUrl } = readApiConfig();
   const response = await fetch(`${baseUrl}/api/security/forgot-password/verify`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: tenantHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ username: username.trim().toLowerCase(), secretAnswer }),
   });
   if (!response.ok) {
@@ -37,7 +44,7 @@ export async function resetPasswordWithToken(resetToken: string, newPassword: st
   const { baseUrl } = readApiConfig();
   const response = await fetch(`${baseUrl}/api/security/forgot-password/reset`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: tenantHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ resetToken, newPassword, confirmPassword }),
   });
   if (!response.ok) {
