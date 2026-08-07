@@ -8,8 +8,10 @@
 
 ## Status
 - [x] Inception Phase — complete (retroactively reconstructed from README, wiki/, and code; no formal PRD/backlog tool was used, but intent, roles, and business flow are fully documented in `wiki/`)
-- [x] Construction Phase — mostly complete (4 working microservices, RBAC, Saga order flow, 164–212 tests depending on source — see discrepancy note in `testing/TEST_COVERAGE_REPORT.md` — but **no CI/CD pipeline** currently wired)
-- [ ] Operations Phase — partial/pending (deployment runbook and IaC-lite config exist and are detailed, but the project's own `RENDER_DEPLOY.md` "production readiness checklist" is unchecked, and there is no monitoring, structured logging, alerting, or SLA in place)
+- [x] Construction Phase — complete (4 working microservices, RBAC, Saga order flow, 464+ tests + 15 E2E, CI/CD wired via `.github/workflows/ci.yml` with branch protection)
+- [x] Operations Phase — **activa desde 2026-08-06**: el backend corre en un VPS propio (`wiki/Despliegue-VPS.md`), Frontend/Landing en Vercel, con tráfico real sirviéndose en `logify.cl`/`app.logify.cl`/`api.logify.cl`. Monitoreo básico vía Uptime Kuma (`status.logify.cl`). Ya hubo un incidente real de producción, documentado en `operations/POST_MORTEMS/2026-08-06-signup-404-produccion.md` — el runbook de `wiki/Despliegue-VPS.md` sigue siendo manual (sin CD automático), que fue justamente la causa raíz de ese incidente.
+
+**Nota:** la sección "Notas del Análisis Automático" de abajo describe el estado tal como se auditó el 2026-07-19 y ya no es exacta en varios puntos (deploy en Render, sin CI/CD, sin tráfico real) — se conserva como registro histórico del razonamiento de esa auditoría, no como estado actual. Ver `deployment/DEPLOYMENT_CHECKLIST.md` para el checklist actualizado al 2026-08-06.
 
 ## Quick Links
 - Requirements: [aidlc-docs/requirements/](./requirements/)

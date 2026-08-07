@@ -1,5 +1,5 @@
 # Post-Mortems
 
-**⚠️ Pendiente — no hay incidentes de producción documentados.** El proyecto no ha operado con tráfico real en producción según la evidencia disponible (ver `00_PROJECT_METADATA.md`).
+Un archivo por incidente (`YYYY-MM-DD-titulo-breve.md`) con: línea de tiempo, causa raíz, impacto, y acciones de seguimiento.
 
-Cuando ocurra un incidente real, documentar aquí un archivo por incidente (`YYYY-MM-DD-titulo-breve.md`) con: línea de tiempo, causa raíz, impacto, y acciones de seguimiento.
+- [2026-08-06 — `/api/signup` inalcanzable en producción (404)](./2026-08-06-signup-404-produccion.md)

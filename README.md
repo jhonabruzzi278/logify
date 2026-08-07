@@ -471,4 +471,4 @@ Documentación completa en [`/aidlc-docs/`](./aidlc-docs/):
 - [Deployment Checklist](./aidlc-docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Operations](./aidlc-docs/operations/) *(mayormente pendiente — el proyecto aún no opera en producción real)*
 
-Última auditoría: 2026-07-19
+Última auditoría: 2026-08-06 (production-readiness + incidente real documentado — ver `operations/POST_MORTEMS/`)
