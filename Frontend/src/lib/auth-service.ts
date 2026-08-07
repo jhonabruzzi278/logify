@@ -1,5 +1,5 @@
 import type { Role } from "@/types/domain";
-import { readApiConfig } from "@/lib/api-config";
+import { getTenantSlug, readApiConfig } from "@/lib/api-config";
 
 export interface LoginCredentials {
   username: string;
@@ -40,9 +40,13 @@ function parseExpiry(token: string): number {
  */
 export async function loginWithBackend(credentials: LoginCredentials): Promise<Session> {
   const { baseUrl } = readApiConfig();
+  const tenantSlug = getTenantSlug();
   const response = await fetch(`${baseUrl}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}),
+    },
     body: JSON.stringify({
       username: credentials.username.trim().toLowerCase(),
       password: credentials.password,
