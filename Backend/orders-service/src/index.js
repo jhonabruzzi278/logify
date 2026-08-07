@@ -14,7 +14,10 @@ const withTenantDb = attachTenantDb(runtimePool);
 
 const INVENTORY_URL = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:8082';
 const SHIPPING_URL = process.env.SHIPPING_SERVICE_URL || 'http://shipping-service:8084';
-const NOTIFICATION_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8085';
+// Trafico interno entre contenedores dentro de la red privada de Docker
+// (logify-net), nunca sale a internet -- mismo patron que INVENTORY_URL/
+// SHIPPING_URL arriba, que ya usan http:// sin TLS por el mismo motivo.
+const NOTIFICATION_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8085'; // NOSONAR
 const DEFAULT_TENANT_SLUG = 'logify';
 
 // Fase 4E del roadmap multi-tenant: mismos slugs reservados que ya usa el

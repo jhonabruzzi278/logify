@@ -19,7 +19,9 @@ const request = require('supertest');
 const { createPool } = require('../shared/db');
 
 const mockQuery = jest.fn();
-createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn() });
+const mockClientRelease = jest.fn();
+const mockClient = { query: mockQuery, release: mockClientRelease };
+createPool.mockReturnValue({ query: mockQuery, connect: jest.fn().mockResolvedValue(mockClient), on: jest.fn(), end: jest.fn() });
 
 const { app, ensureTables, ensureTenantColumns, ensureTenantConstraints } = require('./index');
 

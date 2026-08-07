@@ -1,7 +1,7 @@
 const { createApp } = require('../shared/app');
 const { validateInventoryBody, validateSaleBody } = require('../shared/validate');
 const { authMiddleware, requireTenant, requireRole } = require('../shared/auth');
-const { requireAdminKey } = require('../shared/admin');
+const { requireAdminKey, createTenantPurgeHandler } = require('../shared/admin');
 const log = require('../shared/logger');
 
 const { app, pool, sendError, start } = createApp('inventory_db', process.env.PORT || 8082);
@@ -835,29 +835,9 @@ app.post('/api/inventory/import', authMiddleware, requireTenant, requireRole('ow
 // Purga total de un tenant (llamada internamente por orders-service al
 // eliminar una empresa completa, ver DELETE /api/admin/tenants/:slug ahi).
 // Protegida con el mismo PLATFORM_ADMIN_KEY -- ver shared/admin.js.
-app.delete('/api/admin/tenants/:tenantId/purge', requireAdminKey, async (req, res) => {
-  const tenantId = parseInt(req.params.tenantId, 10);
-  if (!Number.isInteger(tenantId) || tenantId <= 0) return res.status(400).json({ error: 'tenantId invalido' });
-  if (tenantId === 1) return res.status(400).json({ error: 'No se puede purgar el tenant demo (id=1)' });
-  try {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const counts = {};
-      for (const table of ['sales', 'purchases', 'cash_sessions', 'processed_events', 'inventory', 'suppliers']) {
-        const r = await client.query(`DELETE FROM ${table} WHERE tenant_id=$1`, [tenantId]);
-        counts[table] = r.rowCount;
-      }
-      await client.query('COMMIT');
-      res.json({ message: 'inventory-service purgado', tenantId, counts });
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw err;
-    } finally {
-      client.release();
-    }
-  } catch (err) { sendError(res, 500, 'Failed to purge tenant data', err); }
-});
+app.delete('/api/admin/tenants/:tenantId/purge', requireAdminKey, createTenantPurgeHandler(
+  pool, ['sales', 'purchases', 'cash_sessions', 'processed_events', 'inventory', 'suppliers'], 'inventory-service'
+));
 
 if (require.main === module) {
   (async () => { await ensureTables(); await ensureTenantConstraints(); await ensureProcedures(); start(); })();

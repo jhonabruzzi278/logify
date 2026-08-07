@@ -2,7 +2,7 @@ const webpush = require('web-push');
 const { createApp } = require('../shared/app');
 const { validateNotificationBody } = require('../shared/validate');
 const { authMiddleware, requireTenant } = require('../shared/auth');
-const { requireAdminKey } = require('../shared/admin');
+const { requireAdminKey, createTenantPurgeHandler } = require('../shared/admin');
 const log = require('../shared/logger');
 
 const { app, pool, sendError, start } = createApp('notification_db', process.env.PORT || 8085);
@@ -248,19 +248,9 @@ app.delete('/api/notifications', authMiddleware, requireTenant, async (req, res)
 
 // Purga total de un tenant (llamada internamente por orders-service al
 // eliminar una empresa completa, ver DELETE /api/admin/tenants/:slug ahi).
-app.delete('/api/admin/tenants/:tenantId/purge', requireAdminKey, async (req, res) => {
-  const tenantId = parseInt(req.params.tenantId, 10);
-  if (!Number.isInteger(tenantId) || tenantId <= 0) return res.status(400).json({ error: 'tenantId invalido' });
-  if (tenantId === 1) return res.status(400).json({ error: 'No se puede purgar el tenant demo (id=1)' });
-  try {
-    const counts = {};
-    for (const table of ['notification_records', 'push_subscriptions']) {
-      const r = await pool.query(`DELETE FROM ${table} WHERE tenant_id=$1`, [tenantId]);
-      counts[table] = r.rowCount;
-    }
-    res.json({ message: 'notification-service purgado', tenantId, counts });
-  } catch (err) { sendError(res, 500, 'Failed to purge tenant data', err); }
-});
+app.delete('/api/admin/tenants/:tenantId/purge', requireAdminKey, createTenantPurgeHandler(
+  pool, ['notification_records', 'push_subscriptions'], 'notification-service'
+));
 
 if (require.main === module) {
   (async () => { await ensureTables(); await ensureTenantConstraints(); start(); })();
