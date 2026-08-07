@@ -32,6 +32,11 @@ services:
     restart: unless-stopped
     environment:
       - DB_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en tu .env (ver .env.example)}@postgres-db:5432/orders_db
+      # Rol restringido (sin BYPASSRLS) para las queries de request -- ver
+      # Backend/shared/rls.js y wiki/Seguridad-y-RLS.md. DB_URL (arriba, rol
+      # postgres/superusuario) sigue usandose solo para migraciones al arrancar.
+      - DB_RUNTIME_URL=postgresql://app_runtime:${DB_RUNTIME_PASSWORD:?Definí DB_RUNTIME_PASSWORD en tu .env, generalo con openssl rand -base64 32}@postgres-db:5432/orders_db
+      - DB_RUNTIME_PASSWORD=${DB_RUNTIME_PASSWORD:?Definí DB_RUNTIME_PASSWORD en tu .env, generalo con openssl rand -base64 32}
       - INVENTORY_SERVICE_URL=http://inventory-service:8082
       - SHIPPING_SERVICE_URL=http://shipping-service:8084
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173}
@@ -45,6 +50,8 @@ services:
       - JWT_SECRET=${JWT_SECRET:?Definí JWT_SECRET en tu .env, generalo con openssl rand -base64 48}
       - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
+      - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
+      - SIGNUP_RATE_LIMIT_MAX=${SIGNUP_RATE_LIMIT_MAX:-5}
     ports:
       - "8081:8081"
     depends_on:

@@ -47,7 +47,7 @@ ufw status
 
 echo "==> Instalando Docker..."
 if ! command -v docker >/dev/null 2>&1; then
-  curl -fsSL https://get.docker.com | sh
+  curl -fsSL --proto '=https' --tlsv1.2 https://get.docker.com | sh
 else
   echo "Docker ya esta instalado, se omite."
 fi

@@ -72,7 +72,14 @@ function createApp(dbName, port) {
   app.use(express.json({ limit: '1mb' }));
   app.use(extractTenantSlug);
 
+  // "pool" conecta como superusuario (DB_URL) y se usa solo para DDL/migraciones
+  // al arrancar (ensureTables, etc). "runtimePool" conecta con un rol restringido
+  // sin BYPASSRLS (DB_RUNTIME_URL) y es el que deben usar los request handlers
+  // via attachTenantDb (ver shared/rls.js) -- un superusuario ignora las
+  // politicas RLS sin importar FORCE ROW LEVEL SECURITY, asi que las queries
+  // de request nunca deben correr sobre "pool" en un servicio con RLS activo.
   const pool = createPool(dbName);
+  const runtimePool = process.env.DB_RUNTIME_URL ? createPool(dbName, process.env.DB_RUNTIME_URL) : null;
 
   app.get('/health', async (_req, res) => {
     try {
@@ -90,10 +97,10 @@ function createApp(dbName, port) {
 
   async function start() {
     const server = app.listen(port, () => log.info(`${dbName} running on port ${port}`));
-    gracefulShutdown(server, pool, null, dbName);
+    gracefulShutdown(server, [pool, runtimePool], null, dbName);
   }
 
-  return { app, pool, sendError, interServiceFetch, start };
+  return { app, pool, runtimePool, sendError, interServiceFetch, start };
 }
 
 module.exports = { createApp, sendError, interServiceFetch };

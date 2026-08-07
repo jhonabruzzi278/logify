@@ -18,8 +18,24 @@ const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const { createPool } = require('../shared/db');
 
+process.env.DB_RUNTIME_URL = 'postgres://test-runtime';
+
 const mockQuery = jest.fn();
-createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn() });
+// req.db.query (via attachTenantDb) reusa mockQuery para las queries de
+// negocio, pero el BEGIN/set_config/COMMIT/ROLLBACK que agrega la propia
+// transaccion de RLS se resuelve aparte para no consumir los
+// mockResolvedValueOnce encolados para las queries reales de cada test.
+const mockClientQuery = jest.fn((text, ...rest) => {
+  if (typeof text === 'string' && /^\s*(BEGIN|COMMIT|ROLLBACK)\s*$/i.test(text)) {
+    return Promise.resolve({ rows: [] });
+  }
+  if (typeof text === 'string' && text.includes('set_config')) {
+    return Promise.resolve({ rows: [] });
+  }
+  return mockQuery(text, ...rest);
+});
+const mockClient = { query: mockClientQuery, release: jest.fn() };
+createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn(), connect: jest.fn().mockResolvedValue(mockClient) });
 
 const { app, seedUsers } = require('./index');
 

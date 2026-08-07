@@ -128,6 +128,22 @@ docker exec -i logify-db psql -U postgres -d orders_db < Backend/seed.sql
 | `ORDERS_SERVICE_URL` | URL del orders-service (usado por shipping) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push (notification-service) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Correo (opcional) |
+| `PLATFORM_ADMIN_KEY` (orders-service) | Secreto compartido para `POST/GET /api/admin/coupons` (gestión de cupones de bienvenida del signup self-service, ver [wiki/Multi-Tenant.md](../wiki/Multi-Tenant.md#fases) Fase 4E). Sin esta variable, esos endpoints responden 503. Se envía como header `X-Admin-Key`. |
+| `SIGNUP_RATE_LIMIT_MAX` (orders-service) | Máximo de registros por IP cada 15 min en `POST /api/signup` (default `5`) |
+
+### Gestión de cupones (Fase 4E, sin panel de super-admin)
+
+Con `PLATFORM_ADMIN_KEY` seteado en orders-service:
+
+```bash
+# Crear un cupón que regala 90 días extra de demo, uso único por tenant, sin límite de canjes
+curl -X POST https://api.logify.cl/api/admin/coupons \
+  -H "X-Admin-Key: $PLATFORM_ADMIN_KEY" -H "Content-Type: application/json" \
+  -d '{"code":"BIENVENIDA90","extraTrialDays":90}'
+
+# Listar cupones
+curl https://api.logify.cl/api/admin/coupons -H "X-Admin-Key: $PLATFORM_ADMIN_KEY"
+```
 
 ---
 

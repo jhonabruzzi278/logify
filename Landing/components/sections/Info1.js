@@ -46,8 +46,8 @@ export default function Info1() {
                                 </li>
                             ))}
                         </ul>
-                        <Link href="#demo" className="inline-flex items-center gap-2 bg-brand-1 text-brand-2 font-bold px-6 py-3.5 rounded-xl hover:bg-yellow-400 transition-all hover:-translate-y-0.5">
-                            Probar Gratis 14 Días
+                        <Link href="/registro" className="inline-flex items-center gap-2 bg-brand-1 text-brand-2 font-bold px-6 py-3.5 rounded-xl hover:bg-yellow-400 transition-all hover:-translate-y-0.5">
+                            Probar Gratis 90 Días
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                         </Link>
                     </div>

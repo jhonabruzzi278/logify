@@ -4,6 +4,15 @@ function applySecurity(app) {
 
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,https://logify-five.vercel.app')
     .split(',').map(s => s.trim());
+
+  if (allowedOrigins.includes('*')) {
+    throw new Error(
+      "ALLOWED_ORIGINS no soporta '*': listá los origenes exactos separados por coma " +
+      '(ej. https://app.logify.cl,https://logify.cl). Los subdominios de logify.cl y ' +
+      'los tuneles de ngrok ya se cubren automaticamente via patron, sin necesidad de wildcard.'
+    );
+  }
+
   // Túneles temporales (ngrok) para probar la demo fuera de la red local, y
   // cualquier subdominio de tenant (acme.logify.cl, etc. — ver
   // wiki/Multi-Tenant.md). ALLOWED_ORIGINS no soporta wildcard por texto
@@ -19,7 +28,7 @@ function applySecurity(app) {
 
   app.use(cors({
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins[0] === '*' || allowedOrigins.includes(origin)) return cb(null, true);
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
       if (allowedOriginPatterns.some((pattern) => pattern.test(origin))) return cb(null, true);
       cb(new Error('CORS not allowed'));
     },

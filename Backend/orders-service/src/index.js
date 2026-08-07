@@ -2,15 +2,25 @@
 const { validateOrderBody, validateOrderStatus } = require('../shared/validate');
 const { sendEmail, buildOrderConfirmationEmail } = require('../shared/email');
 const { signToken, authMiddleware, requireRole, requireTenant, extractRoleFromRequest } = require('../shared/auth');
-const { registerSecurityModule } = require('./security-module');
+const { attachTenantDb } = require('../shared/rls');
+const { registerSecurityModule, validatePasswordStrength } = require('./security-module');
 const log = require('../shared/logger');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 
-const { app, pool, sendError, start } = createApp('orders_db', process.env.PORT || 8081);
+const { app, pool, runtimePool, sendError, start } = createApp('orders_db', process.env.PORT || 8081);
+const withTenantDb = attachTenantDb(runtimePool);
 
 const INVENTORY_URL = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:8082';
 const SHIPPING_URL = process.env.SHIPPING_SERVICE_URL || 'http://shipping-service:8084';
 const DEFAULT_TENANT_SLUG = 'logify';
+
+// Fase 4E del roadmap multi-tenant: mismos slugs reservados que ya usa el
+// Frontend (ver Frontend/src/lib/api-config.ts RESERVED_TENANT_SLUGS) —
+// duplicado aca porque backend y frontend no comparten paquete de constantes.
+const RESERVED_TENANT_SLUGS = new Set(['www', 'api', 'app', 'admin', 'mail', 'logify', 'static', 'landing', 'demo', 'status']);
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
+const TRIAL_DAYS = 90;
 
 let bcrypt;
 
@@ -21,6 +31,17 @@ let bcrypt;
 async function resolveTenant(slug) {
   const r = await pool.query('SELECT * FROM tenants WHERE slug=$1', [(slug || DEFAULT_TENANT_SLUG).toLowerCase()]);
   return r.rows[0] || null;
+}
+
+// Fase 4E: valida formato + reserva de un slug candidato para signup. No
+// chequea disponibilidad contra la base (eso requiere una query aparte,
+// usada tanto en /api/signup como en /api/signup/check-slug).
+function validateSlugFormat(slug) {
+  const value = (slug || '').trim().toLowerCase();
+  if (!value) return 'El subdominio es obligatorio';
+  if (!SLUG_PATTERN.test(value)) return 'El subdominio debe tener 3-63 caracteres: minusculas, numeros y guiones, sin empezar ni terminar en guion';
+  if (RESERVED_TENANT_SLUGS.has(value)) return 'Ese subdominio esta reservado, elige otro';
+  return null;
 }
 
 async function ensureTables() {
@@ -95,6 +116,30 @@ async function ensureTenants() {
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_country VARCHAR(100)`);
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_industry VARCHAR(100)`);
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_phone VARCHAR(30)`);
+
+  // Fase 4E del roadmap multi-tenant (ver wiki/Multi-Tenant.md): provisioning
+  // self-service. trial_ends_at soporta la demo gratuita de 90 dias;
+  // subscription_status/plan_price_clp/billing_provider/billing_customer_id
+  // quedan preparados para cuando se active el cobro real (un unico plan
+  // mensual) pero ningun proveedor de pago se integra todavia — todos
+  // nullable/con default neutro para no romper tenants existentes.
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`);
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(20) NOT NULL DEFAULT 'trialing'`);
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_price_clp INTEGER`);
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_provider VARCHAR(30)`);
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_customer_id VARCHAR(100)`);
+
+  // Cupones de bienvenida: dias extra de demo gratuita, canjeables una vez
+  // por tenant. Tabla a nivel plataforma (sin tenant_id propio).
+  await pool.query(`CREATE TABLE IF NOT EXISTS coupons (
+    id SERIAL PRIMARY KEY, code VARCHAR(40) NOT NULL UNIQUE,
+    extra_trial_days INTEGER NOT NULL DEFAULT 90,
+    max_redemptions INTEGER, redemptions_count INTEGER NOT NULL DEFAULT 0,
+    expires_at TIMESTAMP, active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS coupon_redemptions (
+    id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, coupon_id INTEGER NOT NULL,
+    redeemed_at TIMESTAMP DEFAULT NOW(), UNIQUE(tenant_id, coupon_id))`);
 
   for (const table of ['users', 'customers', 'orders']) {
     await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
@@ -228,6 +273,61 @@ async function ensureProcedures() {
   `);
 }
 
+// Row Level Security (ver wiki/Seguridad-y-RLS.md y el hallazgo de la
+// auditoria de produccion): las politicas de abajo son la red de seguridad
+// a nivel de base de datos para el aislamiento multi-tenant, complementando
+// (no reemplazando) los WHERE tenant_id=$N que ya tiene cada query. Un
+// superusuario de Postgres SIEMPRE bypassea RLS sin importar FORCE ROW LEVEL
+// SECURITY, asi que esto solo protege de verdad si las queries de request
+// corren con el rol restringido "app_runtime" (ver shared/rls.js) -- por eso
+// existe runtimePool/DB_RUNTIME_URL separado de la conexion de superusuario
+// que usa ensureTables/seedUsers al arrancar.
+const RLS_TABLES = [
+  { name: 'orders', tenantColumn: 'tenant_id' },
+  { name: 'customers', tenantColumn: 'tenant_id' },
+  { name: 'customer_credit_movements', tenantColumn: 'tenant_id' },
+  { name: 'user_invitations', tenantColumn: 'tenant_id' },
+  { name: 'users', tenantColumn: 'tenant_id' },
+  { name: 'tenants', tenantColumn: 'id' },
+];
+
+async function ensureRuntimeRole() {
+  const password = process.env.DB_RUNTIME_PASSWORD;
+  if (!password) {
+    log.warn('DB_RUNTIME_PASSWORD no esta configurada; se omite la creacion del rol restringido de runtime (RLS no estara activo)');
+    return;
+  }
+  const escapedPassword = password.replace(/'/g, "''");
+  const exists = await pool.query(`SELECT 1 FROM pg_roles WHERE rolname='app_runtime'`);
+  if (exists.rows.length) {
+    await pool.query(`ALTER ROLE app_runtime WITH PASSWORD '${escapedPassword}'`);
+  } else {
+    await pool.query(`CREATE ROLE app_runtime WITH LOGIN PASSWORD '${escapedPassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`);
+  }
+  await pool.query(`GRANT CONNECT ON DATABASE orders_db TO app_runtime`);
+  await pool.query(`GRANT USAGE ON SCHEMA public TO app_runtime`);
+  for (const { name } of RLS_TABLES) {
+    await pool.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${name} TO app_runtime`);
+  }
+  await pool.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_runtime`);
+  await pool.query(`GRANT EXECUTE ON FUNCTION fn_get_orders_with_customer(TEXT, INT) TO app_runtime`).catch(() => {});
+  await pool.query(`GRANT EXECUTE ON FUNCTION fn_cancel_order(INT, TEXT, INT) TO app_runtime`).catch(() => {});
+  await pool.query(`GRANT EXECUTE ON FUNCTION fn_adjust_customer_credit(INT, NUMERIC, INT) TO app_runtime`).catch(() => {});
+}
+
+async function ensureRls() {
+  for (const { name, tenantColumn } of RLS_TABLES) {
+    await pool.query(`ALTER TABLE ${name} ENABLE ROW LEVEL SECURITY`);
+    await pool.query(`ALTER TABLE ${name} FORCE ROW LEVEL SECURITY`);
+    await pool.query(`DROP POLICY IF EXISTS tenant_isolation ON ${name}`);
+    await pool.query(`
+      CREATE POLICY tenant_isolation ON ${name}
+      USING (${tenantColumn} = current_setting('app.tenant_id', true)::int)
+      WITH CHECK (${tenantColumn} = current_setting('app.tenant_id', true)::int)
+    `);
+  }
+}
+
 // Roles that must NOT receive client_code in any response
 const RESTRICTED_ROLES = new Set(['shipper', 'customer', 'vendor']);
 
@@ -240,6 +340,113 @@ function stripClientCode(rows) {
 
 registerSecurityModule(app, pool, sendError, resolveTenant);
 
+// ═══ SIGNUP SELF-SERVICE (Fase 4E) ═══════════════════════════════════════════════
+// Publico, sin JWT: crea el tenant y su primer usuario ("owner") en una sola
+// transaccion. Rate limit propio, mas estricto que el global de
+// shared/security.js, porque este endpoint escribe filas nuevas sin
+// autenticacion previa.
+const signupRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: parseInt(process.env.SIGNUP_RATE_LIMIT_MAX || '5', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+  message: { error: 'Demasiados intentos de registro, intenta de nuevo mas tarde' },
+});
+
+app.get('/api/signup/check-slug', async (req, res) => {
+  try {
+    const slug = (req.query.slug || '').toString().trim().toLowerCase();
+    const formatError = validateSlugFormat(slug);
+    if (formatError) return res.json({ available: false, reason: formatError });
+    const exists = await pool.query('SELECT 1 FROM tenants WHERE slug=$1', [slug]);
+    if (exists.rows.length) return res.json({ available: false, reason: 'Ese subdominio ya esta en uso' });
+    res.json({ available: true });
+  } catch (err) { sendError(res, 500, 'Failed to check slug', err); }
+});
+
+app.post('/api/signup', signupRateLimit, async (req, res) => {
+  const { companyName, slug: rawSlug, contactEmail, ownerName, ownerUsername, ownerPassword, couponCode } = req.body;
+  const slug = (rawSlug || '').trim().toLowerCase();
+
+  if (!companyName || !companyName.trim()) return res.status(400).json({ error: 'El nombre de la empresa es obligatorio' });
+  const slugError = validateSlugFormat(slug);
+  if (slugError) return res.status(400).json({ error: slugError });
+  if (!contactEmail || !contactEmail.trim()) return res.status(400).json({ error: 'El email de contacto es obligatorio' });
+  if (!ownerName || !ownerName.trim()) return res.status(400).json({ error: 'Tu nombre es obligatorio' });
+  if (!ownerUsername || !ownerUsername.trim()) return res.status(400).json({ error: 'El usuario es obligatorio' });
+  const passwordErrors = validatePasswordStrength(ownerPassword);
+  if (passwordErrors.length) return res.status(400).json({ error: passwordErrors.join('. ') });
+
+  bcrypt = require('bcryptjs');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const slugTaken = await client.query('SELECT 1 FROM tenants WHERE slug=$1', [slug]);
+    if (slugTaken.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Ese subdominio ya esta en uso' });
+    }
+
+    let extraDays = 0;
+    let coupon = null;
+    if (couponCode && couponCode.trim()) {
+      const couponResult = await client.query(
+        `SELECT * FROM coupons WHERE code=$1 AND active=true
+         AND (expires_at IS NULL OR expires_at > NOW())
+         AND (max_redemptions IS NULL OR redemptions_count < max_redemptions)`,
+        [couponCode.trim().toUpperCase()]
+      );
+      if (!couponResult.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Cupón inválido, expirado o agotado' });
+      }
+      coupon = couponResult.rows[0];
+      extraDays = coupon.extra_trial_days;
+    }
+
+    const trialEndsAt = new Date(Date.now() + (TRIAL_DAYS + extraDays) * 24 * 60 * 60 * 1000);
+
+    const tenant = (await client.query(
+      `INSERT INTO tenants (slug, name, status, plan, subscription_status, contact_email, trial_ends_at)
+       VALUES ($1,$2,'trial','pro','trialing',$3,$4) RETURNING id, slug, name, trial_ends_at`,
+      [slug, companyName.trim(), contactEmail.trim(), trialEndsAt]
+    )).rows[0];
+
+    const usernameNorm = ownerUsername.trim().toLowerCase();
+    const hash = await bcrypt.hash(ownerPassword, 10);
+    const owner = (await client.query(
+      `INSERT INTO users (username, password_hash, name, role, email, tenant_id)
+       VALUES ($1,$2,$3,'owner',$4,$5) RETURNING id, username, name, role`,
+      [usernameNorm, hash, ownerName.trim(), contactEmail.trim(), tenant.id]
+    )).rows[0];
+
+    if (coupon) {
+      await client.query('UPDATE coupons SET redemptions_count = redemptions_count + 1 WHERE id=$1', [coupon.id]);
+      await client.query('INSERT INTO coupon_redemptions (tenant_id, coupon_id) VALUES ($1,$2)', [tenant.id, coupon.id]);
+    }
+
+    await client.query('COMMIT');
+
+    const appUrl = `https://${tenant.slug}.logify.cl`;
+    sendEmail({
+      to: contactEmail.trim(),
+      subject: 'Bienvenido a Logify',
+      html: `<p>Hola ${ownerName.trim()}, tu cuenta de <b>${companyName.trim()}</b> ya está lista.</p>
+             <p>Ingresa en <a href="${appUrl}">${appUrl}</a> con el usuario <b>${owner.username}</b>.</p>
+             <p>Tu prueba gratuita vence el ${trialEndsAt.toLocaleDateString('es-CL')}.</p>`
+    }).catch(() => {});
+
+    res.status(201).json({ tenantSlug: tenant.slug, appUrl, trialEndsAt: tenant.trial_ends_at, ownerUsername: owner.username });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    sendError(res, 500, 'Signup failed', err);
+  } finally {
+    client.release();
+  }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     bcrypt = require('bcryptjs');
@@ -249,7 +456,15 @@ app.post('/api/auth/login', async (req, res) => {
     }
     const tenant = await resolveTenant(req.tenantSlug);
     if (!tenant) return res.status(401).json({ error: 'Credenciales invalidas' });
-    if (tenant.status !== 'active') return res.status(403).json({ error: 'La cuenta de tu empresa no está activa' });
+    // Fase 4E: un tenant recien creado por signup queda en status='trial', no
+    // 'active' — debe poder loguear mientras el trial este vigente. Solo se
+    // bloquea si esta suspendido/cancelado, o si el trial ya vencio.
+    if (!['active', 'trial'].includes(tenant.status)) {
+      return res.status(403).json({ error: 'La cuenta de tu empresa no está activa' });
+    }
+    if (tenant.status === 'trial' && tenant.trial_ends_at && new Date(tenant.trial_ends_at) < new Date()) {
+      return res.status(403).json({ error: 'Tu periodo de prueba terminó. Contáctanos para activar tu plan.' });
+    }
     const r = await pool.query('SELECT * FROM users WHERE username=$1 AND tenant_id=$2', [username.trim().toLowerCase(), tenant.id]);
     if (!r.rows.length) return res.status(401).json({ error: 'Credenciales invalidas' });
     const user = r.rows[0];
@@ -261,7 +476,7 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) { sendError(res, 500, 'Login failed', err); }
 });
 
-app.post('/api/auth/register', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.post('/api/auth/register', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
     bcrypt = require('bcryptjs');
     const { username, password, name, role, rut, email, secretQuestion, secretAnswer } = req.body;
@@ -272,11 +487,11 @@ app.post('/api/auth/register', authMiddleware, requireTenant, requireRole('owner
     if (!validRoles.includes(role.toLowerCase())) {
       return res.status(400).json({ error: 'Rol invalido. Validos: ' + validRoles.join(', ') });
     }
-    const exists = await pool.query('SELECT 1 FROM users WHERE username=$1 AND tenant_id=$2', [username.trim().toLowerCase(), req.tenantId]);
+    const exists = await req.db.query('SELECT 1 FROM users WHERE username=$1 AND tenant_id=$2', [username.trim().toLowerCase(), req.tenantId]);
     if (exists.rows.length) return res.status(409).json({ error: 'El usuario ya existe' });
     const hash = await bcrypt.hash(password, 10);
     const secretAnswerHash = secretAnswer ? await bcrypt.hash(secretAnswer.trim().toLowerCase(), 10) : null;
-    const user = (await pool.query(
+    const user = (await req.db.query(
       `INSERT INTO users (username, password_hash, name, role, rut, email, secret_question, secret_answer_hash, tenant_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, username, name, role, rut, email, secret_question, created_at`,
@@ -285,32 +500,32 @@ app.post('/api/auth/register', authMiddleware, requireTenant, requireRole('owner
   } catch (err) { sendError(res, 500, 'Register failed', err); }
 });
 
-app.get('/api/auth/users', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.get('/api/auth/users', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const rows = (await pool.query('SELECT id, username, name, role, rut, email, secret_question, created_at, updated_at, last_login_at FROM users WHERE tenant_id=$1 ORDER BY username', [req.tenantId])).rows;
+    const rows = (await req.db.query('SELECT id, username, name, role, rut, email, secret_question, created_at, updated_at, last_login_at FROM users WHERE tenant_id=$1 ORDER BY username', [req.tenantId])).rows;
     res.json(rows);
   } catch (err) { sendError(res, 500, 'Failed to list users', err); }
 });
 
-app.put('/api/auth/users/:id', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.put('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
     bcrypt = require('bcryptjs');
     const { name, role, password } = req.body;
-    const existing = (await pool.query('SELECT * FROM users WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
+    const existing = (await req.db.query('SELECT * FROM users WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Usuario no encontrado' });
     const newName = name || existing.name;
     const newRole = role || existing.role;
     const hash = password ? await bcrypt.hash(password, 10) : existing.password_hash;
-    const updated = (await pool.query(
+    const updated = (await req.db.query(
       'UPDATE users SET name=$1, role=$2, password_hash=$3, updated_at=NOW() WHERE id=$4 AND tenant_id=$5 RETURNING id, username, name, role, created_at, updated_at',
       [newName, newRole.toLowerCase(), hash, req.params.id, req.tenantId])).rows[0];
     res.json(updated);
   } catch (err) { sendError(res, 500, 'Failed to update user', err); }
 });
 
-app.delete('/api/auth/users/:id', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.delete('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const r = await pool.query('DELETE FROM users WHERE id=$1 AND tenant_id=$2 RETURNING id, username', [req.params.id, req.tenantId]);
+    const r = await req.db.query('DELETE FROM users WHERE id=$1 AND tenant_id=$2 RETURNING id, username', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json({ message: 'Usuario eliminado', user: r.rows[0] });
   } catch (err) { sendError(res, 500, 'Failed to delete user', err); }
@@ -338,25 +553,25 @@ app.get('/api/orders/track/:clientCode', async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to track order', err); }
 });
 
-app.get('/api/orders/report', authMiddleware, requireTenant, async (req, res) => {
+app.get('/api/orders/report', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
     const status = req.query.status ? req.query.status.toUpperCase() : null;
-    const r = await pool.query('SELECT * FROM fn_get_orders_with_customer($1, $2)', [status, req.tenantId]);
+    const r = await req.db.query('SELECT * FROM fn_get_orders_with_customer($1, $2)', [status, req.tenantId]);
     res.json(r.rows);
   } catch (err) { sendError(res, 500, 'Failed to get orders report', err); }
 });
 
-app.post('/api/orders', authMiddleware, requireTenant, async (req, res) => {
+app.post('/api/orders', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
     const errors = validateOrderBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
     const { customerId, sku, quantity } = req.body;
     const clientCode = 'SL-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    const order = (await pool.query(
+    const order = (await req.db.query(
       "INSERT INTO orders (customer_id, sku, quantity, status, created_at, client_code, tenant_id) VALUES ($1,$2,$3,'CREATED',NOW(),$4,$5) RETURNING *",
       [customerId, sku, quantity, clientCode, req.tenantId])).rows[0];
 
-    const customer = (await pool.query('SELECT * FROM customers WHERE id=$1 AND tenant_id=$2', [customerId, req.tenantId])).rows[0];
+    const customer = (await req.db.query('SELECT * FROM customers WHERE id=$1 AND tenant_id=$2', [customerId, req.tenantId])).rows[0];
     const customerCode = order.client_code;
 
     if (customer && customer.email) {
@@ -379,7 +594,7 @@ app.post('/api/orders', authMiddleware, requireTenant, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to create order', err); }
 });
 
-app.get('/api/orders', authMiddleware, requireTenant, async (req, res) => {
+app.get('/api/orders', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
     const role = extractRoleFromRequest(req);
     const limit = req.query.limit ? Math.min(500, Math.max(1, parseInt(req.query.limit))) : null;
@@ -394,17 +609,17 @@ app.get('/api/orders', authMiddleware, requireTenant, async (req, res) => {
       query += ' LIMIT $2 OFFSET $3';
       params.push(limit, offset);
     }
-    const rows = (await pool.query(query, params)).rows;
+    const rows = (await req.db.query(query, params)).rows;
     if (RESTRICTED_ROLES.has(role)) stripClientCode(rows);
     res.json(rows);
   }
   catch (err) { sendError(res, 500, 'Failed to list orders', err); }
 });
 
-app.get('/api/orders/:id', authMiddleware, requireTenant, async (req, res) => {
+app.get('/api/orders/:id', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
     const role = extractRoleFromRequest(req);
-    const r = await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId]);
+    const r = await req.db.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     const row = r.rows[0];
     if (RESTRICTED_ROLES.has(role)) delete row.client_code;
@@ -412,11 +627,11 @@ app.get('/api/orders/:id', authMiddleware, requireTenant, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to get order', err); }
 });
 
-app.put('/api/orders/:id/status', authMiddleware, requireTenant, async (req, res) => {
+app.put('/api/orders/:id/status', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
     const statusErr = validateOrderStatus(req.query.status?.toUpperCase() || '');
     if (statusErr.length) return res.status(400).json({ error: statusErr.join(', ') });
-    const result = await pool.query('UPDATE orders SET status=$1 WHERE id=$2 AND tenant_id=$3 RETURNING *', [req.query.status.toUpperCase(), req.params.id, req.tenantId]);
+    const result = await req.db.query('UPDATE orders SET status=$1 WHERE id=$2 AND tenant_id=$3 RETURNING *', [req.query.status.toUpperCase(), req.params.id, req.tenantId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     res.json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update status', err); }
@@ -430,10 +645,10 @@ app.put('/api/orders/:id/status', authMiddleware, requireTenant, async (req, res
 // Si la compensacion en si falla, la orden queda en CREATED igual (para
 // permitir reintentar) pero el warning marca que requiere revision manual,
 // porque en ese caso el stock puede haber quedado descontado sin envio.
-app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, async (req, res) => {
+app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   const orderId = req.params.id;
   try {
-    const order = (await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
+    const order = (await req.db.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
     if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
     const errors = [];
 
@@ -467,17 +682,17 @@ app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, async (req, re
     const sagaOk = inventoryAdjusted && shipmentCreated;
     let updated = order;
     if (sagaOk) {
-      await pool.query("UPDATE orders SET status='EN_PREPARACION' WHERE id=$1 AND tenant_id=$2", [orderId, req.tenantId]);
-      updated = (await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
+      await req.db.query("UPDATE orders SET status='EN_PREPARACION' WHERE id=$1 AND tenant_id=$2", [orderId, req.tenantId]);
+      updated = (await req.db.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
     }
     log.info('Order confirm attempted', { orderId, sagaOk });
     res.json({ ...updated, warnings: errors.length ? errors : undefined });
   } catch (err) { sendError(res, 500, 'Failed to confirm order', err); }
 });
 
-app.put('/api/orders/:id/cancel', authMiddleware, requireTenant, async (req, res) => {
+app.put('/api/orders/:id/cancel', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
-    const order = (await pool.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
+    const order = (await req.db.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
     if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
     const reason = (req.body.reason || '').substring(0, 255);
 
@@ -495,24 +710,24 @@ app.put('/api/orders/:id/cancel', authMiddleware, requireTenant, async (req, res
       } catch (e) { log.warn('Shipment cancel failed', { orderId: req.params.id, message: e.message }); }
     }
 
-    const cancelled = (await pool.query('SELECT * FROM fn_cancel_order($1,$2,$3)', [req.params.id, reason, req.tenantId])).rows[0];
+    const cancelled = (await req.db.query('SELECT * FROM fn_cancel_order($1,$2,$3)', [req.params.id, reason, req.tenantId])).rows[0];
     res.json(cancelled);
   } catch (err) { sendError(res, 500, 'Failed to cancel order', err); }
 });
 
-app.put('/api/orders/:id/assign', authMiddleware, requireTenant, async (req, res) => {
+app.put('/api/orders/:id/assign', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
     const transporter = (req.query.transporter || '').substring(0, 100);
     if (!transporter) return res.status(400).json({ error: 'transporter es requerido' });
-    const result = await pool.query('UPDATE orders SET assigned_to=$1 WHERE id=$2 AND tenant_id=$3 RETURNING *', [transporter, req.params.id, req.tenantId]);
+    const result = await req.db.query('UPDATE orders SET assigned_to=$1 WHERE id=$2 AND tenant_id=$3 RETURNING *', [transporter, req.params.id, req.tenantId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     res.json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to assign', err); }
 });
 
-app.delete('/api/orders/:id', authMiddleware, requireTenant, async (req, res) => {
+app.delete('/api/orders/:id', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM orders WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
+    const result = await req.db.query('DELETE FROM orders WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
     log.info('Order deleted', { orderId: req.params.id });
     res.json({ message: 'Orden eliminada correctamente', order: result.rows[0] });
@@ -566,9 +781,9 @@ app.get('/api/customers/address-suggest', authMiddleware, requireTenant, async (
   } catch (err) { sendError(res, 500, 'Address suggest failed', err); }
 });
 
-app.get('/api/orders/:id/pdf', authMiddleware, requireTenant, async (req, res) => {
+app.get('/api/orders/:id/pdf', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
-    const r = await pool.query(
+    const r = await req.db.query(
       `SELECT o.*, c.name AS customer_name, c.email AS customer_email,
               c.address AS customer_address, c.phone AS customer_phone, c.rut AS customer_rut
        FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id=$1 AND o.tenant_id=$2`,
@@ -618,25 +833,25 @@ app.get('/api/orders/:id/pdf', authMiddleware, requireTenant, async (req, res) =
 
 // ══════════════════════════════════════════════════════════════════════════════
 
-app.get('/api/customers', authMiddleware, requireTenant, async (req, res) => {
-  try { res.json((await pool.query('SELECT * FROM customers WHERE tenant_id=$1 ORDER BY name', [req.tenantId])).rows); }
+app.get('/api/customers', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+  try { res.json((await req.db.query('SELECT * FROM customers WHERE tenant_id=$1 ORDER BY name', [req.tenantId])).rows); }
   catch (err) { sendError(res, 500, 'Failed to list customers', err); }
 });
 
-app.get('/api/customers/:id', authMiddleware, requireTenant, async (req, res) => {
+app.get('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM customers WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId]);
+    const r = await req.db.query('SELECT * FROM customers WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to get customer', err); }
 });
 
-app.post('/api/customers', authMiddleware, requireTenant, async (req, res) => {
+app.post('/api/customers', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
     const { name, phone, address, email, rut, province, customerType, creditLimit } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
     const type = customerType === 'individual' ? 'individual' : 'company';
-    const c = (await pool.query(
+    const c = (await req.db.query(
       `INSERT INTO customers (name, phone, address, email, rut, province, customer_type, credit_limit, tenant_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [name.trim(), phone || null, address || null, email || null, rut || null, province || null,
@@ -645,12 +860,12 @@ app.post('/api/customers', authMiddleware, requireTenant, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to create customer', err); }
 });
 
-app.put('/api/customers/:id', authMiddleware, requireTenant, async (req, res) => {
+app.put('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
     const { name, phone, address, email, rut, province, customerType, creditLimit } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
     const type = customerType === 'individual' ? 'individual' : 'company';
-    const r = await pool.query(
+    const r = await req.db.query(
       `UPDATE customers SET name=$1, phone=$2, address=$3, email=$4, rut=$5, province=$6,
         customer_type=$7, credit_limit=$8 WHERE id=$9 AND tenant_id=$10 RETURNING *`,
       [name.trim(), phone || null, address || null, email || null, rut || null, province || null,
@@ -660,9 +875,9 @@ app.put('/api/customers/:id', authMiddleware, requireTenant, async (req, res) =>
   } catch (err) { sendError(res, 500, 'Failed to update customer', err); }
 });
 
-app.delete('/api/customers/:id', authMiddleware, requireTenant, async (req, res) => {
+app.delete('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
-    const r = await pool.query('DELETE FROM customers WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
+    const r = await req.db.query('DELETE FROM customers WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json({ message: 'Cliente eliminado correctamente' });
   } catch (err) { sendError(res, 500, 'Failed to delete customer', err); }
@@ -670,13 +885,13 @@ app.delete('/api/customers/:id', authMiddleware, requireTenant, async (req, res)
 
 // ═══ CUENTA CORRIENTE / FIADO ══════════════════════════════════════════════════
 
-app.get('/api/customers/:id/credit', authMiddleware, requireTenant, async (req, res) => {
+app.get('/api/customers/:id/credit', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
   try {
-    const customer = (await pool.query(
+    const customer = (await req.db.query(
       'SELECT id, credit_limit, credit_balance FROM customers WHERE id=$1 AND tenant_id=$2',
       [req.params.id, req.tenantId])).rows[0];
     if (!customer) return res.status(404).json({ error: 'Cliente no encontrado' });
-    const movements = (await pool.query(
+    const movements = (await req.db.query(
       'SELECT * FROM customer_credit_movements WHERE customer_id=$1 AND tenant_id=$2 ORDER BY created_at DESC LIMIT 100',
       [req.params.id, req.tenantId])).rows;
     res.json({ creditLimit: customer.credit_limit, creditBalance: customer.credit_balance, movements });
@@ -688,13 +903,13 @@ async function applyCreditMovement(req, res, { type, sign }) {
     const amount = Number(req.body.amount);
     if (!amount || amount <= 0) return res.status(400).json({ error: 'amount debe ser un número mayor a 0' });
     const delta = sign * amount;
-    const result = (await pool.query(
+    const result = (await req.db.query(
       'SELECT * FROM fn_adjust_customer_credit($1,$2,$3)', [req.params.id, delta, req.tenantId])).rows[0];
     if (!result.success) {
       const status = result.error_msg === 'Cliente no encontrado' ? 404 : 400;
       return res.status(status).json({ error: result.error_msg });
     }
-    const movement = (await pool.query(
+    const movement = (await req.db.query(
       `INSERT INTO customer_credit_movements
         (customer_id, tenant_id, type, amount, balance_after, reference_type, reference_id, note, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
@@ -705,11 +920,11 @@ async function applyCreditMovement(req, res, { type, sign }) {
   } catch (err) { sendError(res, 500, 'Failed to record credit movement', err); }
 }
 
-app.post('/api/customers/:id/credit/charge', authMiddleware, requireTenant, requireRole('owner', 'admin', 'vendor'), async (req, res) => {
+app.post('/api/customers/:id/credit/charge', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin', 'vendor'), async (req, res) => {
   await applyCreditMovement(req, res, { type: 'charge', sign: 1 });
 });
 
-app.post('/api/customers/:id/credit/payment', authMiddleware, requireTenant, requireRole('owner', 'admin', 'vendor'), async (req, res) => {
+app.post('/api/customers/:id/credit/payment', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin', 'vendor'), async (req, res) => {
   await applyCreditMovement(req, res, { type: 'payment', sign: -1 });
 });
 
@@ -726,19 +941,19 @@ function toBusinessSettingsDto(tenant) {
   };
 }
 
-app.get('/api/settings/business', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.get('/api/settings/business', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM tenants WHERE id=$1', [req.tenantId]);
+    const r = await req.db.query('SELECT * FROM tenants WHERE id=$1', [req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
     res.json(toBusinessSettingsDto(r.rows[0]));
   } catch (err) { sendError(res, 500, 'Failed to get business settings', err); }
 });
 
-app.put('/api/settings/business', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.put('/api/settings/business', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
     const { name, contactEmail, businessRut, businessCountry, businessIndustry, businessPhone } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre del negocio es obligatorio' });
-    const r = await pool.query(
+    const r = await req.db.query(
       `UPDATE tenants SET name=$1, contact_email=$2, business_rut=$3, business_country=$4,
         business_industry=$5, business_phone=$6, updated_at=NOW() WHERE id=$7 RETURNING *`,
       [name.trim(), contactEmail || null, businessRut || null, businessCountry || null,
@@ -748,20 +963,20 @@ app.put('/api/settings/business', authMiddleware, requireTenant, requireRole('ow
   } catch (err) { sendError(res, 500, 'Failed to update business settings', err); }
 });
 
-app.get('/api/settings/system', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.get('/api/settings/system', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const r = await pool.query('SELECT settings FROM tenants WHERE id=$1', [req.tenantId]);
+    const r = await req.db.query('SELECT settings FROM tenants WHERE id=$1', [req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
     res.json(r.rows[0].settings || {});
   } catch (err) { sendError(res, 500, 'Failed to get system settings', err); }
 });
 
-app.put('/api/settings/system', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.put('/api/settings/system', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const current = await pool.query('SELECT settings FROM tenants WHERE id=$1', [req.tenantId]);
+    const current = await req.db.query('SELECT settings FROM tenants WHERE id=$1', [req.tenantId]);
     if (!current.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
     const merged = { ...(current.rows[0].settings || {}), ...req.body };
-    const r = await pool.query('UPDATE tenants SET settings=$1, updated_at=NOW() WHERE id=$2 RETURNING settings', [JSON.stringify(merged), req.tenantId]);
+    const r = await req.db.query('UPDATE tenants SET settings=$1, updated_at=NOW() WHERE id=$2 RETURNING settings', [JSON.stringify(merged), req.tenantId]);
     res.json(r.rows[0].settings || {});
   } catch (err) { sendError(res, 500, 'Failed to update system settings', err); }
 });
@@ -771,7 +986,7 @@ app.put('/api/settings/system', authMiddleware, requireTenant, requireRole('owne
 const VALID_ROLES = ['owner', 'ops', 'warehouse', 'shipper', 'vendor', 'support', 'customer'];
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
-app.post('/api/auth/invite', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+app.post('/api/auth/invite', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
     const { email, role } = req.body;
     if (!email || !email.trim()) return res.status(400).json({ error: 'El email es obligatorio' });
@@ -780,7 +995,7 @@ app.post('/api/auth/invite', authMiddleware, requireTenant, requireRole('owner',
     }
     const token = crypto.randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_MS);
-    const invitation = (await pool.query(
+    const invitation = (await req.db.query(
       `INSERT INTO user_invitations (tenant_id, email, role, token, invited_by, expires_at)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, email, role, status, expires_at`,
       [req.tenantId, email.trim().toLowerCase(), role.toLowerCase(), token, req.user?.sub || req.user?.name || null, expiresAt])).rows[0];
@@ -822,8 +1037,55 @@ app.post('/api/auth/invite/:token/accept', async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to accept invitation', err); }
 });
 
-if (require.main === module) {
-  (async () => { await ensureTables(); await ensureTenantConstraints(); await seedUsers(); await ensureSecurityProfiles(); await ensureProcedures(); start(); })();
+// ═══ ADMIN DE CUPONES (Fase 4E) ═══════════════════════════════════════════════════
+// No hay rol de super-admin en el sistema todavia (ver wiki/Multi-Tenant.md,
+// Fase 4E pendiente: panel de super-admin). Mientras tanto, estos endpoints
+// se protegen con un secreto compartido de plataforma via header, pensados
+// para gestionarse por curl/Postman, no por UI.
+function requireAdminKey(req, res, next) {
+  const configured = process.env.PLATFORM_ADMIN_KEY;
+  if (!configured) return res.status(503).json({ error: 'PLATFORM_ADMIN_KEY no configurado' });
+  const provided = req.headers['x-admin-key'];
+  if (!provided || provided !== configured) {
+    return res.status(401).json({ error: 'Clave de administración inválida' });
+  }
+  next();
 }
 
-module.exports = { app, ensureTables, ensureTenants, ensureTenantConstraints, seedUsers, ensureSecurityProfiles };
+app.post('/api/admin/coupons', requireAdminKey, async (req, res) => {
+  try {
+    const { code, extraTrialDays, maxRedemptions, expiresAt } = req.body;
+    if (!code || !code.trim()) return res.status(400).json({ error: 'El código es obligatorio' });
+    const coupon = (await pool.query(
+      `INSERT INTO coupons (code, extra_trial_days, max_redemptions, expires_at)
+       VALUES ($1,$2,$3,$4) RETURNING *`,
+      [code.trim().toUpperCase(), extraTrialDays || 90, maxRedemptions || null, expiresAt || null]
+    )).rows[0];
+    res.status(201).json(coupon);
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Ya existe un cupón con ese código' });
+    sendError(res, 500, 'Failed to create coupon', err);
+  }
+});
+
+app.get('/api/admin/coupons', requireAdminKey, async (req, res) => {
+  try {
+    const rows = (await pool.query('SELECT * FROM coupons ORDER BY created_at DESC')).rows;
+    res.json(rows);
+  } catch (err) { sendError(res, 500, 'Failed to list coupons', err); }
+});
+
+if (require.main === module) {
+  (async () => {
+    await ensureTables();
+    await ensureTenantConstraints();
+    await seedUsers();
+    await ensureSecurityProfiles();
+    await ensureProcedures();
+    await ensureRuntimeRole();
+    await ensureRls();
+    start();
+  })();
+}
+
+module.exports = { app, ensureTables, ensureTenants, ensureTenantConstraints, seedUsers, ensureSecurityProfiles, ensureRuntimeRole, ensureRls };
