@@ -175,7 +175,9 @@ body {
   }
 }
 
-/* Etiqueta de producto: oculta toda la app y muestra solo #product-label-print al imprimir. */
+/* Etiqueta de producto: oculta toda la app y muestra solo #product-label-print al
+   imprimir. La grilla (columnas/filas) la elige el usuario y se pasa via las
+   custom properties --print-cols/--print-rows en el propio elemento. */
 @media print {
   body * {
     visibility: hidden;
@@ -189,6 +191,13 @@ body {
   #product-label-print {
     position: absolute;
     inset: 0;
-    display: flex !important;
+    display: grid !important;
+    grid-template-columns: repeat(var(--print-cols, 1), 1fr);
+    grid-template-rows: repeat(var(--print-rows, 1), 1fr);
+  }
+
+  #product-label-print .print-label {
+    display: flex;
+    break-inside: avoid;
   }
 }

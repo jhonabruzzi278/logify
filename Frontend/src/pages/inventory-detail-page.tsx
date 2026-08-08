@@ -22,10 +22,20 @@ interface ImageResult {
   url: string;
 }
 
+const LABEL_GRID_PRESETS = [
+  { key: "1x1", cols: 1, rows: 1, label: "1 por hoja (grande)" },
+  { key: "2x2", cols: 2, rows: 2, label: "4 por hoja (2x2)" },
+  { key: "3x3", cols: 3, rows: 3, label: "9 por hoja (3x3)" },
+  { key: "4x4", cols: 4, rows: 4, label: "16 por hoja (4x4)" },
+  { key: "4x6", cols: 4, rows: 6, label: "24 por hoja (4x6)" },
+  { key: "4x10", cols: 4, rows: 10, label: "40 por hoja (4x10, etiquetas chicas)" },
+] as const;
+
 export function InventoryDetailPage() {
   const { productId } = useParams();
   const decodedId = decodeURIComponent(productId ?? "");
   const [qrRequested, setQrRequested] = useState(false);
+  const [labelGridKey, setLabelGridKey] = useState<(typeof LABEL_GRID_PRESETS)[number]["key"]>("1x1");
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const [imageQuery, setImageQuery] = useState("");
   const [imageResults, setImageResults] = useState<ImageResult[]>([]);
@@ -406,12 +416,22 @@ export function InventoryDetailPage() {
             <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Código QR del producto</p>
           </div>
           {qrRequested && qrImage.url && (
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
-            >
-              <Printer className="h-3.5 w-3.5" /> Imprimir QR
-            </button>
+            <div className="flex items-center gap-2">
+              <Select value={labelGridKey} onValueChange={(v) => setLabelGridKey(v as typeof labelGridKey)}>
+                <SelectTrigger className="h-8 w-[220px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LABEL_GRID_PRESETS.map((preset) => (
+                    <SelectItem key={preset.key} value={preset.key}>{preset.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
+              >
+                <Printer className="h-3.5 w-3.5" /> Imprimir QR
+              </button>
+            </div>
           )}
         </div>
 
@@ -447,22 +467,34 @@ export function InventoryDetailPage() {
               </div>
             </div>
             <p className="text-xs text-[#6B7280]">
-              El QR incluye SKU, nombre, precio, categoría y stock — se puede escanear con la cámara de cualquier celular o, a futuro, con un lector dedicado.
+              El QR identifica el SKU del producto — se puede escanear con la cámara de cualquier celular o, a futuro, con un lector dedicado.
             </p>
           </div>
         )}
       </div>
 
-      {/* Nodo aislado solo visible al imprimir (ver @media print en styles/index.css) */}
-      {qrRequested && qrImage.url && (
-        <div id="product-label-print" className="hidden flex-col items-center justify-center gap-3 p-8 text-center">
-          <img src={qrImage.url} alt={`QR de ${resolvedProduct.sku}`} className="h-56 w-56" />
-          <p className="text-lg font-bold text-black">{resolvedProduct.name}</p>
-          <p className="font-mono text-sm text-black">SKU {resolvedProduct.sku}</p>
-          <p className="text-xl font-bold text-black">{formatCurrency(resolvedProduct.price)}</p>
-          <p className="text-xs uppercase tracking-wide text-black">{resolvedProduct.category} · Stock {resolvedProduct.stock}</p>
-        </div>
-      )}
+      {/* Nodo aislado solo visible al imprimir (ver @media print en styles/index.css).
+          Repite la etiqueta cols*rows veces segun la grilla elegida arriba. */}
+      {qrRequested && qrImage.url && (() => {
+        const grid = LABEL_GRID_PRESETS.find((p) => p.key === labelGridKey) ?? LABEL_GRID_PRESETS[0];
+        return (
+          <div
+            id="product-label-print"
+            className="hidden"
+            style={{ "--print-cols": grid.cols, "--print-rows": grid.rows } as React.CSSProperties}
+          >
+            {Array.from({ length: grid.cols * grid.rows }).map((_, i) => (
+              <div key={i} className="print-label flex-col items-center justify-center gap-2 p-3 text-center">
+                <img src={qrImage.url} alt={`QR de ${resolvedProduct.sku}`} className="h-32 w-32" />
+                <p className="text-sm font-bold text-black">{resolvedProduct.name}</p>
+                <p className="font-mono text-xs text-black">SKU {resolvedProduct.sku}</p>
+                <p className="text-base font-bold text-black">{formatCurrency(resolvedProduct.price)}</p>
+                <p className="text-[10px] uppercase tracking-wide text-black">{resolvedProduct.category} · Stock {resolvedProduct.stock}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }

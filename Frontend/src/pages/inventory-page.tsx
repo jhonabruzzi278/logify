@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Download, FileText, ImageOff, Minus, PackagePlus, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { Check, Download, FileText, ImageOff, ImagePlus, Minus, PackagePlus, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -42,6 +42,8 @@ export function InventoryPage() {
   const [formError, setFormError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{ sku: string; name: string } | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [imageQuery, setImageQuery] = useState("");
   const [imageResults, setImageResults] = useState<ImageResult[]>([]);
   const [imageSearching, setImageSearching] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -57,11 +59,11 @@ export function InventoryPage() {
   const { can, role } = usePermissions();
   const { uf, dolar } = useIndicadores();
 
-  const debouncedProductName = useDebounce(form.name, 500);
+  const debouncedImageQuery = useDebounce(imageQuery, 500);
 
   useEffect(() => {
-    const q = debouncedProductName.trim();
-    if (q.length < 3) { setImageResults([]); return; }
+    const q = debouncedImageQuery.trim();
+    if (!imagePickerOpen || q.length < 3) { setImageResults([]); return; }
     let cancelled = false;
     setImageSearching(true);
     apiFetch<ImageResult[]>(`/api/inventory/image-search?q=${encodeURIComponent(q)}`)
@@ -69,7 +71,7 @@ export function InventoryPage() {
       .catch(() => { if (!cancelled) setImageResults([]); })
       .finally(() => { if (!cancelled) setImageSearching(false); });
     return () => { cancelled = true; };
-  }, [debouncedProductName]);
+  }, [debouncedImageQuery, imagePickerOpen]);
   const { session } = useAuth();
   const canAdjust = can("inventory.adjust");
   const isOwner = role === "owner";
@@ -211,6 +213,7 @@ export function InventoryPage() {
           >
             <FileText className="h-3.5 w-3.5" /> {pdfLoading ? "Generando..." : "PDF"}
           </button>
+          {canAdjust && (
           <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportPreview(null); setImportCsvText(""); setImportResult(null); } }}>
             <DialogTrigger render={<Button variant="outline" className="flex items-center gap-1 h-9 px-3 text-xs font-semibold"><Upload className="h-3.5 w-3.5" />Importar CSV</Button>} />
             <DialogContent showCloseButton={false}>
@@ -258,7 +261,9 @@ export function InventoryPage() {
               </div>
             </DialogContent>
           </Dialog>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setImageResults([]); } }}>
+          )}
+          {canAdjust && (
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setImageResults([]); setImagePickerOpen(false); setImageQuery(""); } }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><PackagePlus className="h-3.5 w-3.5" />Agregar producto</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
@@ -334,49 +339,68 @@ export function InventoryPage() {
                   Producto activo
                 </label>
 
-                {(imageSearching || imageResults.length > 0 || form.imageUrl) && (
-                  <div className="space-y-1.5">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
                     <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Imagen del producto</label>
-                    <div className="flex gap-2 overflow-x-auto scroll-x pb-1">
-                      {imageSearching && (
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-[#DCE0E2]">
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />
-                        </div>
-                      )}
-                      {!imageSearching && form.imageUrl && !imageResults.some((r) => r.url === form.imageUrl) && (
-                        <button
-                          type="button"
-                          className="relative h-14 w-14 shrink-0 overflow-hidden rounded border-2 border-[#4B98CF]"
-                        >
-                          <img src={form.imageUrl} alt="Seleccionada" className="h-full w-full object-cover" />
-                          <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#4B98CF]"><Check className="h-2.5 w-2.5 text-white" /></span>
-                        </button>
-                      )}
-                      {!imageSearching && imageResults.map((img) => (
-                        <button
-                          key={img.id}
-                          type="button"
-                          onClick={() => setForm({ ...form, imageUrl: img.url })}
-                          title={img.title}
-                          className={cn(
-                            "relative h-14 w-14 shrink-0 overflow-hidden rounded border-2 transition-colors",
-                            form.imageUrl === img.url ? "border-[#4B98CF]" : "border-transparent hover:border-[#DCE0E2]"
-                          )}
-                        >
-                          <img src={img.thumbnail} alt={img.title} className="h-full w-full object-cover" />
-                          {form.imageUrl === img.url && (
-                            <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#4B98CF]"><Check className="h-2.5 w-2.5 text-white" /></span>
-                          )}
-                        </button>
-                      ))}
-                      {!imageSearching && imageResults.length === 0 && !form.imageUrl && (
-                        <div className="flex h-14 items-center gap-1.5 px-2 text-[10px] text-muted-foreground">
-                          <ImageOff className="h-3.5 w-3.5" /> Sin resultados para "{form.name}"
-                        </div>
-                      )}
-                    </div>
+                    {!imagePickerOpen && (
+                      <button
+                        type="button"
+                        onClick={() => { setImagePickerOpen(true); setImageQuery(form.name); }}
+                        className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-2.5 py-1 text-[10px] font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
+                      >
+                        <ImagePlus className="h-3 w-3" /> {form.imageUrl ? "Cambiar imagen" : "Buscar imagen"}
+                      </button>
+                    )}
                   </div>
-                )}
+
+                  {form.imageUrl && !imagePickerOpen && (
+                    <div className="relative h-14 w-14 overflow-hidden rounded border-2 border-[#4B98CF]">
+                      <img src={form.imageUrl} alt="Seleccionada" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+
+                  {imagePickerOpen && (
+                    <div className="space-y-2">
+                      <input
+                        value={imageQuery}
+                        onChange={(e) => setImageQuery(e.target.value)}
+                        placeholder="Buscar imagen por nombre..."
+                        className="h-9 w-full rounded border border-input bg-card px-3 text-sm outline-none placeholder:text-muted-foreground"
+                        autoFocus
+                      />
+                      <div className="flex gap-2 overflow-x-auto scroll-x pb-1">
+                        {imageSearching && (
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-[#DCE0E2]">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />
+                          </div>
+                        )}
+                        {!imageSearching && imageResults.map((img) => (
+                          <button
+                            key={img.id}
+                            type="button"
+                            onClick={() => { setForm({ ...form, imageUrl: img.url }); setImagePickerOpen(false); }}
+                            title={img.title}
+                            className={cn(
+                              "relative h-14 w-14 shrink-0 overflow-hidden rounded border-2 transition-colors",
+                              form.imageUrl === img.url ? "border-[#4B98CF]" : "border-transparent hover:border-[#DCE0E2]"
+                            )}
+                          >
+                            <img src={img.thumbnail} alt={img.title} className="h-full w-full object-cover" />
+                            {form.imageUrl === img.url && (
+                              <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#4B98CF]"><Check className="h-2.5 w-2.5 text-white" /></span>
+                            )}
+                          </button>
+                        ))}
+                        {!imageSearching && imageQuery.trim().length >= 3 && imageResults.length === 0 && (
+                          <div className="flex h-14 items-center gap-1.5 px-2 text-[10px] text-muted-foreground">
+                            <ImageOff className="h-3.5 w-3.5" /> Sin resultados para "{imageQuery}"
+                          </div>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => setImagePickerOpen(false)} className="text-[10px] text-[#6B7280] hover:text-[#112b4a]">Cancelar</button>
+                    </div>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
@@ -430,6 +454,7 @@ export function InventoryPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
           <span className="text-xs text-[#6B7280]">{counts.total} SKU · {counts.totalUnits} unids totales</span>
         </div>
       </div>

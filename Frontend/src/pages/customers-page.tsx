@@ -5,6 +5,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { CUSTOMER_TYPE_BY_MODE, useBusinessMode } from "@/hooks/use-business-mode";
 import { useDebounce } from "@/hooks/use-debounce";
+import { usePermissions } from "@/hooks/use-permissions";
 import { adaptCustomer } from "@/lib/api-adapters";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -39,6 +40,8 @@ function formatRut(value: string) {
 
 export function CustomersPage() {
   const { mode } = useBusinessMode();
+  const { can } = usePermissions();
+  const canManage = can("customers.manage");
   const segmentType = CUSTOMER_TYPE_BY_MODE[mode];
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
@@ -156,6 +159,7 @@ export function CustomersPage() {
           <h1 className="text-xl font-bold text-[#112b4a]">Gestión de clientes</h1>
         </div>
         <div className="flex items-center gap-2">
+          {canManage && (
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setEditCustomer(null); setForm({ name: "", phone: "", address: "", email: "", rut: "", province: "", customerType: segmentType, creditLimit: "" }); setRutStatus(null); setAddressSuggestions([]); } }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><UserPlus className="h-3.5 w-3.5" />Nuevo cliente</Button>} />
             <DialogContent showCloseButton={false}>
@@ -244,6 +248,7 @@ export function CustomersPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
           <span className="text-xs text-[#6B7280]">{filtered.length} clientes</span>
         </div>
       </div>
@@ -298,6 +303,7 @@ export function CustomersPage() {
                   {customer.address && <span className="truncate">{customer.address}</span>}
                 </div>
               </div>
+              {canManage && (
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => openEdit(customer)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-[#4B98CF] hover:bg-[#4B98CF]/5 active:scale-[0.95] transition-colors" title="Editar">
                   <Pencil className="h-4 w-4" />
@@ -306,6 +312,7 @@ export function CustomersPage() {
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
+              )}
             </div>
           </div>
         ))}

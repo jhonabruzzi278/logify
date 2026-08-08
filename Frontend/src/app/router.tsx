@@ -34,6 +34,11 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorFallback />
   },
   {
+    path: "/invite/:token",
+    element: lazyPage(() => import("@/pages/invite-page"), "InvitePage"),
+    errorElement: <RouteErrorFallback />
+  },
+  {
     path: "/tracking/:code?",
     element: lazyPage(() => import("@/pages/tracking-page"), "TrackingPage"),
     errorElement: <RouteErrorFallback />

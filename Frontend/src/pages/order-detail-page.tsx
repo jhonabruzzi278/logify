@@ -5,6 +5,7 @@ import { managedUsers } from "@/app/user-directory";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
+import { usePermissions } from "@/hooks/use-permissions";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
 import { downloadFile } from "@/lib/api-blob";
 import { buildOrderTimeline } from "@/lib/operational-insights";
@@ -24,6 +25,8 @@ export function OrderDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const customerScope = useCustomerScope();
+  const { can } = usePermissions();
+  const canDelete = can("orders.delete");
 
   const { data: orders } = useApiQuery<ApiOrder[], Order[]>({
     path: "/api/orders", transform: (r) => r.map((o) => adaptOrder(o))
@@ -142,7 +145,7 @@ export function OrderDetailPage() {
           >
             <Download className="h-3.5 w-3.5" /> {pdfLoading ? "Generando..." : "Comprobante"}
           </button>
-          {isCancelled && (
+          {isCancelled && canDelete && (
             <button
               onClick={() => setShowDeleteModal(true)}
               title="Eliminar pedido"

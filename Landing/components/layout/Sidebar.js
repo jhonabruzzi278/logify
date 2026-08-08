@@ -20,8 +20,8 @@ export default function Sidebar({ openClass, handleMobileMenuClose }) {
                     </div>
                     <nav className="flex-1 py-6">
                         <ul className="space-y-0">
-                            {["Inicio","Características","Cómo Funciona","Planes","Solicitar Demo","FAQ"].map((item, i) => {
-                                const hrefs = ["/","#caracteristicas","#como-funciona","#planes","#demo","#faq"]
+                            {["Inicio","Características","Cómo Funciona","Planes","Prueba gratis","FAQ"].map((item, i) => {
+                                const hrefs = ["/","#caracteristicas","#como-funciona","#planes","/registro","#faq"]
                                 return (
                                     <li key={i}>
                                         <Link href={hrefs[i]} onClick={handleMobileMenuClose}
@@ -36,9 +36,9 @@ export default function Sidebar({ openClass, handleMobileMenuClose }) {
                         <Link href="/acceso" onClick={handleMobileMenuClose}
                             className="block w-full text-center text-sm font-bold text-brand-2 bg-brand-1 hover:bg-yellow-400 py-3 rounded-lg transition-colors"
                         >Iniciar Sesión</Link>
-                        <a href="#demo" onClick={handleMobileMenuClose}
+                        <Link href="/registro" onClick={handleMobileMenuClose}
                             className="block w-full text-center text-sm font-bold text-white bg-brand-2 hover:bg-brand-5 py-3 rounded-lg transition-colors"
-                        >Solicitar Demo</a>
+                        >Prueba gratis</Link>
                     </div>
                 </div>
             </div>

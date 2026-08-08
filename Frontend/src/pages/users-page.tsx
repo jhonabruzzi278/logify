@@ -440,16 +440,25 @@ export function UsersPage() {
                 {[
                   { perm: "Ver dashboard", key: "dashboard.view" },
                   { perm: "Ver inventario", key: "inventory.view" },
-                  { perm: "Ajustar inventario", key: "inventory.adjust" },
+                  { perm: "Ajustar/crear inventario", key: "inventory.adjust" },
+                  { perm: "Importar productos", key: "products.import" },
                   { perm: "Ver pedidos", key: "orders.view" },
                   { perm: "Crear pedidos", key: "orders.create" },
-                  { perm: "Validar pedidos", key: "orders.review" },
+                  { perm: "Validar/confirmar/cancelar pedidos", key: "orders.review" },
+                  { perm: "Asignar transportista", key: "orders.assign" },
+                  { perm: "Eliminar pedidos", key: "orders.delete" },
                   { perm: "Ver envios", key: "shipments.view" },
                   { perm: "Gestionar envios", key: "shipments.update" },
                   { perm: "Crear despachos", key: "shipments.dispatch" },
                   { perm: "Ver alertas", key: "alerts.view" },
                   { perm: "Ver usuarios", key: "users.view" },
                   { perm: "Gestionar usuarios", key: "users.manage" },
+                  { perm: "Gestionar clientes", key: "customers.manage" },
+                  { perm: "Vender / caja (POS)", key: "sales.create" },
+                  { perm: "Gestionar proveedores", key: "suppliers.manage" },
+                  { perm: "Registrar compras", key: "purchases.manage" },
+                  { perm: "Configuracion del negocio", key: "settings.manage" },
+                  { perm: "Vaciar notificaciones", key: "notifications.manage" },
                 ].map(({ perm, key }) => (
                   <tr key={key} className="border-b border-[#F5F7F9]">
                     <td className="py-2 pr-4 font-medium text-[#112b4a]">{perm}</td>

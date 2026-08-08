@@ -4,6 +4,7 @@ jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
 jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
+jest.mock('qrcode', () => ({ toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-png')) }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt'),
   verifyToken: jest.fn().mockReturnValue({ sub: 'admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
@@ -16,6 +17,7 @@ jest.mock('../shared/auth', () => ({
 
 const request = require('supertest');
 const { createPool } = require('../shared/db');
+const QRCode = require('qrcode');
 
 const mockQuery = jest.fn();
 const mockClientRelease = jest.fn();
@@ -1056,14 +1058,15 @@ describe('inventory-service', () => {
   // ─── GET /api/inventory/:sku/qr ──────────────────────────────────────────────
 
   describe('GET /api/inventory/:sku/qr', () => {
-    afterEach(() => { delete global.fetch; });
-
-    it('retorna imagen png con datos del producto codificados', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', name: 'Coca 2L', price: 1000, category: 'bebidas', stock: 5, unit_of_measure: 'un' }] });
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+    it('retorna imagen png con el SKU codificado', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L' }] });
       const res = await request(app).get('/api/inventory/COCA-2L/qr');
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toBe('image/png');
+      expect(QRCode.toBuffer).toHaveBeenCalledWith(
+        JSON.stringify({ t: 'logify_product', sku: 'COCA-2L' }),
+        expect.objectContaining({ type: 'png' })
+      );
     });
 
     it('retorna 404 si el SKU no existe', async () => {
@@ -1072,9 +1075,9 @@ describe('inventory-service', () => {
       expect(res.status).toBe(404);
     });
 
-    it('retorna 500 si el servicio de QR falla', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L', name: 'Coca 2L', price: 1000, category: 'bebidas', stock: 5, unit_of_measure: 'un' }] });
-      global.fetch = jest.fn().mockResolvedValue({ ok: false });
+    it('retorna 500 si falla la generacion del QR', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L' }] });
+      QRCode.toBuffer.mockRejectedValueOnce(new Error('boom'));
       const res = await request(app).get('/api/inventory/COCA-2L/qr');
       expect(res.status).toBe(500);
     });

@@ -1,10 +1,14 @@
 ﻿import { useEffect, useRef, useState } from "react";
-import { Bell, CreditCard, LogOut, Menu, MoreVertical, Truck, User } from "lucide-react";
+import { Bell, CreditCard, LogOut, Menu, Package, Truck, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getDefaultPathForRole } from "@/app/access";
+import { useApiQuery } from "@/hooks/use-api-query";
 import { useBusinessMode } from "@/hooks/use-business-mode";
 import { cn } from "@/lib/utils";
+import type { ApiNotificationRecord } from "@/types/api";
 import type { Role } from "@/types/domain";
+
+const NOTIF_SEEN_KEY = "logify-topbar-notifications-seen-at";
 
 interface TopbarProps {
   title: string;
@@ -35,21 +39,33 @@ const roleInitial: Record<Role, string> = {
   vendor: "VE"
 };
 
-interface Notification {
-  id: string;
-  avatar: "order" | "shipment" | "inventory" | "user";
-  avatarInitials?: string;
-  avatarClass?: string;
-  message: string;
-  time: string;
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Ahora";
+  if (mins < 60) return `Hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `Hace ${hrs}h`;
+  return `Hace ${Math.floor(hrs / 24)}d`;
 }
 
 export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUsername }: TopbarProps) {
   const { mode, toggleMode } = useBusinessMode();
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [lastSeenAt, setLastSeenAt] = useState(() => localStorage.getItem(NOTIF_SEEN_KEY) ?? "");
   const notifyRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const { data: notifications } = useApiQuery<ApiNotificationRecord[], ApiNotificationRecord[]>({
+    path: "/api/notifications/audience/OPERATOR",
+    transform: (response) => response
+      .slice()
+      .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+      .slice(0, 5)
+  });
+
+  const hasUnread = (notifications ?? []).some((n) => !lastSeenAt || new Date(n.occurredAt).getTime() > new Date(lastSeenAt).getTime());
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -64,37 +80,16 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const notifications: Notification[] = [
-    {
-      id: "1",
-      avatar: "order",
-      message: "Nuevo pedido #5 creado y confirmado",
-      time: "Hace 1 min",
-    },
-    {
-      id: "2",
-      avatar: "shipment",
-      avatarInitials: "EN",
-      avatarClass: "bg-[#4B98CF]",
-      message: "Envío TRACK-C9F68B15 en transito",
-      time: "Hace 5 min",
-    },
-    {
-      id: "3",
-      avatar: "inventory",
-      avatarClass: "bg-[#4EB4A5]",
-      message: "Stock crítico: SKU 100004 solo 5 unids",
-      time: "Hace 10 min",
-    },
-    {
-      id: "4",
-      avatar: "user",
-      avatarInitials: "OP",
-      avatarClass: "bg-purple-500",
-      message: "Operaciones aprobo 3 pedidos",
-      time: "Hace 30 min",
-    },
-  ];
+  function toggleNotifications() {
+    const next = !notifyOpen;
+    setNotifyOpen(next);
+    setProfileOpen(false);
+    if (next) {
+      const now = new Date().toISOString();
+      localStorage.setItem(NOTIF_SEEN_KEY, now);
+      setLastSeenAt(now);
+    }
+  }
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between bg-[#1A3142] px-4 text-white sm:px-6">
@@ -125,39 +120,42 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
         <div className="relative" ref={notifyRef}>
           <button
             type="button"
-            onClick={() => { setNotifyOpen(!notifyOpen); setProfileOpen(false); }}
+            onClick={toggleNotifications}
             className="relative inline-flex h-10 w-10 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
           >
             <Bell className="h-6 w-6" />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#CF4B4B]" />
+            {hasUnread && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#CF4B4B]" />}
           </button>
 
           {notifyOpen && (
             <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded border border-[#DCE0E2] bg-white shadow-lg">
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm font-bold text-[#112b4a]">Notifications</span>
-                <button className="text-xs text-[#6B7280] hover:text-[#112b4a]">Clear all</button>
+                <span className="text-sm font-bold text-[#112b4a]">Notificaciones</span>
               </div>
 
               <div className="max-h-[280px] overflow-y-auto">
-                {notifications.map((n) => (
-                  <div key={n.id} className="flex gap-3 border-b border-[#ECEEF0] px-4 py-3 last:border-0">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F5F7F9]">
-                      {n.avatar === "order" && <MoreVertical className="h-4 w-4 text-[#4B98CF]" />}
-                      {n.avatar === "shipment" && <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white", n.avatarClass)}>{n.avatarInitials}</span>}
-                      {n.avatar === "inventory" && <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white", n.avatarClass)}>!</span>}
-                      {n.avatar === "user" && <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white", n.avatarClass)}>{n.avatarInitials}</span>}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-[#112b4a]">{n.message}</p>
-                      <p className="mt-0.5 text-[11px] text-[#6B7280]">{n.time}</p>
-                    </div>
-                  </div>
-                ))}
+                {(notifications ?? []).length === 0 ? (
+                  <p className="px-4 py-6 text-center text-xs text-[#6B7280]">Sin notificaciones nuevas</p>
+                ) : (
+                  (notifications ?? []).map((n) => {
+                    const isStockAlert = n.stage === "STOCK_ALERT";
+                    return (
+                      <div key={n.id} className="flex gap-3 border-b border-[#ECEEF0] px-4 py-3 last:border-0">
+                        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white", isStockAlert ? "bg-red-500" : "bg-[#4B98CF]")}>
+                          {isStockAlert ? <Package className="h-4 w-4" /> : <Truck className="h-4 w-4" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-[#112b4a]">{n.message}</p>
+                          <p className="mt-0.5 text-[11px] text-[#6B7280]">{formatRelativeTime(n.occurredAt)}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               <div className="border-t border-[#ECEEF0] px-4 py-2.5 text-center">
-                <Link to="/notifications" onClick={() => setNotifyOpen(false)} className="text-xs font-semibold text-[#4B98CF] hover:text-[#346384]">View All</Link>
+                <Link to="/notifications" onClick={() => setNotifyOpen(false)} className="text-xs font-semibold text-[#4B98CF] hover:text-[#346384]">Ver todas</Link>
               </div>
             </div>
           )}

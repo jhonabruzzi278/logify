@@ -1,7 +1,7 @@
 const webpush = require('web-push');
 const { createApp } = require('../shared/app');
 const { validateNotificationBody } = require('../shared/validate');
-const { authMiddleware, requireTenant } = require('../shared/auth');
+const { authMiddleware, requireTenant, requireRole } = require('../shared/auth');
 const { requireAdminKey } = require('../shared/admin');
 const log = require('../shared/logger');
 
@@ -108,7 +108,7 @@ app.get('/api/notifications/audience/:audience', authMiddleware, requireTenant, 
   } catch (err) { sendError(res, 500, 'Failed', err); }
 });
 
-app.post('/api/notifications/alert', authMiddleware, requireTenant, async (req, res) => {
+app.post('/api/notifications/alert', authMiddleware, requireTenant, requireRole('owner', 'ops', 'warehouse', 'vendor'), async (req, res) => {
   try {
     const { sku, name, stock, type, vendor } = req.body;
     if (!sku || stock === undefined) return res.status(400).json({ error: 'sku y stock son requeridos' });
@@ -238,7 +238,7 @@ app.delete('/api/notifications/push/subscribe', authMiddleware, requireTenant, a
 
 // ══════════════════════════════════════════════════════════════════════════════
 
-app.delete('/api/notifications', authMiddleware, requireTenant, async (req, res) => {
+app.delete('/api/notifications', authMiddleware, requireTenant, requireRole('owner'), async (req, res) => {
   try {
     const result = await pool.query('DELETE FROM notification_records WHERE tenant_id=$1', [req.tenantId]);
     log.info('Notification history cleared', { deletedCount: result.rowCount });

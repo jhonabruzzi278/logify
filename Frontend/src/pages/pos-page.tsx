@@ -453,20 +453,20 @@ export function PosPage() {
           {!activeCashSession && (
             <button
               onClick={() => setOpenRegisterOpen(true)}
-              className="hidden items-center gap-1.5 rounded-lg border border-[#4EB4A5]/30 bg-[#4EB4A5]/10 px-3 py-2 text-sm font-semibold text-[#3a9184] hover:bg-[#4EB4A5]/20 sm:flex"
+              className="flex items-center gap-1.5 rounded-lg border border-[#4EB4A5]/30 bg-[#4EB4A5]/10 px-2.5 py-2 text-sm font-semibold text-[#3a9184] hover:bg-[#4EB4A5]/20 sm:px-3"
               title="Abrir caja"
             >
               <PiggyBank className="h-4 w-4" />
-              Abrir caja
+              <span className="hidden sm:inline">Abrir caja</span>
             </button>
           )}
           <button
             onClick={() => setCloseRegisterOpen(true)}
-            className="hidden items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted sm:flex"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted sm:px-3"
             title="Cierre de caja"
           >
             <Receipt className="h-4 w-4" />
-            Cierre de caja
+            <span className="hidden sm:inline">Cierre de caja</span>
           </button>
           <button
             onClick={() => setCartOpen(true)}
@@ -629,7 +629,7 @@ export function PosPage() {
       )}
 
       {scannerOpen && <BarcodeScannerModal onDetected={handleBarcodeDetected} onClose={() => setScannerOpen(false)} />}
-      {closeRegisterOpen && <CloseRegisterModal onClose={() => setCloseRegisterOpen(false)} />}
+      {closeRegisterOpen && <CloseRegisterModal onClose={() => setCloseRegisterOpen(false)} onClosed={refreshCashSession} />}
       {openRegisterOpen && (
         <OpenRegisterModal
           onOpened={() => { setOpenRegisterOpen(false); refreshCashSession(); }}

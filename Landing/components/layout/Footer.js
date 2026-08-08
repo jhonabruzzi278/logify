@@ -23,8 +23,8 @@ export default function Footer() {
                     <div>
                         <h5 className="text-brand-1 font-bold mb-4">Producto</h5>
                         <ul className="space-y-3">
-                            {["Características","Cómo Funciona","Planes y Precios","Solicitar Demo","Preguntas Frecuentes"].map((item, i) => (
-                                <li key={i}><a href={["#caracteristicas","#como-funciona","#planes","#demo","#faq"][i]} className="text-sm text-white/60 hover:text-brand-1 transition-colors">{item}</a></li>
+                            {["Características","Cómo Funciona","Planes y Precios","Prueba gratis","Preguntas Frecuentes"].map((item, i) => (
+                                <li key={i}><a href={["#caracteristicas","#como-funciona","#planes","/registro","#faq"][i]} className="text-sm text-white/60 hover:text-brand-1 transition-colors">{item}</a></li>
                             ))}
                         </ul>
                     </div>

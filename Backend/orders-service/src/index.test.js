@@ -933,10 +933,24 @@ describe('orders-service', () => {
     it('actualiza nombre y rol', async () => {
       mockQuery
         .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', name: 'Viejo', role: 'owner', password_hash: 'hash' }] })
+        .mockResolvedValueOnce({ rows: [{ count: 2 }] })
         .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', name: 'Nuevo Nombre', role: 'ops' }] });
       const res = await request(app).put('/api/auth/users/1').send({ name: 'Nuevo Nombre', role: 'ops' });
       expect(res.status).toBe(200);
       expect(res.body.name).toBe('Nuevo Nombre');
+    });
+
+    it('rechaza un rol invalido', async () => {
+      const res = await request(app).put('/api/auth/users/1').send({ name: 'X', role: 'superadmin' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza degradar al unico owner del tenant', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', name: 'Viejo', role: 'owner', password_hash: 'hash' }] })
+        .mockResolvedValueOnce({ rows: [{ count: 1 }] });
+      const res = await request(app).put('/api/auth/users/1').send({ name: 'Viejo', role: 'ops' });
+      expect(res.status).toBe(400);
     });
 
     it('retorna 404 si el usuario no existe', async () => {

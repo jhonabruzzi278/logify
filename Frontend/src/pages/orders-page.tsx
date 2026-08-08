@@ -47,6 +47,8 @@ export function OrdersPage() {
   const { session } = useAuth();
   const canCreate = can("orders.create");
   const canReview = can("orders.review");
+  const canAssign = can("orders.assign");
+  const canDelete = can("orders.delete");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const customerScope = useCustomerScope();
@@ -409,12 +411,13 @@ export function OrdersPage() {
                   <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{order.sku}</td>
                   <td className="px-4 py-3 hidden sm:table-cell">x{order.quantity}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    {tName ? (
+                    {tName && (
                       <span className="inline-flex items-center gap-1 text-xs text-foreground">
                         <Truck className="h-3 w-3 text-[#4EB4A5]" />
                         {tName}
                       </span>
-                    ) : (
+                    )}
+                    {!tName && canAssign && (
                       <select
                         onClick={(e) => e.stopPropagation()}
                         value=""
@@ -450,7 +453,7 @@ export function OrdersPage() {
                         <button onClick={() => { setCancelModal(order); setCancelReason(""); }} title="Cancelar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4 sm:h-5 sm:w-5" /></button>
                       </div>
                     )}
-                    {canReview && order.stage === "cancelado" && (
+                    {canDelete && order.stage === "cancelado" && (
                       <div className="flex items-center justify-end gap-1 sm:gap-1.5">
                         <button onClick={() => setDeleteModal(order)} title="Eliminar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4 sm:h-5 sm:w-5" /></button>
                       </div>

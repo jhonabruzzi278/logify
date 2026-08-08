@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useMemo } from "react";
-import { Clock, Cloud, CloudRain, Download, FileText, Inbox, Package, QrCode, Search, Trash2, Truck, User, X } from "lucide-react";
+import { Clock, Cloud, CloudRain, Download, Inbox, Package, QrCode, Search, Trash2, Truck, User, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { managedUsers } from "@/app/user-directory";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { apiFetch, ApiRequestError } from "@/lib/api-client";
 import { downloadFile } from "@/lib/api-blob";
 import { clearHistory } from "@/lib/order-history";
 import { cn } from "@/lib/utils";
-import type { ApiOrder, ApiShipment } from "@/types/api";
+import type { ApiNotificationRecord, ApiOrder, ApiShipment } from "@/types/api";
 import type { Order, Shipment } from "@/types/domain";
 
 interface WeatherAlertResult {
@@ -59,6 +59,7 @@ export function NotificationsPage() {
   const [qrGenerated, setQrGenerated] = useState<string | null>(null);
   const { can } = usePermissions();
   const canViewAlerts = can("alerts.view");
+  const canManageNotifications = can("notifications.manage");
 
   const qrImage = useAuthImage(qrGenerated ? `/api/notifications/qr?text=${encodeURIComponent(qrGenerated)}` : null);
 
@@ -95,6 +96,11 @@ export function NotificationsPage() {
     transform: (response) => response.map(adaptShipment)
   });
 
+  const { data: systemRecords } = useApiQuery<ApiNotificationRecord[], ApiNotificationRecord[]>({
+    path: "/api/notifications/audience/OPERATOR",
+    transform: (response) => response
+  });
+
   const notifications = useMemo<NotificationItem[]>(() => {
     const items: NotificationItem[] = [];
 
@@ -126,42 +132,21 @@ export function NotificationsPage() {
       });
     });
 
-    // System notifications
-    items.push(
-      {
-        id: "sys-1",
-        type: "system",
-        icon: Clock,
-        iconBg: "bg-purple-500",
-        title: "Sesión iniciada",
-        detail: "Tu sesión se inició correctamente con rol administrador.",
-        link: "/profile",
-        time: new Date(Date.now() - 60000).toISOString(),
-        read: true
-      },
-      {
-        id: "sys-2",
-        type: "inventory",
-        icon: Package,
-        iconBg: "bg-red-500",
-        title: "Stock crítico",
-        detail: "SKU 100004 alcanzo nivel crítico: solo 5 unidades disponibles.",
-        link: "/inventory/100004",
-        time: new Date(Date.now() - 600000).toISOString(),
+    // System notifications (registros reales de notification-service)
+    (systemRecords ?? []).forEach((r) => {
+      const isStockAlert = r.stage === "STOCK_ALERT";
+      items.push({
+        id: `sys-${r.id}`,
+        type: isStockAlert ? "inventory" : "system",
+        icon: isStockAlert ? Package : Clock,
+        iconBg: isStockAlert ? "bg-red-500" : "bg-purple-500",
+        title: r.stage.replace(/_/g, " "),
+        detail: r.message,
+        link: r.orderId ? `/orders/${r.orderId}` : "/dashboard",
+        time: r.occurredAt,
         read: false
-      },
-      {
-        id: "sys-3",
-        type: "system",
-        icon: FileText,
-        iconBg: "bg-[#6B7280]",
-        title: "Backup completado",
-        detail: "Respaldo diario de base de datos completado éxitosamente.",
-        link: "/dashboard",
-        time: new Date(Date.now() - 3600000).toISOString(),
-        read: false
-      }
-    );
+      });
+    });
 
     // Transporter assignment notifications
     (orders ?? []).filter((o) => o.assignedTo).forEach((order) => {
@@ -180,7 +165,7 @@ export function NotificationsPage() {
     });
 
     return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-  }, [orders, shipments]);
+  }, [orders, shipments, systemRecords]);
 
   const filtered = useMemo(() => {
     return notifications.filter((n) => {
@@ -296,12 +281,14 @@ export function NotificationsPage() {
               </Dialog>
             </>
           )}
+          {canManageNotifications && (
           <button
             onClick={clearDatabase}
             className="rounded border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 flex items-center gap-1"
           >
             <Trash2 className="h-3 w-3" /> Vaciar BD
           </button>
+          )}
           <button
             onClick={markAllRead}
             className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#F5F7F9]"
