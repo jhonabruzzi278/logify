@@ -18,9 +18,10 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 interface CloseRegisterModalProps {
   onClose: () => void;
+  onClosed?: () => void;
 }
 
-export function CloseRegisterModal({ onClose }: CloseRegisterModalProps) {
+export function CloseRegisterModal({ onClose, onClosed }: CloseRegisterModalProps) {
   const { data, loading, error } = useApiQuery<ApiSalesCloseSummary, ApiSalesCloseSummary>({
     path: "/api/sales/close-summary",
     transform: (r) => r,
@@ -49,6 +50,7 @@ export function CloseRegisterModal({ onClose }: CloseRegisterModalProps) {
       });
       setClosedResult(adaptCashSession(raw));
       refreshSession();
+      onClosed?.();
     } catch (err) {
       setCloseError(err instanceof ApiRequestError ? err.message : "No se pudo cerrar la caja");
     } finally {
@@ -86,9 +88,12 @@ export function CloseRegisterModal({ onClose }: CloseRegisterModalProps) {
               </div>
             )}
             <div className="flex items-center justify-between rounded bg-[#4B98CF]/10 px-3 py-2.5">
-              <span className="text-sm font-bold text-foreground">Total del día</span>
+              <span className="text-sm font-bold text-foreground">Total del día (todos los medios de pago)</span>
               <span className="text-lg font-bold text-[#4B98CF]">{formatCurrency(data.grandTotal)}</span>
             </div>
+            <p className="text-[10px] text-muted-foreground">
+              Este total incluye todas las ventas de hoy. El efectivo esperado para tu caja (abajo, al cerrar) solo cuenta ventas en efectivo desde que la abriste.
+            </p>
           </div>
         )}
 
