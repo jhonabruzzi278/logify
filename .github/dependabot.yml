@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /Frontend
+    schedule: { interval: weekly }
+    groups:
+      frontend-dependencies: { patterns: ["*"] }
+  - package-ecosystem: npm
+    directory: /Landing
+    schedule: { interval: weekly }
+    groups:
+      landing-dependencies: { patterns: ["*"] }
+  - package-ecosystem: npm
+    directory: /Backend/orders-service
+    schedule: { interval: weekly }
+    groups:
+      orders-dependencies: { patterns: ["*"] }
+  - package-ecosystem: npm
+    directory: /Backend/inventory-service
+    schedule: { interval: weekly }
+    groups:
+      inventory-dependencies: { patterns: ["*"] }
+  - package-ecosystem: npm
+    directory: /Backend/shipping-service
+    schedule: { interval: weekly }
+    groups:
+      shipping-dependencies: { patterns: ["*"] }
+  - package-ecosystem: npm
+    directory: /Backend/notification-service
+    schedule: { interval: weekly }
+    groups:
+      notification-dependencies: { patterns: ["*"] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

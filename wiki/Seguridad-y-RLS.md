@@ -165,3 +165,26 @@ El sistema usa autenticación JWT propia — no depende de AWS Cognito ni de nin
 - [x] El endpoint de tracking no expone datos de contacto del cliente
 - [x] La confirmación de entrega requiere dos factores independientes
 - [x] El transportista nunca recibe `client_code` por ningún endpoint
+- [x] PostgreSQL RLS usa un rol runtime sin `BYPASSRLS`
+- [x] Logs estructurados JSON y `x-request-id` propagado entre servicios
+- [x] La llave administrativa se compara en tiempo constante
+- [x] GitHub Actions fijadas por SHA para reducir riesgo de supply chain
+- [x] Dependabot semanal para npm y GitHub Actions
+- [x] Auditoría de dependencias HIGH/CRITICAL en cada PR
+- [x] CodeQL, Gitleaks y Trivy ejecutados en PR, `main` y semanalmente
+- [x] SBOM CycloneDX generado por cada componente y retenido como artefacto
+
+## Pipeline DevSecOps
+
+`.github/workflows/security.yml` aplica defensa en profundidad:
+
+1. `npm audit --omit=dev --audit-level=high` sobre los seis proyectos.
+2. SBOM CycloneDX independiente para cada microservicio, Frontend y Landing.
+3. CodeQL para JavaScript/TypeScript con resultados en GitHub Code Scanning.
+4. Gitleaks sobre el historial completo para detectar secretos.
+5. Trivy filesystem para vulnerabilidades HIGH/CRITICAL y salida SARIF.
+
+Las dependencias directas corregidas el 2026-08-08 incluyen Nodemailer 9,
+Next.js 16.3, Swiper 14 y React Router 7. Después de la actualización, los
+seis proyectos reportan cero vulnerabilidades de producción mediante
+`npm audit --omit=dev`.

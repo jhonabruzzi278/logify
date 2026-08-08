@@ -471,4 +471,4 @@ Documentación completa en [`/aidlc-docs/`](./aidlc-docs/):
 - [Deployment Checklist](./aidlc-docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Operations](./aidlc-docs/operations/) *(producción activa: VPS + Vercel, Uptime Kuma, CI/CD y post-mortems)*
 
-Última auditoría: 2026-08-08 (estado de producción, CI/CD, documentación y accesibilidad — ver `operations/POST_MORTEMS/`).
+Última auditoría: 2026-08-08 (producción, accesibilidad y hardening DevSecOps: Dependabot, SBOM, CodeQL, Gitleaks, Trivy y auditoría npm).

@@ -21,8 +21,7 @@ La configuración detallada de monitores y notificaciones está en
 - Confirmar y probar al menos un canal de alerta de Uptime Kuma.
 - APM y error tracking para Frontend y microservicios.
 - Métricas técnicas y de negocio con histórico.
-- Logging estructurado y centralizado.
-- Generación y propagación de `X-Request-ID` entre gateway y servicios.
+- Agregación centralizada de los logs JSON existentes.
 - Alertas de disco, memoria, expiración TLS y fallos de backup.
 - SLO operativos medibles y revisión periódica de incidentes.
 

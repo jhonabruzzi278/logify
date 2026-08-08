@@ -30,6 +30,9 @@ inalcanzable, resuelto — ver post-mortem).
       plataforma el 2026-08-06 (~16:33 UTC en adelante) que dejó 2 runs
       en `queued` indefinidamente — no es un problema de configuración
       del repo, ver post-mortem para cómo se resolvió sin esperar al CI.
+- [x] Pipeline DevSecOps — `.github/workflows/security.yml` ejecuta auditoría
+      npm, CodeQL, Gitleaks, Trivy y genera SBOM CycloneDX. Dependabot cubre
+      los seis proyectos npm y GitHub Actions.
 - [x] Secrets no commiteados — `.env` nunca trackeado por git (verificado
       con `git ls-files`), `.gitignore` lo cubre en raíz/Backend/Frontend/Landing.
 - [x] `.env` de producción en el VPS tiene todas las variables
@@ -62,10 +65,10 @@ inalcanzable, resuelto — ver post-mortem).
 1. **Quality Gate de SonarCloud no requerido por branch protection.** El análisis del PR #23 falló por 13,7% de cobertura sobre código nuevo (mínimo configurado: 80%), aunque los seis checks requeridos y el job de escaneo pasaron. Debe decidirse si se agregan tests de interfaz suficientes o si se ajusta una política de cobertura realista para cambios semánticos de JSX.
 2. **No hay endpoint de versión** que exponga qué commit corre cada servicio; el script de despliegue conoce los SHA, pero la verificación externa sigue limitada al health check.
 3. **SMTP y VAPID dependen de secretos de producción.** Si no están configurados, email funciona en modo demo y Web Push queda inactivo.
-4. **Observabilidad básica, no completa.** Uptime Kuma cubre disponibilidad, pero faltan APM/error tracking, métricas, logs centralizados y `X-Request-ID` entre servicios.
+4. **Observabilidad parcial.** Ya existen logs JSON y `X-Request-ID` propagado entre servicios; faltan APM/error tracking, métricas y agregación centralizada.
 5. **Backups en el mismo VPS.** Existe cron diario con retención, pero falta una copia externa automatizada y una prueba periódica de restauración.
 6. **Saga sin compensación automática.** Un fallo downstream puede requerir intervención manual; falta un runbook operacional detallado y/o una estrategia de compensación.
-7. **`nodemailer` continúa en 6.9.16** en orders/shipping; el salto a una versión mayor debe tratarse como actualización separada con pruebas de compatibilidad.
+7. ~~**Dependencias HIGH conocidas en Nodemailer/Next/Swiper/React Router.**~~ Resuelto el 2026-08-08; los seis proyectos quedan sin vulnerabilidades de producción reportadas por npm audit.
 
 ## Gaps cerrados desde la auditoría inicial
 
@@ -73,3 +76,5 @@ inalcanzable, resuelto — ver post-mortem).
 - [x] Reinicio explícito del gateway cuando cambia su configuración.
 - [x] Health check público post-deploy y rollback automático al SHA anterior.
 - [x] Monitoreo básico con Uptime Kuma.
+- [x] Actions actualizadas y fijadas por SHA; SonarQube Scan Action v6.
+- [x] Auditoría de dependencias, SBOM, CodeQL, secretos y Trivy automatizados.
