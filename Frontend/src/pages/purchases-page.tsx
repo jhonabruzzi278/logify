@@ -230,7 +230,7 @@ export function PurchasesPage() {
                 <tr key={p.id} className="border-b border-[#F5F7F9] hover:bg-[#F5F7F9]">
                   <td className="px-4 py-2.5">
                     <p className="font-bold text-[#112b4a]">{p.productName}</p>
-                    <p className="text-[10px] text-[#6B7280]">{p.sku}{p.supplierName ? ` · ${p.supplierName}` : ""}</p>
+                    <p className="text-[10px] text-[#6B7280]">{p.sku} · {p.supplierName || "Sin proveedor asignado"}</p>
                   </td>
                   <td className="hidden px-4 py-2.5 text-xs text-[#6B7280] sm:table-cell">{new Date(p.purchasedAt).toLocaleDateString("es-CL")}</td>
                   <td className="hidden px-4 py-2.5 text-xs text-[#6B7280] sm:table-cell">{p.unitOfMeasure}</td>
