@@ -35,6 +35,7 @@ export function InventoryDetailPage() {
   const { productId } = useParams();
   const decodedId = decodeURIComponent(productId ?? "");
   const [qrRequested, setQrRequested] = useState(false);
+  const [qrVersion, setQrVersion] = useState(0);
   const [labelGridKey, setLabelGridKey] = useState<(typeof LABEL_GRID_PRESETS)[number]["key"]>("1x1");
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const [imageQuery, setImageQuery] = useState("");
@@ -61,7 +62,7 @@ export function InventoryDetailPage() {
   const resolvedProduct = useMemo(() => operationalInventory[0] ?? product, [operationalInventory, product]);
   const relatedOrders = useMemo(() => resolvedProduct ? operationalOrders.filter((o) => o.sku === resolvedProduct.sku) : [], [operationalOrders, resolvedProduct]);
 
-  const qrImage = useAuthImage(qrRequested && resolvedProduct ? `/api/inventory/${encodeURIComponent(resolvedProduct.sku)}/qr` : null);
+  const qrImage = useAuthImage(qrRequested && resolvedProduct ? `/api/inventory/${encodeURIComponent(resolvedProduct.sku)}/qr?size=512&v=${qrVersion}` : null);
 
   const debouncedImageQuery = useDebounce(imageQuery, 500);
 
@@ -437,7 +438,7 @@ export function InventoryDetailPage() {
 
         {!qrRequested && (
           <button type="button"
-            onClick={() => setQrRequested(true)}
+            onClick={() => { setQrVersion((version) => version + 1); setQrRequested(true); }}
             className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-2 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
           >
             <QrCode className="h-3.5 w-3.5" /> Generar QR para {resolvedProduct.sku}
@@ -452,7 +453,10 @@ export function InventoryDetailPage() {
         )}
 
         {qrRequested && qrImage.error && (
-          <p className="text-xs text-red-500">{qrImage.error}</p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-red-500">{qrImage.error}</p>
+            <button type="button" onClick={() => setQrVersion((version) => version + 1)} className="text-xs font-semibold text-[#4B98CF] hover:underline">Reintentar</button>
+          </div>
         )}
 
         {qrRequested && qrImage.url && (
@@ -469,6 +473,13 @@ export function InventoryDetailPage() {
             <p className="text-xs text-[#6B7280]">
               El QR identifica el SKU del producto — se puede escanear con la cámara de cualquier celular o, a futuro, con un lector dedicado.
             </p>
+            <a
+              href={qrImage.url}
+              download={`qr-${resolvedProduct.sku}.png`}
+              className="text-xs font-semibold text-[#4B98CF] hover:underline"
+            >
+              Descargar QR en PNG
+            </a>
           </div>
         )}
       </div>

@@ -8,11 +8,12 @@ vi.mock("@/app/auth", () => ({
 
 const mockFetchUsers = vi.fn();
 const mockDeleteUser = vi.fn();
+const mockUpdateUser = vi.fn();
 
 vi.mock("@/lib/local-jwt-auth", () => ({
   fetchUsers: (...args: unknown[]) => mockFetchUsers(...args),
   registerUser: vi.fn(),
-  updateUser: vi.fn(),
+  updateUser: (...args: unknown[]) => mockUpdateUser(...args),
   deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
   inviteUser: vi.fn(),
 }));
@@ -31,8 +32,13 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
   beforeEach(() => {
     mockFetchUsers.mockReset();
     mockDeleteUser.mockReset();
+    mockUpdateUser.mockReset();
     mockFetchUsers.mockResolvedValue(USERS);
     mockDeleteUser.mockResolvedValue(undefined);
+    mockUpdateUser.mockImplementation(async (_token, id, changes) => ({
+      ...USERS.find((user) => user.id === id),
+      ...changes,
+    }));
   });
 
   it("deshabilita el boton de eliminar en la propia fila del usuario autenticado", async () => {
@@ -63,5 +69,23 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
 
     fireEvent.click(confirmButton);
     await waitFor(() => expect(mockDeleteUser).toHaveBeenCalledWith("tok", 2));
+  });
+
+  it("guarda nombre y rol juntos al editar un usuario", async () => {
+    render(<UsersPage />);
+    await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Editar" })[1]);
+    const nameInput = screen.getAllByLabelText("Nombre de empleado")[0];
+    const roleSelect = screen.getAllByLabelText("Rol de empleado")[0];
+    fireEvent.change(nameInput, { target: { value: "Empleado Actualizado" } });
+    fireEvent.change(roleSelect, { target: { value: "warehouse" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /guardar/i })[0]);
+
+    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith("tok", 2, {
+      name: "Empleado Actualizado",
+      role: "warehouse",
+    }));
+    await waitFor(() => expect(screen.getAllByText("Empleado Actualizado").length).toBeGreaterThan(0));
   });
 });

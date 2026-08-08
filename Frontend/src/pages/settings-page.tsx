@@ -21,21 +21,23 @@ const SYSTEM_TOGGLES: SystemToggle[] = [
   { key: "weightRoundingEnabled", label: "Redondeo automático para productos por peso", description: "Redondea el subtotal de productos vendidos por peso/volumen al múltiplo de $50 más cercano." },
 ];
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ checked, disabled, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+        "relative h-7 w-12 shrink-0 rounded-full border-2 border-transparent shadow-inner transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4B98CF] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60",
         checked ? "bg-[#4B98CF]" : "bg-[#DCE0E2]"
       )}
     >
       <span className={cn(
-        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-        checked ? "translate-x-5" : "translate-x-0.5"
+        "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform",
+        checked ? "translate-x-5" : "translate-x-0"
       )} />
     </button>
   );
@@ -164,13 +166,15 @@ export function SettingsPage() {
         </div>
         <div className="divide-y divide-[#F5F7F9]">
           {SYSTEM_TOGGLES.map((toggle) => (
-            <div key={toggle.key} className="flex items-center justify-between gap-4 py-3">
+            <div key={toggle.key} className="flex items-center justify-between gap-4 py-4">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-[#112b4a]">{toggle.label}</p>
                 <p className="mt-0.5 text-xs text-[#6B7280]">{toggle.description}</p>
               </div>
               <Toggle
                 checked={Boolean(toggles[toggle.key])}
+                disabled={toggleSaving === toggle.key}
+                label={toggle.label}
                 onChange={(v) => handleToggle(toggle.key, v)}
               />
             </div>
