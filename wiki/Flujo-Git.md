@@ -31,19 +31,18 @@ Configurado vía GitHub (Settings → Branches → `main`):
 - **No se permite force-push ni borrar `main`.**
 - **Conversaciones del PR deben quedar resueltas** antes de mergear.
 
-## Qué NO cambia
+## Despliegue después del merge
 
-- El autodeploy de Render/Vercel (si se usa en el futuro) sigue
-  disparándose por push a `main` — pero como ahora es imposible pushear
-  directo a `main`, en la práctica el autodeploy solo corre después de que
-  un PR pasó el CI y se mergeó. Esto es lo que cierra el gap que señalaba
-  `aidlc-docs/design-artifacts/ADR/ADR-003-no-cicd-platform-native-autodeploy.md`
-  ("no hay gate automático de tests antes de desplegar").
-- El backend en VPS se despliega manualmente (`docker compose -f
-  docker-compose.prod.yml up -d --build`, ver
-  [Despliegue-VPS.md](Despliegue-VPS.md)), no por autodeploy — pero seguís
-  queriendo que el código que llega a `main` ya haya pasado CI antes de
-  desplegarlo manualmente.
+- Vercel despliega Frontend y Landing al actualizarse `main`.
+- El backend se despliega automáticamente al VPS mediante
+  `.github/workflows/deploy.yml` después de que el workflow `CI` de `main`
+  termina en verde.
+- `Backend/scripts/02-vps-deploy.sh` sincroniza el VPS con `origin/main`,
+  reconstruye los contenedores, reinicia el gateway, verifica el health check
+  público y revierte al commit anterior si el despliegue falla.
+- El procedimiento manual queda únicamente para diagnóstico o para reintentar
+  un despliegue desde **Actions → Deploy VPS → Run workflow**. Ver
+  [Despliegue-VPS.md](Despliegue-VPS.md).
 
 ## Flujo día a día
 

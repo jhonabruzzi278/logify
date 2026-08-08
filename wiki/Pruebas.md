@@ -1,6 +1,6 @@
 # Pruebas
 
-Logify incluye pruebas unitarias en cada microservicio, en el frontend, pruebas E2E de regresión visual (Playwright) y pruebas de carga (k6). Estado actual: **464 pruebas unitarias/integración + 15 E2E, todas en verde**.
+Logify incluye pruebas unitarias en cada microservicio, en el frontend, pruebas E2E de regresión visual (Playwright) y pruebas de carga (k6). Estado medido el 2026-08-08: **548 pruebas unitarias/integración + 15 E2E**. Las 548 pasan al ejecutar cada suite de forma aislada, igual que en CI.
 
 ---
 
@@ -25,10 +25,10 @@ cd Backend/notification-service && npm test
 Cada servicio tiene una suite única junto a su código:
 
 ```
-orders-service/src/index.test.js         139 pruebas (+ security-module.test.js)
-inventory-service/src/index.test.js      116 pruebas
-shipping-service/src/index.test.js        53 pruebas
-notification-service/src/index.test.js    61 pruebas
+orders-service/src/*.test.js             187 pruebas (5 suites)
+inventory-service/src/index.test.js      122 pruebas
+shipping-service/src/index.test.js        59 pruebas
+notification-service/src/index.test.js    67 pruebas
 ```
 
 ### Qué se prueba
@@ -106,12 +106,12 @@ npm run test:coverage    # Reporte de cobertura en coverage/index.html
 
 | Componente | Pruebas | Cobertura (statements) |
 |-----------|--------:|----------------------:|
-| orders-service | 139 | 81,8 % |
-| inventory-service | 116 | 84,6 % |
-| shipping-service | 53 | 87,9 % |
-| notification-service | 61 | 84,2 % |
-| Frontend (Vitest) | 95 | 74,7 % |
-| **Total unitarias/integración** | **464** | — |
+| orders-service | 187 | 82,23 % |
+| inventory-service | 122 | 92,84 % |
+| shipping-service | 59 | 93,44 % |
+| notification-service | 67 | 94,11 % |
+| Frontend (Vitest) | 113 | ver reporte generado por CI |
+| **Total unitarias/integración** | **548** | — |
 | Frontend E2E (Playwright) | 15 | — (regresión visual + flujos críticos) |
 
 > Meta del equipo: 80% en backend. Alcanzada en los 4 servicios. Lo que queda
@@ -120,6 +120,10 @@ npm run test:coverage    # Reporte de cobertura en coverage/index.html
 > real (integración) que con un pool mockeado; y algunas ramas de manejo de
 > errores de bajo impacto. No hay `coverageThreshold` configurado en Jest;
 > convertir la meta en un gate de CI es parte de las mejoras propuestas.
+
+> Nota de ejecución local: correr las cuatro suites backend con cobertura al
+> mismo tiempo puede agotar CPU y hacer que pruebas PDF superen su timeout de
+> 5 segundos. Ejecutadas secuencialmente el 2026-08-08 pasaron 435/435.
 
 ---
 

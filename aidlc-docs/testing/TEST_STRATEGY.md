@@ -1,5 +1,10 @@
 # Test Strategy
 
+> **Actualización 2026-08-08:** existen 548 pruebas registradas (435 backend
+> y 113 Frontend), además de 15 E2E Playwright. Las secciones con 226 pruebas
+> describen la medición histórica del 2026-07-19. CI ejecuta actualmente las
+> suites, typecheck y builds antes de integrar a `main`.
+
 ## Frameworks Detectados
 
 | Componente | Framework | Runner/Config |
@@ -27,7 +32,7 @@
 2. **Sin tests para integraciones externas añadidas al final del desarrollo** — confirmado explícitamente en `wiki/Pruebas.md`: "la brecha actual se concentra en las integraciones externas agregadas al final (push, indicadores, QR/PDF), que se verificaron end-to-end pero aún no tienen pruebas unitarias dedicadas."
 3. **Sin test automatizado que ejerza el flujo completo de fallo parcial del Saga** (ej. ¿qué pasa realmente si shipping-service no responde durante la confirmación de un pedido? — el comportamiento está documentado como "warnings sin rollback" pero no se confirmó durante esta auditoría que exista un test que lo verifique explícitamente).
 4. **No hay `coverageThreshold` configurado en Jest** — confirmado explícitamente en `wiki/Pruebas.md`: nada bloquea un commit o build que reduzca la cobertura por debajo de la meta interna de 60%.
-5. **Sin CI que ejecute estos tests automáticamente** — ver `design-artifacts/ADR/ADR-003-...md`. Los tests existen y aparentemente pasan localmente, pero nada garantiza que se ejecuten antes de cada despliegue.
+5. ~~**Sin CI que ejecute estos tests automáticamente.**~~ Resuelto: GitHub Actions ejecuta las suites y builds; los seis checks principales son obligatorios para `main`.
 
 ## Cobertura Actual
 

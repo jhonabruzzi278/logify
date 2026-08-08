@@ -1,28 +1,30 @@
 # Monitoring Setup
 
-**⚠️ Pendiente — el proyecto aún no llega a la fase de Operations con monitoring real implementado.**
+**Estado al 2026-08-08: monitoreo básico operativo; observabilidad avanzada pendiente.**
 
-## Lo que existe hoy (parcial, no es monitoring real)
+## Implementado
 
-- **Health checks** (`/health`, `/healthz`) en los 4 microservicios + gateway — verifican conectividad a BD, usados por Docker `HEALTHCHECK` y por `render.yaml`. Esto es *liveness checking* básico, no monitoring (no hay dashboards, no hay histórico, no hay alerting basado en estos checks más allá de lo que Render hace internamente para reiniciar un contenedor no saludable).
-- **`Backend/shared/logger.js`**: wrapper simple de `console.log/warn/error/debug` con timestamp ISO. **No es logging estructurado** (sin JSON, sin niveles configurables por severidad, sin IDs de correlación de request entre los 4 servicios).
-- Logs de Render/Vercel: accesibles vía sus dashboards nativos (retención limitada en plan free), no hay agregación centralizada externa (ej. no hay Datadog, Grafana Loki, ELK, Better Stack, etc.).
+- Uptime Kuma self-hosted y publicado mediante Caddy en `status.logify.cl`.
+- Health checks de gateway y microservicios con verificación de base de datos.
+- Docker `HEALTHCHECK` y dependencias de arranque condicionadas por salud.
+- Health check público posterior a cada despliegue del VPS.
+- Rollback automático al commit anterior si el despliegue no queda sano.
+- Rotación de logs de Docker configurada por el script inicial del VPS.
+- Post-mortems versionados en `operations/POST_MORTEMS/`.
 
-## Lo que falta genuinamente (no inferido, confirmado por ausencia total en el repo)
+La configuración detallada de monitores y notificaciones está en
+`wiki/Monitoreo.md`; el flujo de despliegue y rollback está en
+`wiki/Despliegue-VPS.md`.
 
-- Sin APM (Application Performance Monitoring) — no hay New Relic, Datadog APM, Sentry, ni equivalente.
-- Sin métricas de negocio o técnicas expuestas (no hay endpoint `/metrics` estilo Prometheus).
-- Sin dashboards.
-- Sin alerting (no hay integración con PagerDuty, Opsgenie, o incluso un webhook simple a Slack/Discord ante caída de un servicio).
-- Sin correlación de requests entre los 4 servicios (sin trace ID propagado en el header `X-Tenant-Slug`/JWT actual — sería el punto natural para añadir un `X-Request-ID`).
-- Sin tracking de errores en Frontend (no hay Sentry/Bugsnag para capturar errores de cliente en producción).
+## Pendiente
 
-## Recomendación mínima (no implementada — sugerencia de esta auditoría, no una decisión del equipo)
+- Confirmar y probar al menos un canal de alerta de Uptime Kuma.
+- APM y error tracking para Frontend y microservicios.
+- Métricas técnicas y de negocio con histórico.
+- Logging estructurado y centralizado.
+- Generación y propagación de `X-Request-ID` entre gateway y servicios.
+- Alertas de disco, memoria, expiración TLS y fallos de backup.
+- SLO operativos medibles y revisión periódica de incidentes.
 
-Dado el objetivo de costo $0/mes, opciones de bajo/nulo costo a evaluar cuando el proyecto entre a Operations real:
-1. Reemplazar `shared/logger.js` por logging estructurado JSON (ej. Pino) — bajo esfuerzo, alto impacto para depurar el flujo Saga entre servicios.
-2. Añadir un `X-Request-ID` generado en Nginx y propagado por `forwardedFetch` — permite correlacionar logs de una misma request a través de los 4 servicios.
-3. Sentry (tiene un tier gratuito) para error tracking de Frontend y backend.
-4. Un webhook simple de Render (falla de health check) hacia un canal de Discord/Slack como alerting mínimo viable.
-
-Este documento debe reemplazarse con contenido real una vez que cualquiera de estas piezas se implemente — no antes.
+Uptime Kuma cubre disponibilidad externa, pero no reemplaza trazas, métricas,
+logs centralizados ni captura de errores del cliente.

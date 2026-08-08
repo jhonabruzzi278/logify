@@ -101,7 +101,7 @@ Ver tabla completa en [`LOGICAL_DESIGN.md`](./LOGICAL_DESIGN.md). Resumen de cap
 | Persistencia | PostgreSQL, SQL crudo (sin ORM), stored procedures para operaciones atómicas críticas | Control fino sobre transacciones/locking (`SELECT FOR UPDATE`) que un ORM complicaría; trade-off: más código boilerplate, sin migraciones versionadas formales (usa `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ADD COLUMN IF NOT EXISTS` idempotente en vez de un migrator como Prisma/Knex) | `Backend/shared/db.js`, `stored-procedures.sql` |
 | Comunicación inter-servicio | HTTP síncrono (sin broker) | Simplicidad para el tamaño del equipo/proyecto; trade-off: acopla disponibilidad de servicios entre sí, sin tolerancia a fallos parciales real | Confirmado ausencia de RabbitMQ/Kafka/Redis en todo el codebase |
 | Auth | JWT propio + bcrypt (post-migración desde AWS Cognito) | Reduce dependencia de infraestructura externa/costos AWS; trade-off: gestión manual de secretos y sin MFA/social login | Commits `4b6dd3b`, `dee6cf0` |
-| Deploy | Render (backend) + Vercel (frontend/landing) + Neon (BD), todo free-tier | Objetivo explícito de costo $0/mes | `RENDER_DEPLOY.md` |
+| Deploy | VPS propio con Docker/Caddy/PostgreSQL para backend + Vercel para Frontend/Landing | Control operativo, TLS automático y costo fijo bajo | `wiki/Despliegue-VPS.md` |
 
 ## Decisiones Arquitectónicas Detectadas
 
@@ -109,6 +109,6 @@ Ver tabla completa en [`LOGICAL_DESIGN.md`](./LOGICAL_DESIGN.md). Resumen de cap
 - **Sync vs Async:** 100% síncrono entre servicios (HTTP REST). No hay mensajería asíncrona pese a que el esquema de BD (`processed_events`) sugiere que se planeó en algún momento.
 - **Multi-tenant, shared-schema:** una única instancia de cada servicio/BD sirve a todos los tenants, aislados por columna `tenant_id`, no bases de datos separadas por tenant ni Postgres RLS nativo.
 - **BFF/Gateway centralizado:** todo el tráfico externo pasa por Nginx — los microservicios no son accesibles públicamente de forma directa (mitigado también por CORS/rate-limit en cada uno como defensa adicional).
-- **Sin CI/CD, autodeploy nativo de plataforma:** decisión explícita de simplificar operaciones removiendo GitHub Actions/Terraform/AWS (commit `6018f89`), a cambio de depender de los sistemas de autodeploy de Render/Vercel al hacer push a `main`. Ver `ADR/ADR-003-no-cicd-platform-autodeploy.md`.
+- **CI/CD con gate obligatorio:** GitHub Actions ejecuta tests/builds en cada PR; `main` exige seis checks verdes. Después del merge, Vercel despliega Frontend/Landing y el workflow de CD despliega el backend al VPS con health check y rollback. El ADR-003 conserva la decisión histórica que fue superada.
 
 Ver decisiones individuales con contexto y consecuencias en [`ADR/`](./ADR/).

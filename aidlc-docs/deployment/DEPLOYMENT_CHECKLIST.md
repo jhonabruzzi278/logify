@@ -1,6 +1,6 @@
 # Deployment Checklist
 
-> **Actualizado 2026-08-06** tras auditoría de production-readiness +
+> **Actualizado 2026-08-08** tras revisión de producción, CI/CD y reglas de rama +
 > incidente real de producción (ver
 > `operations/POST_MORTEMS/2026-08-06-signup-404-produccion.md`). El
 > checklist original (basado en `RENDER_DEPLOY.md`, cuando el backend
@@ -22,7 +22,7 @@ inalcanzable, resuelto — ver post-mortem).
 - [x] Tests pasando en CI — verificado contra el log real de la corrida
       exitosa del commit `830021f`: `orders-service` 142/142 tests,
       84.99% statements. Consistente con lo declarado en `wiki/Pruebas.md`
-      (464+ tests, 81-88% por servicio backend).
+      La medición actual del 2026-08-08 registra 548 pruebas: 435 backend y 113 Frontend.
 - [x] CI/CD configurado — `.github/workflows/ci.yml` corre tests en los
       4 microservicios + Frontend (typecheck+test+build) + Landing
       (build) en cada PR y push a `main`, con branch protection.
@@ -41,7 +41,7 @@ inalcanzable, resuelto — ver post-mortem).
       sistema corre en modo demo de email (logueado a consola, no
       enviado) y sin Web Push activo. No bloqueante, pero pendiente si
       se necesita envío de correo real o notificaciones push.
-- [ ] Test end-to-end del flujo de login/signup en el dominio real —
+- [ ] Automatizar una ejecución periódica end-to-end del flujo de login/signup en el dominio real —
       **no verificado en esta sesión** (se verificó el endpoint de
       signup vía `curl`, no un flujo completo de browser).
 
@@ -57,11 +57,19 @@ inalcanzable, resuelto — ver post-mortem).
 | Monitoreo | ✅ | Uptime Kuma self-hosted en `status.logify.cl`, contenedores con `healthcheck` |
 | `render.yaml` / infra Render | ❌ (retirado) | Backend migrado de Render a VPS propio |
 
-## Gaps reales identificados (2026-08-06)
+## Gaps reales vigentes (2026-08-08)
 
-1. **El despliegue al VPS es 100% manual** (`git pull` + `docker compose up -d --build`) — sin CD automático al mergear a `main`. Esto fue la causa raíz del incidente de hoy: varios PRs se mergearon a `main` sin redesplegar el VPS, que quedó 9 commits atrás hasta esta sesión.
-2. **Nginx (`nginx.conf`) se monta como volumen** — un `docker compose up -d --build` no lo recarga si solo cambió el contenido del archivo; hace falta `docker compose restart api-gateway` explícito. Ya causó confusión una vez (ver post-mortem).
-3. **No hay endpoint de versión** que exponga qué commit corre cada servicio — dificulta detectar drift entre `main` y lo desplegado sin SSH manual.
-4. **Dependencia `nodemailer` (orders-service, shipping-service, v6.9.16) con vulnerabilidades HIGH conocidas** (inyección SMTP, CRLF injection, SSRF vía `raw`) — fix requiere upgrade a v9.0.4 (breaking change), pendiente de programar.
-5. **SonarCloud conectado pero sin Quality Gate configurado** (`status: NONE`) — el análisis corre en CI pero no bloquea el merge por sí mismo.
-6. Sin plan de rollback documentado más allá de `git checkout <commit-anterior> && docker compose up -d --build`.
+1. **Quality Gate de SonarCloud no requerido por branch protection.** El análisis del PR #23 falló por 13,7% de cobertura sobre código nuevo (mínimo configurado: 80%), aunque los seis checks requeridos y el job de escaneo pasaron. Debe decidirse si se agregan tests de interfaz suficientes o si se ajusta una política de cobertura realista para cambios semánticos de JSX.
+2. **No hay endpoint de versión** que exponga qué commit corre cada servicio; el script de despliegue conoce los SHA, pero la verificación externa sigue limitada al health check.
+3. **SMTP y VAPID dependen de secretos de producción.** Si no están configurados, email funciona en modo demo y Web Push queda inactivo.
+4. **Observabilidad básica, no completa.** Uptime Kuma cubre disponibilidad, pero faltan APM/error tracking, métricas, logs centralizados y `X-Request-ID` entre servicios.
+5. **Backups en el mismo VPS.** Existe cron diario con retención, pero falta una copia externa automatizada y una prueba periódica de restauración.
+6. **Saga sin compensación automática.** Un fallo downstream puede requerir intervención manual; falta un runbook operacional detallado y/o una estrategia de compensación.
+7. **`nodemailer` continúa en 6.9.16** en orders/shipping; el salto a una versión mayor debe tratarse como actualización separada con pruebas de compatibilidad.
+
+## Gaps cerrados desde la auditoría inicial
+
+- [x] CD automático al VPS después de CI verde.
+- [x] Reinicio explícito del gateway cuando cambia su configuración.
+- [x] Health check público post-deploy y rollback automático al SHA anterior.
+- [x] Monitoreo básico con Uptime Kuma.

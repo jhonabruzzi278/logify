@@ -66,7 +66,7 @@ Reconstruidas retroactivamente a partir del flujo de negocio documentado en `wik
 **US-18** — Como operador de la plataforma (rol de plataforma, no un rol de negocio existente hoy), quiero que los datos de cada empresa cliente estén completamente aislados de las demás, para poder ofrecer Logify como SaaS a múltiples empresas sin riesgo de fuga de datos entre ellas.
 *Fuente: `wiki/Multi-Tenant.md` Fase 4A-4C, implementado y verificado con tenant de prueba `acme`*
 
-**US-19 (pendiente)** — Como nueva empresa interesada, quiero poder registrarme y obtener mi propio subdominio sin intervención manual del administrador de la plataforma, para empezar a usar Logify de forma self-service.
+**US-19 (implementada)** — Como nueva empresa interesada, quiero registrarme mediante onboarding self-service, crear mi tenant y activar una prueba gratuita de 30 días sin intervención manual, para empezar a usar Logify inmediatamente.
 *Fuente: `wiki/Multi-Tenant.md` Fase 4E — ⚠️ no implementado, historia inferida del roadmap, no de código existente*
 
 ---

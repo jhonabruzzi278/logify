@@ -42,6 +42,7 @@
   .bar-bg { flex: 1; height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden; }
   .bar-fill { height: 100%; border-radius: 5px; }
   .green { background: #4caf50; }
+  .historical-note { margin-bottom: 20px; padding: 12px 14px; border: 1px solid #f59e0b; border-radius: 8px; background: #fffbeb; color: #78350f; font-size: 13px; line-height: 1.5; }
   .orange { background: #ff9800; }
   .test-list { margin-top: 10px; }
   .test-item { display: flex; align-items: flex-start; gap: 8px; padding: 3px 0; font-size: 12px; }
@@ -57,6 +58,8 @@
 </style>
 </head>
 <body>
+
+<div class="historical-note"><strong>Reporte histórico:</strong> las métricas de esta página corresponden a una versión anterior y no deben usarse como estado actual. La medición vigente del 2026-08-08 registra 548 pruebas (435 backend + 113 Frontend). Consulta <code>aidlc-docs/testing/TEST_COVERAGE_REPORT.md</code> y <code>wiki/Pruebas.md</code>.</div>
 
 <h1>Logify — Informe de Pruebas Unitarias</h1>
 <p class="subtitle">Frameworks: Vitest (Frontend) + Jest (Backend) &nbsp;|&nbsp; Cobertura mínima requerida: 60%</p>

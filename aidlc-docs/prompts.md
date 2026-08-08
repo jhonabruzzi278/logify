@@ -1,5 +1,9 @@
 # AI Prompts Used (Audit Trail)
 
+> **Registro histórico.** Las entradas iniciales describen la auditoría del
+> 2026-07-19 y no representan el estado operativo actual. Desde 2026-08-06 el
+> sistema está en producción, y desde 2026-08-07 cuenta con CI/CD al VPS.
+
 ## Sesión: Análisis Inicial AI-DLC
 
 **Fecha:** 2026-07-19
