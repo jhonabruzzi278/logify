@@ -27,6 +27,8 @@ export function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
   const [showMatrix, setShowMatrix] = useState(false);
   const [editingUser, setEditingUser] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<{ name: string; role: Role } | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", username: "", password: "", role: "ops" as Role });
   const [showInvite, setShowInvite] = useState(false);
@@ -84,14 +86,32 @@ export function UsersPage() {
     setTimeout(() => setFeedback(null), 3000);
   }
 
-  async function handleRoleChange(id: number, role: Role) {
+  function startEditing(user: UserRecord) {
+    setEditingUser(user.id);
+    setEditDraft({ name: user.name, role: user.role });
+  }
+
+  function cancelEditing() {
+    setEditingUser(null);
+    setEditDraft(null);
+  }
+
+  async function handleSaveUser(user: UserRecord) {
+    const name = editDraft?.name.trim() ?? "";
+    if (!name) {
+      setFeedback("El nombre es obligatorio");
+      return;
+    }
+    setEditSaving(true);
     try {
-      const updated = await updateUser(token, id, { role });
-      setUsers((prev) => prev.map((u) => u.id === id ? { ...u, role: updated.role as Role } : u));
-      setEditingUser(null);
-      setFeedback("Rol actualizado");
+      const updated = await updateUser(token, user.id, { name, role: editDraft?.role ?? user.role });
+      setUsers((prev) => prev.map((item) => item.id === user.id ? { ...item, name: updated.name, role: updated.role as Role } : item));
+      cancelEditing();
+      setFeedback("Usuario actualizado");
     } catch (e: any) {
-      setFeedback(e.message || "Error al actualizar rol");
+      setFeedback(e.message || "Error al actualizar usuario");
+    } finally {
+      setEditSaving(false);
     }
     setTimeout(() => setFeedback(null), 3000);
   }
@@ -135,18 +155,6 @@ export function UsersPage() {
       setFeedback(e.message || "Error al invitar");
     } finally {
       setInviting(false);
-    }
-    setTimeout(() => setFeedback(null), 3000);
-  }
-
-  async function handleNameChange(id: number, name: string) {
-    try {
-      await updateUser(token, id, { name });
-      setUsers((prev) => prev.map((u) => u.id === id ? { ...u, name } : u));
-      setEditingUser(null);
-      setFeedback("Nombre actualizado");
-    } catch (e: any) {
-      setFeedback(e.message || "Error");
     }
     setTimeout(() => setFeedback(null), 3000);
   }
@@ -288,10 +296,11 @@ export function UsersPage() {
                   <div className="flex-1">
                     {editingUser === user.id ? (
                       <input
-                        defaultValue={user.name}
-                        onBlur={(e) => handleNameChange(user.id, e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleNameChange(user.id, (e.target as HTMLInputElement).value); }}
-                        className="h-8 rounded border border-[#DDE0E2] px-2 text-sm font-semibold"
+                        aria-label={`Nombre de ${user.username}`}
+                        value={editDraft?.name ?? ""}
+                        onChange={(e) => setEditDraft((draft) => draft ? { ...draft, name: e.target.value } : draft)}
+                        onKeyDown={(e) => { if (e.key === "Escape") cancelEditing(); }}
+                        className="h-9 w-full rounded border border-[#4B98CF] bg-white px-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#4B98CF]/20"
                         autoFocus
                       />
                     ) : (
@@ -313,7 +322,7 @@ export function UsersPage() {
                 </div>
                 <div className="flex gap-2 mt-2">
                   <button type="button"
-                    onClick={() => setEditingUser(user.id)}
+                    onClick={() => startEditing(user)}
                     className={cn("inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-bold group border border-[#4B98CF] text-[#4B98CF]", editingUser === user.id && "bg-[#4B98CF]/10")}
                   >
                     Editar
@@ -322,13 +331,15 @@ export function UsersPage() {
                 {editingUser === user.id && (
                   <div className="mt-2 flex items-center gap-2">
                     <select
-                      value={user.role}
-                      onChange={(e) => handleRoleChange(user.id, e.target.value as Role)}
-                      className="h-8 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-xs"
+                      aria-label={`Rol de ${user.username}`}
+                      value={editDraft?.role ?? user.role}
+                      onChange={(e) => setEditDraft((draft) => draft ? { ...draft, role: e.target.value as Role } : draft)}
+                      className="h-9 flex-1 rounded border border-[#4B98CF] bg-white px-2 text-xs"
                     >
                       {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
                     </select>
-                    <button type="button" onClick={() => setEditingUser(null)} className="p-1 text-[#6B7280] hover:text-[#112b4a]"><X className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => handleSaveUser(user)} disabled={editSaving} className="inline-flex h-9 items-center gap-1 rounded bg-[#4B98CF] px-3 text-xs font-bold text-white disabled:opacity-50"><Check className="h-3.5 w-3.5" /> Guardar</button>
+                    <button type="button" aria-label="Cancelar edición" onClick={cancelEditing} className="h-9 rounded border border-[#DCE0E2] px-2 text-[#6B7280] hover:text-[#112b4a]"><X className="h-3.5 w-3.5" /></button>
                   </div>
                 )}
               </div>
@@ -358,10 +369,11 @@ export function UsersPage() {
                   <td className="px-4 py-3">
                     {editingUser === user.id ? (
                       <input
-                        defaultValue={user.name}
-                        onBlur={(e) => handleNameChange(user.id, e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleNameChange(user.id, (e.target as HTMLInputElement).value); }}
-                        className="h-8 rounded border border-[#DDE0E2] px-2 text-sm font-semibold w-full"
+                        aria-label={`Nombre de ${user.username}`}
+                        value={editDraft?.name ?? ""}
+                        onChange={(e) => setEditDraft((draft) => draft ? { ...draft, name: e.target.value } : draft)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveUser(user); if (e.key === "Escape") cancelEditing(); }}
+                        className="h-9 w-full rounded border border-[#4B98CF] bg-white px-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#4B98CF]/20"
                         autoFocus
                       />
                     ) : (
@@ -370,8 +382,8 @@ export function UsersPage() {
                           role="button"
                           tabIndex={0}
                           className="font-semibold text-[#112b4a] cursor-pointer hover:text-[#4B98CF]"
-                          onClick={() => setEditingUser(user.id)}
-                          onKeyDown={onActivateKey(() => setEditingUser(user.id))}
+                          onClick={() => startEditing(user)}
+                          onKeyDown={onActivateKey(() => startEditing(user))}
                         >{user.name}</p>
                         <p className="text-xs text-[#6B7280]">{user.username}</p>
                       </>
@@ -381,17 +393,19 @@ export function UsersPage() {
                     {editingUser === user.id ? (
                       <div className="flex items-center gap-1">
                         <select
-                          value={user.role}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value as Role)}
-                          className="h-8 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-xs"
+                          aria-label={`Rol de ${user.username}`}
+                          value={editDraft?.role ?? user.role}
+                          onChange={(e) => setEditDraft((draft) => draft ? { ...draft, role: e.target.value as Role } : draft)}
+                          className="h-9 min-w-32 rounded border border-[#4B98CF] bg-white px-2 text-xs"
                         >
                           {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
                         </select>
-                        <button type="button" onClick={() => setEditingUser(null)} className="p-1 text-[#6B7280] hover:text-[#112b4a]"><X className="h-3.5 w-3.5" /></button>
+                        <button type="button" aria-label="Guardar usuario" onClick={() => handleSaveUser(user)} disabled={editSaving} className="inline-flex h-9 w-9 items-center justify-center rounded bg-[#4B98CF] text-white disabled:opacity-50"><Check className="h-4 w-4" /></button>
+                        <button type="button" aria-label="Cancelar edición" onClick={cancelEditing} className="inline-flex h-9 w-9 items-center justify-center rounded border border-[#DCE0E2] text-[#6B7280] hover:text-[#112b4a]"><X className="h-4 w-4" /></button>
                       </div>
                     ) : (
                       <button type="button"
-                        onClick={() => setEditingUser(user.id)}
+                        onClick={() => startEditing(user)}
                         className={cn("inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold group", roleBadgeColors[user.role])}
                       >
                         {getRoleProfile(user.role).label}

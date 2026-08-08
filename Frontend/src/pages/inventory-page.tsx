@@ -318,7 +318,13 @@ export function InventoryPage() {
                   </div>
                   <div className="space-y-1">
                     <label htmlFor="inventory-page-f320" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad</label>
-                    <Select value={form.unitOfMeasure} onValueChange={(v) => setForm({ ...form, unitOfMeasure: v })}>
+                    <Select value={form.unitOfMeasure} onValueChange={(v) => {
+                      setForm({ ...form, unitOfMeasure: v, imageUrl: v === "unidad" ? form.imageUrl : "" });
+                      if (v !== "unidad") {
+                        setImagePickerOpen(false);
+                        setImageResults([]);
+                      }
+                    }}>
                       <SelectTrigger id="inventory-page-f320" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unidad">Unidad</SelectItem>
@@ -339,7 +345,7 @@ export function InventoryPage() {
                   Producto activo
                 </label>
 
-                <div className="space-y-1.5">
+                {form.unitOfMeasure === "unidad" && <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Imagen del producto</p>
                     {!imagePickerOpen && (
@@ -400,7 +406,7 @@ export function InventoryPage() {
                       <button type="button" onClick={() => setImagePickerOpen(false)} className="text-[10px] text-[#6B7280] hover:text-[#112b4a]">Cancelar</button>
                     </div>
                   )}
-                </div>
+                </div>}
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
