@@ -1,11 +1,11 @@
 # ADR-002: Multi-tenancy con esquema compartido y tenant derivado exclusivamente del JWT
 
-**Status:** Aceptado (implementado, fases 4A-4C completas; fases 4D-4E pendientes)
+**Status:** Aceptado (fases 4A-4E implementadas)
 **Fecha inferida:** trabajo reciente — el último commit del repo ("fix: soportar subdominios de tenant en CORS + guia completa de deploy", 2026-07-16) es parte de esta iniciativa.
 
 ## Contexto
 
-Logify nació como sistema single-tenant y se decidió evolucionarlo a SaaS multi-tenant (una empresa por subdominio, `<empresa>.logify.cl`) sin interrumpir el sistema existente ni requerir una reescritura. Render (backend) no soporta dominios wildcard de forma nativa, mientras que Vercel (frontend) sí.
+Logify nació como sistema single-tenant y evolucionó a SaaS multi-tenant (una empresa por subdominio, `<empresa>.logify.cl`) sin interrumpir el sistema existente ni requerir una reescritura. El frontend wildcard vive en Vercel y utiliza una API central en el VPS.
 
 ## Decisión
 
@@ -24,7 +24,7 @@ Logify nació como sistema single-tenant y se decidió evolucionarlo a SaaS mult
 **Negativas / riesgos:**
 - **No usa Row-Level Security nativo de PostgreSQL** (`CREATE POLICY`) pese a que la documentación existente se titula "Seguridad y RLS" — el aislamiento depende de que **cada query nueva** en el código de aplicación recuerde filtrar por `tenant_id`. Un desarrollador que añada un endpoint nuevo y olvide el filtro introduce una fuga de datos cross-tenant silenciosa. Esto es un riesgo real de mantenibilidad a largo plazo — se recomienda evaluar RLS nativo de Postgres como hardening futuro.
 - Sin foreign keys físicas de `tenant_id` hacia la tabla `tenants` en las bases `inventory_db`, `shipping_db`, `notification_db` (Database-per-Service impide FKs cross-DB) — la integridad referencial del tenant es lógica, no forzada por el motor de BD.
-- Dominio wildcard (`*.logify.cl`) y auto-provisión de tenants (fases 4D/4E) siguen pendientes — hoy el onboarding de un nuevo tenant es manual.
+- Dominio wildcard (`*.logify.cl`) y auto-provisión de tenants (fases 4D/4E) están implementados. El onboarding público crea tenant y owner con prueba de 30 días; el backend central vive en `api.logify.cl` sobre el VPS.
 
 ## Alternativas consideradas
 

@@ -412,7 +412,7 @@ cd Backend/shipping-service && npm test      # 54 pruebas — 92.8% cobertura
 cd Backend/notification-service && npm test  # 62 pruebas — 93.4% cobertura
 
 # Frontend
-cd Frontend && npm test                      # 95 pruebas unitarias (Vitest)
+cd Frontend && npm test                      # 113 pruebas unitarias (Vitest)
 npm run test:coverage                        # Reporte en Frontend/coverage/index.html
 npm run test:e2e                             # 15 pruebas E2E (Playwright) — requiere `npm run dev` corriendo
 
@@ -460,7 +460,7 @@ Logify/
 
 ## 📋 Documentación del Proyecto (AI-DLC)
 
-Este proyecto sigue la metodología AI-DLC. Estado actual: **Construction (tardía) / Deployment-Readiness**
+Este proyecto sigue la metodología AI-DLC. Estado actual: **Operations — producción activa y estabilización continua**.
 
 Documentación completa en [`/aidlc-docs/`](./aidlc-docs/):
 - [Requirements e Intent](./aidlc-docs/requirements/)
@@ -469,6 +469,6 @@ Documentación completa en [`/aidlc-docs/`](./aidlc-docs/):
 - [Decisiones de arquitectura (ADRs)](./aidlc-docs/design-artifacts/ADR/)
 - [Testing Strategy y Coverage real medido](./aidlc-docs/testing/TEST_COVERAGE_REPORT.md)
 - [Deployment Checklist](./aidlc-docs/deployment/DEPLOYMENT_CHECKLIST.md)
-- [Operations](./aidlc-docs/operations/) *(mayormente pendiente — el proyecto aún no opera en producción real)*
+- [Operations](./aidlc-docs/operations/) *(producción activa: VPS + Vercel, Uptime Kuma, CI/CD y post-mortems)*
 
-Última auditoría: 2026-08-06 (production-readiness + incidente real documentado — ver `operations/POST_MORTEMS/`)
+Última auditoría: 2026-08-08 (estado de producción, CI/CD, documentación y accesibilidad — ver `operations/POST_MORTEMS/`).

@@ -87,13 +87,13 @@ export function CalendarPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="flex h-9 w-9 items-center justify-center rounded border border-[#DCE0E2] bg-white text-[#6B7280] hover:bg-[#F5F7F9]">
+          <button type="button" onClick={prevMonth} className="flex h-9 w-9 items-center justify-center rounded border border-[#DCE0E2] bg-white text-[#6B7280] hover:bg-[#F5F7F9]">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <span className="min-w-[140px] text-center text-sm font-bold text-[#112b4a]">
             {MONTHS[month]} {year}
           </span>
-          <button onClick={nextMonth} className="flex h-9 w-9 items-center justify-center rounded border border-[#DCE0E2] bg-white text-[#6B7280] hover:bg-[#F5F7F9]">
+          <button type="button" onClick={nextMonth} className="flex h-9 w-9 items-center justify-center rounded border border-[#DCE0E2] bg-white text-[#6B7280] hover:bg-[#F5F7F9]">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>

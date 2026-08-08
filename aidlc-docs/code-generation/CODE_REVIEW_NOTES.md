@@ -1,6 +1,6 @@
 # Code Review Notes
 
-No se encontró evidencia de un proceso formal de code review (no hay plantilla de PR, no hay `CODEOWNERS`, no hay branch protection visible desde el repo local, y el desarrollo parece haber ocurrido en gran parte directamente sobre `main` y branches personales `develop`/`darlette`/`victor`). Este documento captura observaciones de revisión hechas *durante esta auditoría automática* — no reemplazan una revisión de código humana real, y deben tratarse como una primera pasada, no como aprobación de calidad.
+La observación histórica de ausencia de revisión quedó superada desde el 2026-08-06: `main` tiene branch protection, PR obligatorio, seis checks requeridos, rama estrictamente al día y resolución de conversaciones. Siguen sin existir aprobaciones humanas obligatorias (`required_approving_review_count: 0`), una decisión adecuada para el equipo pequeño actual. Este documento conserva además los hallazgos técnicos que continúan vigentes.
 
 ## Observaciones — Prioridad Alta
 

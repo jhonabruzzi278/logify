@@ -8,10 +8,9 @@ romper el sistema actual.
 ## Topología
 
 Frontend en `*.logify.cl` (wildcard, Vercel), pero **un solo backend fijo**
-en `api.logify.cl` (Render, sin wildcard). El frontend deriva el tenant de
+en `api.logify.cl` (VPS detrás de Caddy). El frontend deriva el tenant de
 `window.location.hostname` y lo manda como header `X-Tenant-Slug` en cada
-request. Esto evita depender de que Render soporte dominios wildcard y
-evita problemas de CORS.
+request. Esto mantiene una API central y evita problemas de CORS.
 
 **Regla de seguridad dura:** el header `X-Tenant-Slug` nunca se usa para
 filtrar SQL directamente — solo `req.user.tenant_id`, ya verificado desde el
@@ -71,13 +70,13 @@ forma consistente entre bases separadas).
   suscripciones sin filtrar por tenant). Verificado con un tenant de prueba
   real (`acme`): aislamiento de datos confirmado y reuso cruzado de token
   entre tenants rechazado con 403.
-- **4D — Wildcard DNS + dominio propio** (pendiente) `*.logify.cl` en Vercel,
-  `api.logify.cl` en Render, actualizar `ALLOWED_ORIGINS`/`APP_URL`.
+- **4D — Wildcard DNS + dominio propio** ✅ `*.logify.cl` en Vercel y
+  `api.logify.cl` en el VPS, con `ALLOWED_ORIGINS`/`APP_URL` configurados.
 - **4E — Provisioning de tenants** ✅ Signup self-service público
   (`POST /api/signup` + `GET /api/signup/check-slug` en orders-service,
   formulario en `Landing/pages/registro.js`): crea el tenant y su usuario
   "owner" en una transacción, sin verificación de email, con una demo
-  gratuita de 90 días (`tenants.trial_ends_at`) extensible vía un sistema de
+  gratuita de 30 días (`tenants.trial_ends_at`) extensible vía un sistema de
   cupones (tablas `coupons`/`coupon_redemptions`, administradas por
   `POST/GET /api/admin/coupons` protegidos con el header `X-Admin-Key`).
   `tenants` también quedó preparada para cobro real (`subscription_status`,

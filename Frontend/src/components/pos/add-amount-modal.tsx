@@ -25,7 +25,7 @@ export function AddAmountModal({ onAdd, onClose }: AddAmountModalProps) {
       <div className="w-full max-w-sm rounded-lg bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">Agregar monto al carrito</h3>
-          <button onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -33,12 +33,12 @@ export function AddAmountModal({ onAdd, onClose }: AddAmountModalProps) {
 
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground">Nombre</label>
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Varios" className="h-9 text-sm" />
+            <label htmlFor="add-amount-modal-f36" className="text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground">Nombre</label>
+            <Input id="add-amount-modal-f36" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Varios" className="h-9 text-sm" />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground">Monto</label>
-            <Input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="h-9 text-sm" autoFocus />
+            <label htmlFor="add-amount-modal-f40" className="text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground">Monto</label>
+            <Input id="add-amount-modal-f40" type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="h-9 text-sm" autoFocus />
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">

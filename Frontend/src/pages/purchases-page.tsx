@@ -118,10 +118,10 @@ export function PurchasesPage() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="relative space-y-1" ref={productDropdownRef}>
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Producto *</label>
+                  <label htmlFor="purchases-page-f121" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Producto *</label>
                   <div className="relative">
                     <Package className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
+                    <Input id="purchases-page-f121"
                       value={selectedProduct ? `${selectedProduct.name} (${selectedProduct.sku})` : form.productSearch}
                       onChange={(e) => { setForm({ ...form, productSearch: e.target.value }); setSelectedProduct(null); }}
                       onFocus={() => setShowProductDropdown(true)}
@@ -151,9 +151,9 @@ export function PurchasesPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
+                  <label htmlFor="purchases-page-f154" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
                   <Select value={form.supplierId || "none"} onValueChange={(v) => setForm({ ...form, supplierId: v === "none" ? "" : v })}>
-                    <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="purchases-page-f154" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin proveedor</SelectItem>
                       {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -163,18 +163,18 @@ export function PurchasesPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Costo unitario *</label>
-                    <Input type="number" min="0" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} placeholder="1500" className="h-9 text-sm" />
+                    <label htmlFor="purchases-page-f166" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Costo unitario *</label>
+                    <Input id="purchases-page-f166" type="number" min="0" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} placeholder="1500" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Cantidad *</label>
-                    <Input type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="10" className="h-9 text-sm" />
+                    <label htmlFor="purchases-page-f170" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Cantidad *</label>
+                    <Input id="purchases-page-f170" type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="10" className="h-9 text-sm" />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Fecha</label>
-                  <Input type="date" value={form.purchasedAt} onChange={(e) => setForm({ ...form, purchasedAt: e.target.value })} className="h-9 text-sm" />
+                  <label htmlFor="purchases-page-f176" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Fecha</label>
+                  <Input id="purchases-page-f176" type="date" value={form.purchasedAt} onChange={(e) => setForm({ ...form, purchasedAt: e.target.value })} className="h-9 text-sm" />
                 </div>
 
                 <label className="flex items-center gap-2 rounded border border-[#DCE0E2] bg-[#F8FBFD] px-3 py-2.5">

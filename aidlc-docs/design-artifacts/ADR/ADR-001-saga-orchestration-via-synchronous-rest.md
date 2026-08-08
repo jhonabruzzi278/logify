@@ -22,7 +22,7 @@ Implementar el patrón Saga por **orquestación**: orders-service actúa como or
 - **Sin rollback automático (compensación)** ante fallo parcial: si el descuento de stock tiene éxito pero la creación del envío falla, el error se registra en un campo `warnings` de la respuesta pero el pedido avanza igual de estado. La compensación es manual (documentado explícitamente en `wiki/Arquitectura.md`).
 - **Acoplamiento temporal fuerte:** orders-service depende de que inventory-service y shipping-service estén disponibles y respondan rápido en el momento exacto de la llamada — sin colas de reintento, sin dead-letter queue.
 - **Latencia acumulada:** la confirmación de un pedido es tan lenta como la suma secuencial de las 3 llamadas, sin paralelización.
-- Especialmente riesgoso en el entorno de despliegue actual (Render free tier), donde los servicios "duermen" tras 15 min de inactividad — una llamada Saga puede fallar o tardar 30-60s adicionales por cold start de un servicio downstream.
+- El traslado a un VPS eliminó los cold starts históricos de Render, pero el riesgo de fallo parcial sigue vigente porque la coordinación continúa siendo HTTP síncrona y no existe compensación automática.
 
 ## Alternativas consideradas
 

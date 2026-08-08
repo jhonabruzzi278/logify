@@ -5,7 +5,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { type BusinessMode, useBusinessMode } from "@/hooks/use-business-mode";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { adaptCashSession, adaptInventory, adaptOrder, adaptShipment } from "@/lib/api-adapters";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, onActivateKey } from "@/lib/utils";
 import { exportInventoryCSV, exportOrdersCSV, exportSalesCSV, exportShipmentsCSV } from "@/lib/export-csv";
 import type { ApiCashSession, ApiInventory, ApiOrder, ApiShipment } from "@/types/api";
 import type { CashSession, Order, Product, Sale, Shipment } from "@/types/domain";
@@ -481,7 +481,7 @@ export function ReportsPage() {
           {/* Period selector */}
           <div className="flex rounded border border-[#DCE0E2] bg-white p-0.5">
             {PERIODS.map((p) => (
-              <button
+              <button type="button"
                 key={p.value}
                 onClick={() => { setPeriod(p.value); setSelectedBar(null); }}
                 className={cn(
@@ -496,15 +496,15 @@ export function ReportsPage() {
 
           {/* View toggle */}
           <div className="flex rounded border border-[#DCE0E2] bg-white p-0.5">
-            <button onClick={() => setViewMode("charts")} className={cn("rounded p-1.5", viewMode === "charts" && "bg-[#F5F7F9]")}>
+            <button type="button" onClick={() => setViewMode("charts")} className={cn("rounded p-1.5", viewMode === "charts" && "bg-[#F5F7F9]")}>
               <BarChart3 className={cn("h-4 w-4", viewMode === "charts" ? "text-[#4B98CF]" : "text-[#6B7280]")} />
             </button>
-            <button onClick={() => setViewMode("table")} className={cn("rounded p-1.5", viewMode === "table" && "bg-[#F5F7F9]")}>
+            <button type="button" onClick={() => setViewMode("table")} className={cn("rounded p-1.5", viewMode === "table" && "bg-[#F5F7F9]")}>
               <Table2 className={cn("h-4 w-4", viewMode === "table" ? "text-[#4B98CF]" : "text-[#6B7280]")} />
             </button>
           </div>
 
-          <button
+          <button type="button"
             onClick={() => {
               if (activeTab === "sales") {
                 exportSalesCSV(salesReport.filteredSales.map((s) => ({ id: s.id, items: s.items.map((i) => `${i.quantity}x ${i.name}`).join("; "), vendorName: s.vendorName, total: s.total, paymentMethod: s.paymentMethod, createdAt: s.createdAt })));
@@ -569,7 +569,7 @@ export function ReportsPage() {
           <span className="text-xs text-[#6B7280]">Filtrado por:</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-[#4B98CF]/10 px-3 py-1 text-xs font-bold text-[#4B98CF]">
             {selectedBar.label} ({selectedBar.value})
-            <button onClick={() => setSelectedBar(null)} className="ml-1 hover:text-[#346384]">&times;</button>
+            <button type="button" onClick={() => setSelectedBar(null)} className="ml-1 hover:text-[#346384]">&times;</button>
           </span>
         </div>
       )}
@@ -577,7 +577,7 @@ export function ReportsPage() {
       {/* Tab switcher */}
       <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-1 w-fit">
         {visibleTabs.map((tab) => (
-          <button
+          <button type="button"
             key={tab.value}
             onClick={() => { setActiveTab(tab.value); setSelectedBar(null); }}
             className={cn(
@@ -647,7 +647,14 @@ export function ReportsPage() {
                   <p className="mb-3 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Pedidos por estado</p>
                   <div className="space-y-3">
                     {reportData.ordersByStage.map((s) => (
-                      <div key={s.label} onClick={() => setSelectedBar({ label: s.label, value: s.value })} className="cursor-pointer">
+                      <div
+                        key={s.label}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedBar({ label: s.label, value: s.value })}
+                        onKeyDown={onActivateKey(() => setSelectedBar({ label: s.label, value: s.value }))}
+                        className="cursor-pointer"
+                      >
                         <ProgressBar label={s.label} value={s.value} max={reportData.totalOrders} color={s.color} detail={s.detail} />
                       </div>
                     ))}
@@ -665,7 +672,14 @@ export function ReportsPage() {
                   <p className="mb-3 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Envíos por estado</p>
                   <div className="space-y-3">
                     {reportData.shipmentsByStage.map((s) => (
-                      <div key={s.label} onClick={() => setSelectedBar({ label: s.label, value: s.value })} className="cursor-pointer">
+                      <div
+                        key={s.label}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedBar({ label: s.label, value: s.value })}
+                        onKeyDown={onActivateKey(() => setSelectedBar({ label: s.label, value: s.value }))}
+                        className="cursor-pointer"
+                      >
                         <ProgressBar label={s.label} value={s.value} max={reportData.totalShipments} color={s.color} detail={s.detail} />
                       </div>
                     ))}

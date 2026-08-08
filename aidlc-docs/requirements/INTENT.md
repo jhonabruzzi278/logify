@@ -17,7 +17,7 @@ Inferidos de la arquitectura y flujo de negocio implementado (no hay un document
 2. Garantizar trazabilidad completa de cada pedido desde creación hasta entrega (servicio dedicado `notification-service` registra cada evento de cada etapa).
 3. Prevenir fraude/error en la entrega física mediante verificación de dos factores (código de cliente + RUT).
 4. Dar visibilidad diferenciada por rol operativo (owner, ops, bodega, transportista, vendedor, soporte, cliente) para que cada usuario solo vea y opere lo que le corresponde.
-5. Evolucionar hacia un modelo SaaS multi-tenant (una instancia sirviendo a múltiples empresas por subdominio) — ver roadmap en `wiki/Multi-Tenant.md`, actualmente en fases 4A-4C completas de un plan de 5 fases (4D/4E pendientes: dominio wildcard y auto-provisión de tenants).
+5. Operar como SaaS multi-tenant (una instancia sirviendo a múltiples empresas por subdominio), con aislamiento por tenant, dominio wildcard y onboarding self-service implementados en las fases 4A-4E.
 
 ⚠️ **No documentado explícitamente en ningún lado del repo:** métricas de éxito de negocio (revenue, adopción, NPS, etc.), justificación de por qué se eligió el nombre "Logify"/mercado objetivo específico más allá de "empresas que necesitan gestión logística en Chile" (inferido del uso de validación de RUT chileno y dominio `.cl`). Requiere input del Product Owner.
 
@@ -33,8 +33,8 @@ Extraído directamente del stack detectado (ver `design-artifacts/LOGICAL_DESIGN
 - Sin broker de mensajería (no Kafka/RabbitMQ/Redis pub-sub) — la comunicación entre servicios es HTTP síncrono, lo que implica que el sistema asume baja latencia entre servicios y no tolera bien fallos parciales de red (mitigado parcialmente por captura de errores en `warnings` sin rollback automático en el Saga).
 - Autenticación JWT propia (no proveedor externo) — decisión post-migración fuera de AWS Cognito (ver `code-generation/GENERATED_CODE_LOG.md` para el historial de este cambio).
 - Frontend PWA instalable (React + Vite + vite-plugin-pwa) — implica soporte offline parcial y necesidad de gestionar Service Worker/caché.
-- Despliegue en infraestructura de capa gratuita (Render free tier + Vercel + Neon free tier) — constraint de costo explícito (**objetivo US$0/mes**, documentado en `RENDER_DEPLOY.md`), con trade-offs conocidos y aceptados: servicios backend "duermen" tras 15 min de inactividad (cold start de 30-60s), sin red privada real entre servicios (todo el tráfico inter-servicio es HTTPS público).
-- Sin CI/CD automatizado — fue removido deliberadamente (commit `6018f89`); el despliegue depende del autodeploy nativo de Render/Vercel al hacer push a `main`.
+- Infraestructura actual: backend y PostgreSQL en VPS propio mediante Docker Compose; Frontend/Landing en Vercel. La decisión histórica de Render/Neon quedó reemplazada el 2026-08-06.
+- CI/CD automatizado: PR obligatorio con seis checks requeridos; despliegue del backend al VPS después de CI verde, con health check y rollback. Frontend/Landing mantienen el despliegue de Vercel.
 
 ### Business
 - Validación de RUT chileno (módulo 11) integrada en el flujo de clientes — indica mercado objetivo primario: Chile.

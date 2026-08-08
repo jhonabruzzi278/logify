@@ -1,5 +1,26 @@
 # Test Coverage Report
 
+## Actualización 2026-08-08
+
+El estado actual contiene **548 pruebas automatizadas registradas**: 435 en
+backend (orders 187, inventory 122, shipping 59, notification 67) y 113 en
+Frontend. El workflow del PR #23 ejecutó cada componente en un runner aislado
+y dejó en verde los seis checks requeridos, además de los builds de Frontend y
+Landing.
+
+Una ejecución diagnóstica local de las cuatro suites backend en paralelo
+produjo timeout en una prueba PDF de orders, inventory y notification por
+competencia de CPU; shipping terminó 59/59. Esto no se reprodujo en CI, pero
+evidencia que las pruebas PDF con timeout de 5 segundos son sensibles a carga.
+
+SonarCloud mantiene una métrica distinta: el PR #23 falló su Quality Gate por
+**13,7% de cobertura sobre código nuevo** frente a un mínimo de 80%. El check
+externo de Quality Gate no figura entre los seis contextos requeridos por la
+protección actual de `main`; debe tratarse como deuda de cobertura/política,
+no confundirse con una falla del job de CI o de los builds.
+
+Las secciones siguientes se conservan como histórico de mediciones anteriores.
+
 ## 📌 Actualización 2026-08-06
 
 Las cifras de abajo son del **2026-07-19** y ya no reflejan el estado

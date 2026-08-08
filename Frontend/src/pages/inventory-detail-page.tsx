@@ -183,7 +183,7 @@ export function InventoryDetailPage() {
             {resolvedProduct.status === "healthy" ? "Estable" : resolvedProduct.status === "warning" ? "Bajo" : "Crítico"}
           </span>
           {can("inventory.adjust") && (
-            <button
+            <button type="button"
               onClick={() => (editOpen ? setEditOpen(false) : openEdit())}
               className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
             >
@@ -198,13 +198,13 @@ export function InventoryDetailPage() {
           <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Editar producto</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre</label>
-              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-9 text-sm" />
+              <label htmlFor="inventory-detail-page-f201" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre</label>
+              <Input id="inventory-detail-page-f201" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Categoría</label>
+              <label htmlFor="inventory-detail-page-f205" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Categoría</label>
               <Select value={editForm.category} onValueChange={(v) => setEditForm({ ...editForm, category: v })}>
-                <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="inventory-detail-page-f205" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="bebidas">Bebidas</SelectItem>
                   <SelectItem value="galletas">Galletas</SelectItem>
@@ -214,17 +214,17 @@ export function InventoryDetailPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio venta $</label>
-              <Input type="number" min={0} value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
+              <label htmlFor="inventory-detail-page-f217" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio venta $</label>
+              <Input id="inventory-detail-page-f217" type="number" min={0} value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio compra $</label>
-              <Input type="number" min={0} value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
+              <label htmlFor="inventory-detail-page-f221" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio compra $</label>
+              <Input id="inventory-detail-page-f221" type="number" min={0} value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
+              <label htmlFor="inventory-detail-page-f225" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
               <Select value={editForm.supplierId || "none"} onValueChange={(v) => setEditForm({ ...editForm, supplierId: v === "none" ? "" : v })}>
-                <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="inventory-detail-page-f225" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin proveedor</SelectItem>
                   {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -232,9 +232,9 @@ export function InventoryDetailPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad de medida</label>
+              <label htmlFor="inventory-detail-page-f235" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad de medida</label>
               <Select value={editForm.unitOfMeasure} onValueChange={(v) => setEditForm({ ...editForm, unitOfMeasure: v })}>
-                <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="inventory-detail-page-f235" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unidad">Unidad</SelectItem>
                   <SelectItem value="kg">Kilogramo</SelectItem>
@@ -245,8 +245,8 @@ export function InventoryDetailPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">IVA %</label>
-              <Input type="number" min={0} max={100} value={editForm.taxRate} onChange={(e) => setEditForm({ ...editForm, taxRate: parseFloat(e.target.value) || 0 })} className="h-9 text-sm" />
+              <label htmlFor="inventory-detail-page-f248" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">IVA %</label>
+              <Input id="inventory-detail-page-f248" type="number" min={0} max={100} value={editForm.taxRate} onChange={(e) => setEditForm({ ...editForm, taxRate: parseFloat(e.target.value) || 0 })} className="h-9 text-sm" />
             </div>
           </div>
           <label className="flex items-center gap-2 text-xs font-medium text-[#112b4a]">
@@ -359,7 +359,7 @@ export function InventoryDetailPage() {
             <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Imagen del producto</p>
           </div>
           {!imagePickerOpen && (
-            <button
+            <button type="button"
               onClick={() => { setImagePickerOpen(true); setImageQuery(resolvedProduct.name); }}
               className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
             >
@@ -384,7 +384,7 @@ export function InventoryDetailPage() {
                 </div>
               )}
               {!imageSearching && imageResults.map((img) => (
-                <button
+                <button type="button"
                   key={img.id}
                   disabled={imageSaving}
                   onClick={() => handleSelectImage(img.url)}
@@ -403,7 +403,7 @@ export function InventoryDetailPage() {
                 <p className="text-xs text-[#6B7280]">Sin resultados para "{imageQuery}"</p>
               )}
             </div>
-            <button onClick={() => setImagePickerOpen(false)} className="text-xs text-[#6B7280] hover:text-[#112b4a]">Cancelar</button>
+            <button type="button" onClick={() => setImagePickerOpen(false)} className="text-xs text-[#6B7280] hover:text-[#112b4a]">Cancelar</button>
           </div>
         )}
       </div>
@@ -425,7 +425,7 @@ export function InventoryDetailPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <button
+              <button type="button"
                 onClick={() => window.print()}
                 className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
               >
@@ -436,7 +436,7 @@ export function InventoryDetailPage() {
         </div>
 
         {!qrRequested && (
-          <button
+          <button type="button"
             onClick={() => setQrRequested(true)}
             className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-2 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
           >

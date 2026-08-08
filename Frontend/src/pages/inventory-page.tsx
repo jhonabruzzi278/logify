@@ -22,7 +22,7 @@ interface ImageResult {
   url: string;
   creator: string;
 }
-import { cn } from "@/lib/utils";
+import { cn, onEscapeKey } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,7 +187,7 @@ export function InventoryPage() {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-2">
         <p className="text-sm font-medium text-red-500">{error}</p>
-        <button onClick={refresh} className="text-xs text-[#4B98CF] hover:underline">Reintentar</button>
+        <button type="button" onClick={refresh} className="text-xs text-[#4B98CF] hover:underline">Reintentar</button>
       </div>
     );
   }
@@ -200,13 +200,13 @@ export function InventoryPage() {
           <h1 className="text-xl font-bold text-[#112b4a]">Control de stock</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <button type="button"
             onClick={() => exportInventoryCSV(operationalInventory.map(p => ({ sku: String(p.sku), stock: p.stock, status: String(p.status), updatedAt: p.updatedAt })))}
             className="flex items-center gap-1 rounded border border-border bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a]"
           >
             <Download className="h-3.5 w-3.5" /> Exportar
           </button>
-          <button
+          <button type="button"
             onClick={handleDownloadPdf}
             disabled={pdfLoading}
             className="flex items-center gap-1 rounded border border-border bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] disabled:opacity-50"
@@ -284,13 +284,13 @@ export function InventoryPage() {
               }} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">SKU</label>
-                    <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="COCA-COLA-2L" className="h-9 text-sm" />
+                    <label htmlFor="inventory-page-f287" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">SKU</label>
+                    <Input id="inventory-page-f287" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="COCA-COLA-2L" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Categoría</label>
+                    <label htmlFor="inventory-page-f291" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Categoría</label>
                     <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as ProductCategory })}>
-                      <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="inventory-page-f291" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="bebidas">Bebidas</SelectItem>
                         <SelectItem value="galletas">Galletas</SelectItem>
@@ -301,15 +301,15 @@ export function InventoryPage() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre</label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Coca-Cola 2L" className="h-9 text-sm" />
+                  <label htmlFor="inventory-page-f304" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre</label>
+                  <Input id="inventory-page-f304" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Coca-Cola 2L" className="h-9 text-sm" />
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
+                    <label htmlFor="inventory-page-f310" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
                     <Select value={form.supplierId || "none"} onValueChange={(v) => setForm({ ...form, supplierId: v === "none" ? "" : v })}>
-                      <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="inventory-page-f310" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Sin proveedor</SelectItem>
                         {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -317,9 +317,9 @@ export function InventoryPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad</label>
+                    <label htmlFor="inventory-page-f320" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad</label>
                     <Select value={form.unitOfMeasure} onValueChange={(v) => setForm({ ...form, unitOfMeasure: v })}>
-                      <SelectTrigger size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="inventory-page-f320" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unidad">Unidad</SelectItem>
                         <SelectItem value="kg">Kilogramo</SelectItem>
@@ -330,8 +330,8 @@ export function InventoryPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">IVA %</label>
-                    <Input type="number" min={0} max={100} value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: parseFloat(e.target.value) || 0 })} className="h-9 text-sm" />
+                    <label htmlFor="inventory-page-f333" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">IVA %</label>
+                    <Input id="inventory-page-f333" type="number" min={0} max={100} value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: parseFloat(e.target.value) || 0 })} className="h-9 text-sm" />
                   </div>
                 </div>
                 <label className="flex items-center gap-2 text-xs font-medium text-[#112b4a]">
@@ -341,7 +341,7 @@ export function InventoryPage() {
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Imagen del producto</label>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Imagen del producto</p>
                     {!imagePickerOpen && (
                       <button
                         type="button"
@@ -404,12 +404,12 @@ export function InventoryPage() {
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Stock</label>
-                    <Input type="number" min={0} value={form.stock} onChange={(e) => setForm({ ...form, stock: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
+                    <label htmlFor="inventory-page-f407" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Stock</label>
+                    <Input id="inventory-page-f407" type="number" min={0} value={form.stock} onChange={(e) => setForm({ ...form, stock: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio venta $</label>
-                    <Input
+                    <label htmlFor="inventory-page-f411" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio venta $</label>
+                    <Input id="inventory-page-f411"
                       type="text"
                       inputMode="decimal"
                       value={form.price > 0 ? form.price.toLocaleString("es-CL") : ""}
@@ -427,8 +427,8 @@ export function InventoryPage() {
                     )}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio compra $</label>
-                    <Input
+                    <label htmlFor="inventory-page-f430" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio compra $</label>
+                    <Input id="inventory-page-f430"
                       type="text"
                       inputMode="decimal"
                       value={form.cost > 0 ? form.cost.toLocaleString("es-CL") : ""}
@@ -471,7 +471,7 @@ export function InventoryPage() {
         </div>
         <div className="flex gap-1 rounded border border-border bg-card p-0.5 overflow-x-auto scroll-x">
           {(["all", "critical", "warning", "healthy"] as const).map((f) => (
-            <button
+            <button type="button"
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
@@ -510,7 +510,7 @@ export function InventoryPage() {
                       product.status === "critical" && "bg-red-500",
                     )} />
                     {isOwner && (
-                      <button
+                      <button type="button"
                         onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ sku: product.sku, name: product.name }); }}
                         className="p-0.5 rounded text-red-400 hover:bg-red-50 hover:text-red-600"
                         title="Eliminar producto"
@@ -553,26 +553,26 @@ export function InventoryPage() {
                 <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   {canAdjust && (
                     <div className="flex items-center justify-end gap-0.5 sm:gap-1">
-                      <button
+                      <button type="button"
                         onClick={() => handleAdjust(product, -10, "Reserva -10")}
                         className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] sm:min-h-[44px] px-1.5 sm:px-2 text-[10px] sm:text-xs font-semibold text-red-500 hover:bg-red-50 active:scale-[0.98]"
                       >-10</button>
-                      <button
+                      <button type="button"
                         onClick={() => handleAdjust(product, -1, "Reserva manual")}
                         className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       ><Minus className="h-4 w-4" /></button>
-                      <button
+                      <button type="button"
                         onClick={() => handleAdjust(product, 1, "Reposición rápida")}
                         className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-green-600 hover:bg-green-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       ><Plus className="h-4 w-4" /></button>
-                      <button
+                      <button type="button"
                         onClick={() => handleAdjust(product, 10, "Reposición +10")}
                         className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] sm:min-h-[44px] px-1.5 sm:px-2 text-[10px] sm:text-xs font-semibold text-green-600 hover:bg-green-50 active:scale-[0.98]"
                       >+10</button>
                     </div>
                   )}
                   {isVendor && (product.status === "critical" || product.status === "warning") && (
-                    <button
+                    <button type="button"
                       onClick={async () => {
                         await apiFetch("/api/notifications/alert", {
                           method: "POST",
@@ -605,11 +605,18 @@ export function InventoryPage() {
       </div>
 
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteConfirm(null)}>
+        <div
+          role="button"
+          tabIndex={-1}
+          aria-label="Cerrar"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setDeleteConfirm(null)}
+          onKeyDown={onEscapeKey(() => setDeleteConfirm(null))}
+        >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-sm text-[#112b4a]">Eliminar producto</h3>
-              <button onClick={() => setDeleteConfirm(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setDeleteConfirm(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
             </div>
             <p className="text-sm text-[#6B7280]">
               ¿Estás seguro de eliminar <strong>{deleteConfirm.name}</strong> ({deleteConfirm.sku})?

@@ -1,6 +1,6 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, onEscapeKey } from "@/lib/utils";
 
 interface SheetProps extends PropsWithChildren {
   open: boolean;
@@ -15,11 +15,15 @@ export function Sheet({ open, onClose, title, description, side = "left", footer
   return (
     <>
       <div
+        role="button"
+        tabIndex={-1}
+        aria-label="Cerrar"
         className={cn(
           "fixed inset-0 z-40 bg-foreground/30 transition-opacity lg:hidden",
           open ? "opacity-100" : "pointer-events-none opacity-0"
         )}
         onClick={onClose}
+        onKeyDown={onEscapeKey(onClose)}
       />
       <aside
         className={cn(

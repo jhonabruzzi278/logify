@@ -5,7 +5,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { adaptCustomer, adaptCustomerCredit, adaptOrder } from "@/lib/api-adapters";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
+import { cn, onActivateKey } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,8 +175,8 @@ export function CustomerDetailPage() {
               </DialogHeader>
               <form onSubmit={handleRegisterPayment} className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Monto</label>
-                  <Input type="number" min="1" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="10000" className="h-9 text-sm" autoFocus />
+                  <label htmlFor="customer-detail-page-f178" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Monto</label>
+                  <Input id="customer-detail-page-f178" type="number" min="1" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="10000" className="h-9 text-sm" autoFocus />
                 </div>
                 {paymentError && <p className="text-xs text-red-500">{paymentError}</p>}
                 <div className="flex justify-end gap-2 pt-1">
@@ -220,8 +220,11 @@ export function CustomerDetailPage() {
             {customerOrders.map((order) => (
               <div
                 key={order.id}
+                role="button"
+                tabIndex={0}
                 className="rounded border border-[#DCE0E2] bg-white p-4 hover:border-[#4B98CF]/40 transition-colors cursor-pointer"
                 onClick={() => navigate(`/orders/${order.id}`)}
+                onKeyDown={onActivateKey(() => navigate(`/orders/${order.id}`))}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

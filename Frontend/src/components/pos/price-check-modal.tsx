@@ -22,7 +22,7 @@ export function PriceCheckModal({ products, onClose }: PriceCheckModalProps) {
       <div className="w-full max-w-sm rounded-lg bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">Consultar precio</h3>
-          <button onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>

@@ -14,7 +14,7 @@ import { adaptCustomer, adaptInventory, adaptOrder, adaptShipment } from "@/lib/
 import { buildOperationalAlerts } from "@/lib/operational-insights";
 import { CardSkeleton, ListSkeleton, Skeleton } from "@/components/common/skeleton";
 import { ApiErrorBanner } from "@/components/common/api-error-banner";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, onActivateKey } from "@/lib/utils";
 import type { ApiCustomer, ApiInventory, ApiNotificationRecord, ApiOrder, ApiShipment } from "@/types/api";
 import type { AlertItem, Customer, Order, Product, Sale, Shipment } from "@/types/domain";
 
@@ -171,7 +171,7 @@ export function DashboardPage() {
           </h1>
         </div>
         {canInstall && (
-          <button onClick={promptInstall} className="flex items-center gap-1.5 rounded-lg bg-[#4B98CF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#346384]">
+          <button type="button" onClick={promptInstall} className="flex items-center gap-1.5 rounded-lg bg-[#4B98CF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#346384]">
             Instalar app
           </button>
         )}
@@ -206,7 +206,14 @@ export function DashboardPage() {
             </div>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {operationalOrders.slice(0, 5).map((order) => (
-                <div key={order.id} className="flex items-center justify-between rounded bg-[#F8FAFB] px-3 py-2 cursor-pointer hover:bg-muted" onClick={() => navigate(`/orders/${order.id}`)}>
+                <div
+                  key={order.id}
+                  role="button"
+                  tabIndex={0}
+                  className="flex items-center justify-between rounded bg-[#F8FAFB] px-3 py-2 cursor-pointer hover:bg-muted"
+                  onClick={() => navigate(`/orders/${order.id}`)}
+                  onKeyDown={onActivateKey(() => navigate(`/orders/${order.id}`))}
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">#{order.id} {order.customer}</p>
                     <p className="text-xs text-muted-foreground">{order.sku} x{order.quantity}</p>

@@ -3,7 +3,14 @@ import Link from "next/link"
 export default function Sidebar({ openClass, handleMobileMenuClose }) {
     return (
         <div className={`fixed inset-0 z-[60] pointer-events-none ${openClass ? '' : 'hidden'}`}>
-            <div className="absolute inset-0 bg-black/50 pointer-events-auto" onClick={handleMobileMenuClose}/>
+            <div
+                role="button"
+                tabIndex={-1}
+                aria-label="Cerrar"
+                className="absolute inset-0 bg-black/50 pointer-events-auto"
+                onClick={handleMobileMenuClose}
+                onKeyDown={(e) => { if (e.key === "Escape") handleMobileMenuClose() }}
+            />
             <div className={`absolute top-0 right-0 w-80 max-w-[85vw] h-full bg-white shadow-2xl pointer-events-auto transition-transform duration-300 ${openClass ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="flex flex-col h-full p-6">
                     <div className="flex items-center justify-between pb-5 border-b border-gray-200">
@@ -14,7 +21,7 @@ export default function Sidebar({ openClass, handleMobileMenuClose }) {
                                 <text x="35" y="21" fontFamily="Arial" fontWeight="800" fontSize="16" fill="#034460">Logify</text>
                             </svg>
                         </Link>
-                        <button onClick={handleMobileMenuClose} className="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50">
+                        <button type="button" onClick={handleMobileMenuClose} className="w-10 h-10 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>

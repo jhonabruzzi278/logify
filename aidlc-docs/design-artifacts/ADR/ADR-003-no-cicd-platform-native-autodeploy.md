@@ -1,7 +1,12 @@
 # ADR-003: Sin pipeline de CI/CD — autodeploy nativo de plataforma
 
-**Status:** ~~Aceptado (implementado)~~ **Parcialmente revertido el 2026-08-06**
+**Status:** **Superado el 2026-08-07**
 **Fecha:** commit `6018f89` ("chore: eliminar infraestructura AWS/Terraform y CI/CD asociado")
+
+> Se conserva como registro histórico. La arquitectura vigente usa
+> `.github/workflows/ci.yml` como gate obligatorio y
+> `.github/workflows/deploy.yml` para desplegar el backend al VPS con health
+> check y rollback. Frontend/Landing continúan con Vercel después del merge.
 
 ## Actualización 2026-08-06
 

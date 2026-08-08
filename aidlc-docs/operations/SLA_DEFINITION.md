@@ -1,21 +1,29 @@
 # SLA Definition
 
-**⚠️ Pendiente — no existe ningún SLA (formal o informal) documentado en el repositorio.**
+**Estado al 2026-08-08: no existe un SLA contractual publicado.**
 
-## Lo único relacionado a expectativas de servicio encontrado
+Logify opera en producción sobre un VPS propio para el backend y Vercel para
+Frontend/Landing. Ya no aplican las limitaciones históricas de cold start de
+Render/Neon descritas en versiones antiguas de este documento.
 
-`RENDER_DEPLOY.md` documenta, como característica conocida de la infraestructura elegida (no como un SLA prometido a usuarios), que:
-- Los servicios backend en Render free tier "duermen" tras 15 minutos de inactividad, con cold start de 30-60 segundos en la siguiente request.
-- El propio documento advierte explícitamente: *"no lo uses así para tráfico real constante"* — es decir, el equipo es consciente de que la configuración actual no sostiene una expectativa de disponibilidad de producción seria.
-- Neon (BD) free tier también se auto-suspende tras 5 minutos de inactividad.
+## Capacidades operativas existentes
 
-Esto implica que, tal como está desplegado hoy, el sistema **no puede ofrecer ningún SLA de disponibilidad o latencia creíble** — cualquier número que se documentara aquí sería inventado.
+- Monitoreo de disponibilidad mediante Uptime Kuma.
+- Health checks de aplicación y base de datos.
+- CI obligatorio antes de integrar cambios en `main`.
+- Despliegue automático con verificación externa y rollback.
+- Backups diarios de PostgreSQL con retención local de 14 días.
+- Registro de incidentes mediante post-mortems.
 
-## Qué se necesitaría definir (cuando el proyecto tenga una decisión de negocio al respecto)
+## Antes de prometer un SLA
 
-- Objetivo de uptime (ej. 99.5%) — requiere primero migrar fuera del free tier (Render "private service" ~US$7/mes/servicio, o una plataforma con mejor uptime garantizado)
-- Objetivo de latencia p95/p99 por endpoint, especialmente para el flujo Saga de confirmación de pedido (que hoy es secuencial y síncrono entre 3 servicios)
-- Ventanas de mantenimiento aceptables
-- Política de comunicación ante incidentes
+- Medir uptime real durante un periodo representativo.
+- Definir SLO de disponibilidad y latencia p95/p99.
+- Automatizar copias externas y pruebas de restauración.
+- Confirmar canales de alerta y responsables de respuesta.
+- Definir ventanas de mantenimiento y comunicación de incidentes.
+- Incorporar APM, logs correlacionados y error tracking.
 
-⚠️ **Pendiente validación humana / decisión de Product Owner.** No se debe inventar un SLA sin una decisión de negocio real detrás.
+Hasta que el Product Owner defina esos compromisos y exista evidencia
+operativa suficiente, no debe publicarse un porcentaje de disponibilidad ni
+un tiempo de respuesta contractual inventado.

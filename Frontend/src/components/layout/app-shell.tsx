@@ -9,6 +9,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { useBusinessMode } from "@/hooks/use-business-mode";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { onEscapeKey } from "@/lib/utils";
 
 export function AppShell() {
   const { pathname } = useLocation();
@@ -42,12 +43,19 @@ export function AppShell() {
       <Sidebar role={session.role} />
 
       {open && (
-        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setOpen(false)}>
+        <div
+          role="button"
+          tabIndex={-1}
+          aria-label="Cerrar"
+          className="fixed inset-0 z-40 lg:hidden"
+          onClick={() => setOpen(false)}
+          onKeyDown={onEscapeKey(() => setOpen(false))}
+        >
           <div className="absolute inset-0 bg-black/50" />
           <div role="dialog" aria-modal="true" aria-label="Navegación" className="absolute left-0 top-0 h-full w-64 overflow-y-auto bg-[#1A3142] p-4 pt-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-6 flex items-center justify-between">
               <p className="text-sm font-bold text-white">Navegacion</p>
-              <button onClick={() => setOpen(false)} className="text-white/60 hover:text-white">
+              <button type="button" onClick={() => setOpen(false)} className="text-white/60 hover:text-white">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -69,7 +77,7 @@ export function AppShell() {
                   {item.title}
                 </NavLink>
               ))}
-              <button
+              <button type="button"
                 onClick={logout}
                 className="mt-4 flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white"
               >

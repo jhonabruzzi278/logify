@@ -118,7 +118,7 @@ export function ShipmentsPage() {
           {!customerScope.isCustomer && (
             <>
               <span className="text-red-500 font-bold">{counts.cancelado} cancelados</span>
-              <button onClick={() => exportShipmentsCSV(operationalShipments.map(s => ({ id: s.id, tracking: s.tracking, orderId: s.orderId, sku: s.sku, stage: String(s.stage), carrier: s.carrier, createdAt: s.createdAt })))} className="flex items-center gap-1 rounded border border-[#DCE0E2] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a]">
+              <button type="button" onClick={() => exportShipmentsCSV(operationalShipments.map(s => ({ id: s.id, tracking: s.tracking, orderId: s.orderId, sku: s.sku, stage: String(s.stage), carrier: s.carrier, createdAt: s.createdAt })))} className="flex items-center gap-1 rounded border border-[#DCE0E2] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a]">
                 <Download className="h-3.5 w-3.5" />
               </button>
             </>
@@ -133,7 +133,7 @@ export function ShipmentsPage() {
         </div>
         <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-0.5">
           {(["all", "active", "cancelado", "entregado"] as const).map((f) => (
-            <button key={f} onClick={() => setFilter(f)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", filter === f ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>
+            <button type="button" key={f} onClick={() => setFilter(f)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", filter === f ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>
               {f === "all" ? "Todos" : f === "active" ? "Activos" : f === "cancelado" ? "Cancelados" : "Entregados"}
             </button>
           ))}

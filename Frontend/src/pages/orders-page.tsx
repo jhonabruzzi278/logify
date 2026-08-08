@@ -13,7 +13,7 @@ import { apiFetch, ApiRequestError } from "@/lib/api-client";
 import { exportOrdersCSV } from "@/lib/export-csv";
 import { addHistoryEntry } from "@/lib/order-history";
 import { useCustomerScope } from "@/hooks/use-customer-scope";
-import { cn } from "@/lib/utils";
+import { cn, onEscapeKey } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { ApiCreateOrderRequest, ApiCreateOrderResponse, ApiCustomer, ApiInventory, ApiOrder } from "@/types/api";
 import type { Customer, Order, Product, Role } from "@/types/domain";
@@ -242,15 +242,15 @@ export function OrdersPage() {
           )}
           {canCreate && !customerScope.isCustomer && (
             <>
-              <button onClick={() => setShowForm(!showForm)} className="btn-touch-primary min-h-[40px] gap-1">
+              <button type="button" onClick={() => setShowForm(!showForm)} className="btn-touch-primary min-h-[40px] gap-1">
                 <Plus className="h-4 w-4" /> Nuevo
               </button>
-              <button onClick={() => setShowBulk(!showBulk)} className="btn-touch-outline min-h-[40px] gap-1">
+              <button type="button" onClick={() => setShowBulk(!showBulk)} className="btn-touch-outline min-h-[40px] gap-1">
                 <FileUp className="h-4 w-4" /> CSV
               </button>
             </>
           )}
-          <button onClick={() => exportOrdersCSV(operationalOrders.map(o => ({ id: o.id, customer: o.customer, sku: o.sku, quantity: o.quantity, stage: String(o.stage), createdAt: o.createdAt, transporter: getTransporterName(o) ?? undefined })))} className="btn-touch-outline min-h-[40px] gap-1">
+          <button type="button" onClick={() => exportOrdersCSV(operationalOrders.map(o => ({ id: o.id, customer: o.customer, sku: o.sku, quantity: o.quantity, stage: String(o.stage), createdAt: o.createdAt, transporter: getTransporterName(o) ?? undefined })))} className="btn-touch-outline min-h-[40px] gap-1">
             <Download className="h-4 w-4" />
           </button>
         </div>
@@ -260,10 +260,10 @@ export function OrdersPage() {
         <div className="rounded border border-border bg-card p-4">
           <form onSubmit={handleCreate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 min-w-0 relative" ref={dropdownRef}>
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Cliente</label>
+              <label htmlFor="orders-page-f263" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Cliente</label>
               <div className="relative">
                 <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <input
+                <input id="orders-page-f263"
                   value={selectedCustomer ? selectedCustomer.name : customerSearch}
                   onChange={(e) => { setCustomerSearch(e.target.value); setSelectedCustomer(null); }}
                   onFocus={() => setShowCustomerDropdown(true)}
@@ -294,8 +294,8 @@ export function OrdersPage() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Producto</label>
-              <select
+              <label htmlFor="orders-page-f297" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Producto</label>
+              <select id="orders-page-f297"
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 className="h-9 w-full rounded border border-input bg-[#F8FBFD] px-2 text-sm"
@@ -307,8 +307,8 @@ export function OrdersPage() {
               </select>
             </div>
             <div className="w-20 sm:w-20">
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Cant</label>
-              <input value={quantity} onChange={(e) => setQuantity(e.target.value)} className="h-9 w-full rounded border border-input bg-[#F8FBFD] px-3 text-sm text-center" placeholder="1" />
+              <label htmlFor="orders-page-f310" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Cant</label>
+              <input id="orders-page-f310" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="h-9 w-full rounded border border-input bg-[#F8FBFD] px-3 text-sm text-center" placeholder="1" />
             </div>
             <div className="sm:w-44">
               <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">
@@ -343,7 +343,7 @@ export function OrdersPage() {
             className="w-full rounded border border-input bg-[#F8FBFD] p-3 text-sm font-mono"
           />
           <div className="flex items-center gap-2 mt-2">
-            <button
+            <button type="button"
               onClick={async () => {
                 const lines = csvText.trim().split("\n").filter(Boolean);
                 let success = 0, errors: string[] = [];
@@ -366,7 +366,7 @@ export function OrdersPage() {
             >
               Procesar CSV
             </button>
-            <button onClick={() => setShowBulk(false)} className="h-9 rounded border border-border px-3 text-xs font-semibold text-muted-foreground">Cancelar</button>
+            <button type="button" onClick={() => setShowBulk(false)} className="h-9 rounded border border-border px-3 text-xs font-semibold text-muted-foreground">Cancelar</button>
           </div>
           {bulkFeedback && <p className="mt-2 text-xs text-[#4B98CF]">{bulkFeedback}</p>}
         </div>
@@ -379,7 +379,7 @@ export function OrdersPage() {
         </div>
         <div className="flex gap-1 rounded border border-border bg-card p-0.5 overflow-x-auto scroll-x">
           {tabs.map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={cn("rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors", tab === t ? "bg-[#4B98CF] text-white" : "text-muted-foreground hover:text-foreground")}>
+            <button type="button" key={t} onClick={() => setTab(t)} className={cn("rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors", tab === t ? "bg-[#4B98CF] text-white" : "text-muted-foreground hover:text-foreground")}>
               {tabLabels[t]}
             </button>
           ))}
@@ -444,18 +444,18 @@ export function OrdersPage() {
                   <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                    {canReview && order.stage === "created" && (
                      <div className="flex items-center justify-end gap-1 sm:gap-1.5">
-                       <button onClick={() => handleConfirm(order)} title="Confirmar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-green-600 hover:bg-green-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Check className="h-4 w-4 sm:h-5 sm:w-5" /></button>
-                       <button onClick={() => { setCancelModal(order); setCancelReason(""); }} title="Cancelar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4 sm:h-5 sm:w-5" /></button>
+                       <button type="button" onClick={() => handleConfirm(order)} title="Confirmar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-green-600 hover:bg-green-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Check className="h-4 w-4 sm:h-5 sm:w-5" /></button>
+                       <button type="button" onClick={() => { setCancelModal(order); setCancelReason(""); }} title="Cancelar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4 sm:h-5 sm:w-5" /></button>
                      </div>
                    )}
                     {canReview && order.stage === "en_preparacion" && (
                       <div className="flex items-center justify-end gap-1 sm:gap-1.5">
-                        <button onClick={() => { setCancelModal(order); setCancelReason(""); }} title="Cancelar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4 sm:h-5 sm:w-5" /></button>
+                        <button type="button" onClick={() => { setCancelModal(order); setCancelReason(""); }} title="Cancelar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4 sm:h-5 sm:w-5" /></button>
                       </div>
                     )}
                     {canDelete && order.stage === "cancelado" && (
                       <div className="flex items-center justify-end gap-1 sm:gap-1.5">
-                        <button onClick={() => setDeleteModal(order)} title="Eliminar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4 sm:h-5 sm:w-5" /></button>
+                        <button type="button" onClick={() => setDeleteModal(order)} title="Eliminar pedido" className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-4 w-4 sm:h-5 sm:w-5" /></button>
                       </div>
                     )}
                   </td>
@@ -472,14 +472,21 @@ export function OrdersPage() {
       </div>
 
       {cancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setCancelModal(null); setCancelReason(""); }}>
+        <div
+          role="button"
+          tabIndex={-1}
+          aria-label="Cerrar"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => { setCancelModal(null); setCancelReason(""); }}
+          onKeyDown={onEscapeKey(() => { setCancelModal(null); setCancelReason(""); })}
+        >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
                 <h3 className="font-bold text-sm text-[#112b4a]">Cancelar pedido #{cancelModal.id}</h3>
               </div>
-              <button onClick={() => { setCancelModal(null); setCancelReason(""); }} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => { setCancelModal(null); setCancelReason(""); }} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
             </div>
             <p className="text-sm text-[#6B7280]">
               Ingresa el motivo de cancelacion para <strong>{cancelModal.customer}</strong> ({cancelModal.sku} x{cancelModal.quantity})
@@ -505,14 +512,21 @@ export function OrdersPage() {
       )}
 
       {deleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteModal(null)}>
+        <div
+          role="button"
+          tabIndex={-1}
+          aria-label="Cerrar"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setDeleteModal(null)}
+          onKeyDown={onEscapeKey(() => setDeleteModal(null))}
+        >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
                 <h3 className="font-bold text-sm text-[#112b4a]">Eliminar pedido #{deleteModal.id}</h3>
               </div>
-              <button onClick={() => setDeleteModal(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setDeleteModal(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
             </div>
             <p className="text-sm text-[#6B7280]">
               Esta accion es irreversible. Se eliminara permanentemente el pedido de <strong>{deleteModal.customer}</strong> ({deleteModal.sku} x{deleteModal.quantity}).

@@ -1,5 +1,13 @@
 # Generated Code Log
 
+## Actualización 2026-08-08
+
+El proyecto ya opera en producción y el historial posterior a esta auditoría
+incluye CI/CD al VPS, onboarding self-service, RBAC estricto, recuperación y
+eliminación de tenants, correcciones de incidentes reales y una auditoría de
+accesibilidad SonarCloud. La referencia a `85591f3` más abajo corresponde al
+HEAD histórico del 2026-07-19, no al estado actual.
+
 Este proyecto no fue generado mediante flujo AI-DLC formal (Intent → Unit → Bolt) desde su origen — el código ya existía antes de esta auditoría. Este log documenta la evolución real del código según el historial de git (145 commits en `main`), como sustituto retroactivo de un log de generación.
 
 ## Hitos principales detectados en `git log`

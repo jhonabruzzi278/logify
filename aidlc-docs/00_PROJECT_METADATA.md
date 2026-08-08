@@ -3,15 +3,24 @@
 **Project Name:** Logify (the product was rebranded from "SmartLogix" to "Logify" mid-project; the folder/repo names were renamed to match on 2026-08-05)
 **Owner:** JONAHBRUZZI (`jon.guerra@duocuc.cl`) — GitHub: [jhonabruzzi278/logify](https://github.com/jhonabruzzi278/logify.git)
 **Analyzed On:** 2026-07-19
-**Current Phase:** **Construction — Late Construction / Deployment-Readiness** (see `requirements/INTENT.md` and phase-detection notes below)
-**Last Updated:** 2026-07-19
+**Current Phase:** **Operations — producción activa y estabilización continua**
+**Last Updated:** 2026-08-08
 
 ## Status
 - [x] Inception Phase — complete (retroactively reconstructed from README, wiki/, and code; no formal PRD/backlog tool was used, but intent, roles, and business flow are fully documented in `wiki/`)
-- [x] Construction Phase — complete (4 working microservices, RBAC, Saga order flow, 464+ tests + 15 E2E, CI/CD wired via `.github/workflows/ci.yml` with branch protection)
-- [x] Operations Phase — **activa desde 2026-08-06**: el backend corre en un VPS propio (`wiki/Despliegue-VPS.md`), Frontend/Landing en Vercel, con tráfico real sirviéndose en `logify.cl`/`app.logify.cl`/`api.logify.cl`. Monitoreo básico vía Uptime Kuma (`status.logify.cl`). Ya hubo un incidente real de producción, documentado en `operations/POST_MORTEMS/2026-08-06-signup-404-produccion.md` — el runbook de `wiki/Despliegue-VPS.md` sigue siendo manual (sin CD automático), que fue justamente la causa raíz de ese incidente.
+- [x] Construction Phase — complete (4 working microservices, RBAC, Saga order flow, 548 tests + 15 E2E, CI/CD wired via `.github/workflows/ci.yml` with branch protection)
+- [x] Operations Phase — **activa desde 2026-08-06**: backend en VPS propio, Frontend/Landing en Vercel, dominios públicos con TLS, monitoreo básico vía Uptime Kuma y CI/CD automático con rollback. Los incidentes reales se registran en `operations/POST_MORTEMS/`.
 
-**Nota:** la sección "Notas del Análisis Automático" de abajo describe el estado tal como se auditó el 2026-07-19 y ya no es exacta en varios puntos (deploy en Render, sin CI/CD, sin tráfico real) — se conserva como registro histórico del razonamiento de esa auditoría, no como estado actual. Ver `deployment/DEPLOYMENT_CHECKLIST.md` para el checklist actualizado al 2026-08-06.
+## Estado operativo verificado al 2026-08-08
+
+- `main` está protegida: PR obligatorio, seis checks de CI requeridos, rama al día y conversaciones resueltas.
+- `.github/workflows/ci.yml` ejecuta las cuatro suites backend, typecheck/tests/build del Frontend, build de Landing y análisis SonarCloud.
+- `.github/workflows/deploy.yml` despliega el backend al VPS únicamente después de CI verde y usa `Backend/scripts/02-vps-deploy.sh` con health check y rollback.
+- Frontend y Landing se despliegan en Vercel; Uptime Kuma se publica en `status.logify.cl`.
+- El onboarding self-service, la prueba gratuita de 30 días, RBAC estricto y recuperación administrativa de tenants están implementados.
+- Deuda abierta: Quality Gate de SonarCloud por cobertura de código nuevo, E2E periódicos contra producción, SMTP/VAPID según secretos del entorno, observabilidad avanzada y compensación automática de la Saga.
+
+**Nota:** la sección "Notas del Análisis Automático" de abajo describe el estado histórico auditado el 2026-07-19. No debe usarse como estado actual; se conserva como trazabilidad del análisis original.
 
 ## Quick Links
 - Requirements: [aidlc-docs/requirements/](./requirements/)
@@ -29,4 +38,4 @@
 3. **Historial git ambiguo:** `git log --reverse` muestra un único commit inicial ("Primer commit solo con documentos", `b2223ce`) con la misma fecha que HEAD (2026-07-16), y 145 commits totales — sugiere que el historial fue posiblemente comprimido/rehecho (squash) en algún punto, o que todo el desarrollo ocurrió en una ventana muy corta. No se puede determinar la duración real del proyecto con certeza desde git solo.
 4. **Multi-tenancy declarada como "en progreso" pero con fases funcionales ya implementadas:** el código y `wiki/Multi-Tenant.md` muestran las fases 4A/4B/4C completas (aislamiento por `tenant_id`, JWT con tenant, verificación cross-tenant) pero el README todavía describe el sistema como "single-tenant". Se documenta esto como fase transicional real, no como error.
 5. **Stakeholders:** no hay evidencia de stakeholders externos (cliente real, inversionistas) en el repo — parece un proyecto académico/portfolio individual o de equipo pequeño (branches `develop`, `darlette`, `victor` sugieren 2-3 colaboradores). Se asume "proyecto de portafolio/académico con potencial de convertirse en SaaS real" salvo que el usuario indique lo contrario. ⚠️ Pendiente validación humana.
-6. **No se generaron documentos de Operations completos** (monitoring, SLA, runbooks) porque el proyecto genuinamente no ha llegado a esa fase — se dejaron placeholders explícitos en `operations/` en vez de contenido inventado.
+6. **Operations cambió después de la auditoría original:** los placeholders iniciales se reemplazaron el 2026-08-08 con el estado real de VPS, Vercel, Uptime Kuma, CI/CD, rollback y gaps operativos vigentes.

@@ -12,9 +12,9 @@
 
 El diferenciador central del producto no es genérico: Logify resuelve un problema concreto de **última milla** — cómo probar, de forma verificable, que un pedido llegó a la persona correcta — con un mecanismo de doble factor (código único de cliente `SL-XXXXXX` + RUT del receptor) que el propio repartidor no puede ver ni falsificar. Esto es un detalle de diseño de producto, no un checkbox de feature list: fue pensado, implementado, y está cubierto por tests automatizados.
 
-**Etapa actual:** MVP técnicamente completo, funcionando localmente vía Docker Compose, con **226 tests automatizados pasando** (medidos y verificados, no reportados de memoria) y una guía de despliegue a producción ya escrita. **No hay todavía clientes pagando, ni el sistema corriendo en producción real** — este documento no pretende decir lo contrario. Lo que sí hay es un producto de alcance completo, con decisiones de arquitectura documentadas (ver `design-artifacts/ADR/`), construido con una restricción de costos que en sí misma es una señal de eficiencia de capital: **el objetivo de infraestructura es US$0/mes** en plan gratuito de Render + Neon + Vercel, con los trade-offs de esa elección documentados con transparencia en [`RENDER_DEPLOY.md`](../../RENDER_DEPLOY.md) en vez de ocultados.
+**Etapa actual:** producto técnicamente completo y operando en producción desde el 2026-08-06, con backend en VPS, Frontend/Landing en Vercel, monitoreo Uptime Kuma y **548 tests automatizados** medidos el 2026-08-08. No hay evidencia en el repositorio de clientes pagando ni ingresos; esa validación comercial continúa pendiente.
 
-**La tesis para un inversionista o comprador potencial:** el riesgo técnico de "¿se puede construir esto?" ya está resuelto — el producto existe, corre, y tiene un roadmap de multi-tenancy SaaS con 3 de 5 fases ya implementadas y verificadas (ver sección 7). El riesgo que queda es el riesgo comercial — validar con clientes reales, un modelo de precios, y un canal de adquisición — que es exactamente el tipo de riesgo que el financiamiento buscado está destinado a reducir.
+**La tesis para un inversionista o comprador potencial:** el riesgo técnico de "¿se puede construir esto?" ya está resuelto — el producto existe, opera en producción y completó las fases multi-tenant 4A-4E. El riesgo principal restante es comercial: validar clientes, precios y canal de adquisición.
 
 ---
 
@@ -93,16 +93,16 @@ Ninguno de los siguientes es un interesado confirmado hoy — es el **mapa de a 
 | Dimensión | Estado real, verificado | Fuente |
 |---|---|---|
 | Producto funcional | Sí — 4 microservicios + frontend + gateway corriendo vía `docker compose up` | `docker-compose.yml`, `README.md` |
-| Tests automatizados | **226 tests, todos pasando** (medido el 2026-07-19, no de memoria) | `aidlc-docs/testing/TEST_COVERAGE_REPORT.md` |
-| Cobertura de código | Backend 28%-51% según servicio, Frontend 76% (por debajo de la meta interna declarada de 60% backend) | ídem |
-| Arquitectura multi-tenant SaaS | 3 de 5 fases implementadas y **verificadas con un tenant de prueba real** (aislamiento de datos confirmado, reuso cruzado de token rechazado) | `wiki/Multi-Tenant.md` |
+| Tests automatizados | **548 tests registrados**: 435 backend + 113 Frontend, validados por suite y en CI | `aidlc-docs/testing/TEST_COVERAGE_REPORT.md` |
+| Cobertura de código | Backend 82,23%-94,11% statements por servicio en ejecución local; SonarCloud mantiene una deuda separada de cobertura sobre código nuevo | ídem |
+| Arquitectura multi-tenant SaaS | Fases 4A-4E implementadas: aislamiento, wildcard y onboarding self-service | `wiki/Multi-Tenant.md` |
 | Costo de infraestructura | ~~Objetivo explícito de US$0/mes (Render + Neon + Vercel, planes free)~~ **actualizado el 2026-08-06**: backend migrado a VPS propio (costo fijo bajo) + Vercel free para Frontend/Landing | `wiki/Despliegue-VPS.md` |
 | Despliegue en producción real | ~~No~~ **sí, desde el 2026-08-06** — backend en VPS (`api.logify.cl`), Frontend en Vercel (`app.logify.cl`), Landing en Vercel (`logify.cl`/`www.logify.cl`), monitoreo público (`status.logify.cl`). Dominio real `logify.cl` con DNS propio, TLS automático, sin credenciales demo expuestas más allá de lo documentado | `wiki/Despliegue-VPS.md`, `wiki/Despliegue-Vercel.md` |
 | Clientes pagando | **Ninguno** (persiste) — no hay evidencia de cliente real, piloto, ni ingreso en el repositorio | — |
 | CI/CD automatizado | ~~No — fue removido deliberadamente~~ **resuelto el 2026-08-06**: `.github/workflows/ci.yml` corre tests de los 4 microservicios + Frontend + Landing, y `main` tiene branch protection exigiendo esos 6 checks antes de mergear | `wiki/Flujo-Git.md`, `aidlc-docs/design-artifacts/ADR/ADR-003-no-cicd-platform-native-autodeploy.md` |
-| Monitoreo/observabilidad en producción | ~~No implementado~~ **resuelto el 2026-08-06**: logging estructurado (JSON, niveles, `x-request-id` de correlación entre servicios) + página pública de status (Uptime Kuma en `status.logify.cl`) | `wiki/Monitoreo.md` |
+| Monitoreo/observabilidad en producción | Monitoreo básico con Uptime Kuma y health checks; APM, logs centralizados y `X-Request-ID` siguen pendientes | `wiki/Monitoreo.md` |
 
-**Cómo enmarcar esto en un pitch:** la narrativa honesta y defendible es *"riesgo técnico resuelto, riesgo comercial es exactamente lo que buscamos financiar."* Un producto MVP completo con 375 tests, CI obligatorio antes de mergear, monitoreo básico en producción y una arquitectura multi-tenant ya parcialmente implementada es una posición fuerte comparada con un pitch deck sin código. Lo que sigue faltando — clientes reales y un despliegue en producción efectivamente ejecutado — es riesgo comercial, no técnico. Presentarlo como "ya listo para escalar a miles de clientes" sin mencionar la ausencia de clientes reales es el tipo de sobre-promesa que no sobrevive una diligencia técnica de 30 minutos.
+**Cómo enmarcar esto en un pitch:** la narrativa honesta y defendible es *"riesgo técnico resuelto, riesgo comercial es exactamente lo que buscamos financiar."* Un producto con 548 tests, CI obligatorio, CD con rollback, monitoreo básico y multi-tenancy self-service es una base fuerte. Lo que sigue faltando son clientes e ingresos verificables; tampoco debe prometerse escala masiva sin métricas de carga y operación sostenida.
 
 ---
 
@@ -138,7 +138,7 @@ Priorizado por impacto en credibilidad frente a un inversionista o cliente pilot
 2. **Conseguir un piloto real**, aunque sea gratuito o con un solo cliente — nada reemplaza a un caso de uso real citable.
 3. ~~**Ejecutar el despliegue real en el VPS**~~ — hecho el 2026-08-06, dominio `logify.cl` real, TLS automático, monitoreo público en `status.logify.cl`.
 4. **Definir estructura societaria y modelo de pricing** antes de la primera reunión formal con un inversionista.
-5. ~~**Añadir monitoreo básico**~~ — resuelto el 2026-08-06: página pública de status (`status.logify.cl`, Uptime Kuma) + logging estructurado con correlación de requests. Falta solo activarla al hacer el despliegue real (paso 3).
+5. ~~**Añadir monitoreo básico**~~ — resuelto: Uptime Kuma está publicado en `status.logify.cl`. Siguen pendientes APM, logs centralizados y correlación de requests.
 6. **Preparar un pitch deck separado** que use este documento como fuente de verdad técnica, pero con el formato visual de una presentación de inversión (problema/solución/mercado/producto/equipo/ask) — este documento es la materia prima, no el documento para mostrar directamente a un inversionista.
 
 ---
