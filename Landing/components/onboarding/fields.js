@@ -18,14 +18,13 @@ export const PASSWORD_RULES = [
     "Un símbolo (por ejemplo: ! @ # $)",
 ]
 
-export function validatePassword(value) {
-    const v = value || ""
+export function validatePassword(value = "") {
     return (
-        v.length >= 10 &&
-        /[A-Z]/.test(v) &&
-        /[a-z]/.test(v) &&
-        /[0-9]/.test(v) &&
-        /[^A-Za-z0-9]/.test(v)
+        value.length >= 10 &&
+        /[A-Z]/.test(value) &&
+        /[a-z]/.test(value) &&
+        /\d/.test(value) &&
+        /[^A-Za-z0-9]/.test(value)
     )
 }
 
@@ -93,7 +92,7 @@ export function PasswordField({ value, onChange, autoFocus }) {
 function passwordRuleMet(rule, value) {
     if (rule === PASSWORD_RULES[0]) return value.length >= 10
     if (rule === PASSWORD_RULES[1]) return /[A-Z]/.test(value) && /[a-z]/.test(value)
-    if (rule === PASSWORD_RULES[2]) return /[0-9]/.test(value)
+    if (rule === PASSWORD_RULES[2]) return /\d/.test(value)
     return /[^A-Za-z0-9]/.test(value)
 }
 

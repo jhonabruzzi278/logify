@@ -40,10 +40,19 @@ function usernameFromName(name) {
     return base || "usuario"
 }
 
+function isValidEmail(value) {
+    const v = value.trim()
+    if (v.includes(" ") || v.length < 5) return false
+    const at = v.indexOf("@")
+    if (at <= 0 || at !== v.lastIndexOf("@")) return false
+    const dot = v.indexOf(".", at)
+    return dot > at + 1 && dot < v.length - 1
+}
+
 function isStepValid(kind, answers) {
     switch (kind) {
         case "phone": return answers.phoneNumber.trim().length >= 6
-        case "email": return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(answers.contactEmail.trim())
+        case "email": return isValidEmail(answers.contactEmail)
         case "ownerName": return answers.ownerName.trim().length >= 2
         case "companyName": return answers.companyName.trim().length >= 2
         case "businessIndustry": return Boolean(answers.businessIndustry)
@@ -171,11 +180,15 @@ export default function OnboardingWizard() {
 
     const enterHint = <p className="text-white/50 text-xs mt-3">Presiona Enter ↵ para continuar</p>
 
+    let continueLabel = "Continuar"
+    if (submitting) continueLabel = "Creando tu cuenta…"
+    else if (kind === "password") continueLabel = "Crear mi cuenta gratis"
+
     const continueButton = (
         <button type="submit" disabled={!valid || submitting}
             className="mt-6 w-full flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-3.5 rounded-xl hover:bg-yellow-400 transition-all disabled:opacity-40 disabled:pointer-events-none"
         >
-            {submitting ? "Creando tu cuenta…" : kind === "password" ? "Crear mi cuenta gratis" : "Continuar"}
+            {continueLabel}
         </button>
     )
 

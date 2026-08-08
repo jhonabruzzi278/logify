@@ -21,7 +21,7 @@ interface CloseRegisterModalProps {
   onClosed?: () => void;
 }
 
-export function CloseRegisterModal({ onClose, onClosed }: CloseRegisterModalProps) {
+export function CloseRegisterModal({ onClose, onClosed }: Readonly<CloseRegisterModalProps>) {
   const { data, loading, error } = useApiQuery<ApiSalesCloseSummary, ApiSalesCloseSummary>({
     path: "/api/sales/close-summary",
     transform: (r) => r,

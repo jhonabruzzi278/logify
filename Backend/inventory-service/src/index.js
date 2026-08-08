@@ -381,7 +381,7 @@ app.get('/api/inventory/:sku/qr', authMiddleware, requireTenant, async (req, res
       [sku, req.tenantId]
     )).rows[0];
     if (!product) return res.status(404).json({ error: 'SKU no encontrado' });
-    const requestedSize = parseInt(req.query.size, 10);
+    const requestedSize = Number.parseInt(req.query.size, 10);
     const size = Number.isFinite(requestedSize) ? Math.min(Math.max(requestedSize, 100), 1000) : 300;
     const payload = JSON.stringify({ t: 'logify_product', sku: product.sku });
     const png = await QRCode.toBuffer(payload, { type: 'png', width: size, margin: 2, errorCorrectionLevel: 'M' });

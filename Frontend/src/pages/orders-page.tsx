@@ -411,12 +411,13 @@ export function OrdersPage() {
                   <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{order.sku}</td>
                   <td className="px-4 py-3 hidden sm:table-cell">x{order.quantity}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    {tName ? (
+                    {tName && (
                       <span className="inline-flex items-center gap-1 text-xs text-foreground">
                         <Truck className="h-3 w-3 text-[#4EB4A5]" />
                         {tName}
                       </span>
-                    ) : !canAssign ? null : (
+                    )}
+                    {!tName && canAssign && (
                       <select
                         onClick={(e) => e.stopPropagation()}
                         value=""
