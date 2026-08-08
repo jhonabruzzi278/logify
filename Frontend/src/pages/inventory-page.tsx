@@ -1,10 +1,9 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Download, FileText, ImageOff, ImagePlus, Minus, PackagePlus, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { Download, FileText, ImageOff, Minus, PackagePlus, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
-import { useDebounce } from "@/hooks/use-debounce";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
 import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
@@ -15,13 +14,6 @@ import { exportInventoryCSV } from "@/lib/export-csv";
 import type { ApiSupplier } from "@/types/api";
 import type { Supplier } from "@/types/domain";
 
-interface ImageResult {
-  id: string;
-  title: string;
-  thumbnail: string;
-  url: string;
-  creator: string;
-}
 import { cn, onEscapeKey } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -36,16 +28,12 @@ export function InventoryPage() {
   const [filter, setFilter] = useState<"all" | "critical" | "warning" | "healthy">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0, imageUrl: "",
+    sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0,
     supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true,
   });
   const [formError, setFormError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{ sku: string; name: string } | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [imagePickerOpen, setImagePickerOpen] = useState(false);
-  const [imageQuery, setImageQuery] = useState("");
-  const [imageResults, setImageResults] = useState<ImageResult[]>([]);
-  const [imageSearching, setImageSearching] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<{ rows: Array<{ sku: string; name: string }>; errors: string[] } | null>(null);
   const [importCsvText, setImportCsvText] = useState("");
@@ -59,19 +47,6 @@ export function InventoryPage() {
   const { can, role } = usePermissions();
   const { uf, dolar } = useIndicadores();
 
-  const debouncedImageQuery = useDebounce(imageQuery, 500);
-
-  useEffect(() => {
-    const q = debouncedImageQuery.trim();
-    if (!imagePickerOpen || q.length < 3) { setImageResults([]); return; }
-    let cancelled = false;
-    setImageSearching(true);
-    apiFetch<ImageResult[]>(`/api/inventory/image-search?q=${encodeURIComponent(q)}`)
-      .then((r) => { if (!cancelled) setImageResults(r); })
-      .catch(() => { if (!cancelled) setImageResults([]); })
-      .finally(() => { if (!cancelled) setImageSearching(false); });
-    return () => { cancelled = true; };
-  }, [debouncedImageQuery, imagePickerOpen]);
   const { session } = useAuth();
   const canAdjust = can("inventory.adjust");
   const isOwner = role === "owner";
@@ -263,7 +238,7 @@ export function InventoryPage() {
           </Dialog>
           )}
           {canAdjust && (
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setFormError(""); setImageResults([]); setImagePickerOpen(false); setImageQuery(""); } }}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setFormError(""); }}>
             <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><PackagePlus className="h-3.5 w-3.5" />Agregar producto</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
@@ -275,11 +250,10 @@ export function InventoryPage() {
                 if (!form.sku.trim() || !form.name.trim()) { setFormError("SKU y Nombre son obligatorios"); return; }
                 if (form.stock < 0 || form.price < 0 || form.cost < 0) { setFormError("Stock, Precio y Costo no pueden ser negativos"); return; }
                 await handleAdd({
-                  sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost, imageUrl: form.imageUrl,
+                  sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost,
                   supplierId: form.supplierId ? Number(form.supplierId) : null, unitOfMeasure: form.unitOfMeasure, taxRate: form.taxRate, active: form.active,
                 });
-                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, imageUrl: "", supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true });
-                setImageResults([]);
+                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true });
                 setDialogOpen(false);
               }} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -318,13 +292,7 @@ export function InventoryPage() {
                   </div>
                   <div className="space-y-1">
                     <label htmlFor="inventory-page-f320" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad</label>
-                    <Select value={form.unitOfMeasure} onValueChange={(v) => {
-                      setForm({ ...form, unitOfMeasure: v, imageUrl: v === "unidad" ? form.imageUrl : "" });
-                      if (v !== "unidad") {
-                        setImagePickerOpen(false);
-                        setImageResults([]);
-                      }
-                    }}>
+                    <Select value={form.unitOfMeasure} onValueChange={(v) => setForm({ ...form, unitOfMeasure: v })}>
                       <SelectTrigger id="inventory-page-f320" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unidad">Unidad</SelectItem>
@@ -344,69 +312,6 @@ export function InventoryPage() {
                   <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="h-4 w-4 rounded border-[#DCE0E2]" />
                   Producto activo
                 </label>
-
-                {form.unitOfMeasure === "unidad" && <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Imagen del producto</p>
-                    {!imagePickerOpen && (
-                      <button
-                        type="button"
-                        onClick={() => { setImagePickerOpen(true); setImageQuery(form.name); }}
-                        className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-2.5 py-1 text-[10px] font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
-                      >
-                        <ImagePlus className="h-3 w-3" /> {form.imageUrl ? "Cambiar imagen" : "Buscar imagen"}
-                      </button>
-                    )}
-                  </div>
-
-                  {form.imageUrl && !imagePickerOpen && (
-                    <div className="relative h-14 w-14 overflow-hidden rounded border-2 border-[#4B98CF]">
-                      <img src={form.imageUrl} alt="Seleccionada" className="h-full w-full object-cover" />
-                    </div>
-                  )}
-
-                  {imagePickerOpen && (
-                    <div className="space-y-2">
-                      <input
-                        value={imageQuery}
-                        onChange={(e) => setImageQuery(e.target.value)}
-                        placeholder="Buscar imagen por nombre..."
-                        className="h-9 w-full rounded border border-input bg-card px-3 text-sm outline-none placeholder:text-muted-foreground"
-                        autoFocus
-                      />
-                      <div className="flex gap-2 overflow-x-auto scroll-x pb-1">
-                        {imageSearching && (
-                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-[#DCE0E2]">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />
-                          </div>
-                        )}
-                        {!imageSearching && imageResults.map((img) => (
-                          <button
-                            key={img.id}
-                            type="button"
-                            onClick={() => { setForm({ ...form, imageUrl: img.url }); setImagePickerOpen(false); }}
-                            title={img.title}
-                            className={cn(
-                              "relative h-14 w-14 shrink-0 overflow-hidden rounded border-2 transition-colors",
-                              form.imageUrl === img.url ? "border-[#4B98CF]" : "border-transparent hover:border-[#DCE0E2]"
-                            )}
-                          >
-                            <img src={img.thumbnail} alt={img.title} className="h-full w-full object-cover" />
-                            {form.imageUrl === img.url && (
-                              <span className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#4B98CF]"><Check className="h-2.5 w-2.5 text-white" /></span>
-                            )}
-                          </button>
-                        ))}
-                        {!imageSearching && imageQuery.trim().length >= 3 && imageResults.length === 0 && (
-                          <div className="flex h-14 items-center gap-1.5 px-2 text-[10px] text-muted-foreground">
-                            <ImageOff className="h-3.5 w-3.5" /> Sin resultados para "{imageQuery}"
-                          </div>
-                        )}
-                      </div>
-                      <button type="button" onClick={() => setImagePickerOpen(false)} className="text-[10px] text-[#6B7280] hover:text-[#112b4a]">Cancelar</button>
-                    </div>
-                  )}
-                </div>}
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
