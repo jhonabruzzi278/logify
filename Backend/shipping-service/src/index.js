@@ -1,7 +1,7 @@
 ﻿const { createApp } = require('../shared/app');
 const { validateShipmentBody, validateShipmentStage } = require('../shared/validate');
 const { sendEmail, buildShipmentUpdateEmail } = require('../shared/email');
-const { authMiddleware, requireTenant } = require('../shared/auth');
+const { authMiddleware, requireTenant, requireRole } = require('../shared/auth');
 const { requireAdminKey } = require('../shared/admin');
 const log = require('../shared/logger');
 
@@ -59,7 +59,7 @@ app.get('/api/shipments/:orderId', authMiddleware, requireTenant, async (req, re
   } catch (err) { sendError(res, 500, 'Failed', err); }
 });
 
-app.post('/api/shipments', authMiddleware, requireTenant, async (req, res) => {
+app.post('/api/shipments', authMiddleware, requireTenant, requireRole('owner', 'ops', 'warehouse'), async (req, res) => {
   try {
     const errors = validateShipmentBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
@@ -74,7 +74,7 @@ app.post('/api/shipments', authMiddleware, requireTenant, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to create shipment', err); }
 });
 
-app.put('/api/shipments/:id/stage', authMiddleware, requireTenant, async (req, res) => {
+app.put('/api/shipments/:id/stage', authMiddleware, requireTenant, requireRole('owner', 'ops', 'warehouse', 'shipper'), async (req, res) => {
   try {
     const stageErr = validateShipmentStage((req.query.stage || '').toUpperCase());
     if (stageErr.length) return res.status(400).json({ error: stageErr.join(', ') });

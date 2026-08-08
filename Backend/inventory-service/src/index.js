@@ -1,3 +1,4 @@
+const QRCode = require('qrcode');
 const { createApp } = require('../shared/app');
 const { validateInventoryBody, validateSaleBody } = require('../shared/validate');
 const { authMiddleware, requireTenant, requireRole } = require('../shared/auth');
@@ -314,7 +315,7 @@ app.get('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) =
   } catch (err) { sendError(res, 500, 'Failed to get inventory', err); }
 });
 
-app.post('/api/inventory', authMiddleware, requireTenant, async (req, res) => {
+app.post('/api/inventory', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
   try {
     const errors = validateInventoryBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
@@ -332,7 +333,7 @@ app.post('/api/inventory', authMiddleware, requireTenant, async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to create inventory', err); }
 });
 
-app.put('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) => {
+app.put('/api/inventory/:sku', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
   try {
     if (req.body.stock === undefined || isNaN(Number(req.body.stock)) || Number(req.body.stock) < 0)
       return res.status(400).json({ error: 'stock must be >= 0' });
@@ -360,7 +361,7 @@ app.put('/api/inventory/:sku/details', authMiddleware, requireTenant, requireRol
   } catch (err) { sendError(res, 500, 'Failed to update product details', err); }
 });
 
-app.delete('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) => {
+app.delete('/api/inventory/:sku', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
   try {
     const r = await pool.query('DELETE FROM inventory WHERE sku=$1 AND tenant_id=$2 RETURNING *', [req.params.sku, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
@@ -368,38 +369,29 @@ app.delete('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res
   } catch (err) { sendError(res, 500, 'Failed to delete', err); }
 });
 
-// El QR codifica el producto completo como JSON (no solo el SKU) para que
-// sirva tanto a un futuro lector dedicado (que puede parsear el campo `t`)
-// como a la cámara de cualquier celular sin lector comprado — cualquier app
-// de cámara estándar decodifica el texto plano del QR igual, sea URL o JSON.
+// El QR codifica solo el tipo y el SKU (no el resto del producto): un payload
+// corto escanea de forma confiable a tamaño de etiqueta impresa, y evita que
+// el código quede desactualizado si el precio/stock cambian después de imprimir.
+// Se genera localmente con `qrcode` (sin depender de un servicio externo).
 app.get('/api/inventory/:sku/qr', authMiddleware, requireTenant, async (req, res) => {
   try {
     const { sku } = req.params;
     const product = (await pool.query(
-      'SELECT sku, name, price, category, stock, unit_of_measure FROM inventory WHERE sku=$1 AND tenant_id=$2',
+      'SELECT sku FROM inventory WHERE sku=$1 AND tenant_id=$2',
       [sku, req.tenantId]
     )).rows[0];
     if (!product) return res.status(404).json({ error: 'SKU no encontrado' });
-    const size = req.query.size || '300x300';
-    const payload = JSON.stringify({
-      t: 'logify_product',
-      sku: product.sku,
-      name: product.name,
-      price: Number(product.price),
-      category: product.category,
-      stock: product.stock,
-      unit: product.unit_of_measure,
-    });
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent(payload)}&format=png&margin=10&ecc=M`;
-    const qrRes = await fetch(qrUrl);
-    if (!qrRes.ok) throw new Error('QR service error');
+    const requestedSize = parseInt(req.query.size, 10);
+    const size = Number.isFinite(requestedSize) ? Math.min(Math.max(requestedSize, 100), 1000) : 300;
+    const payload = JSON.stringify({ t: 'logify_product', sku: product.sku });
+    const png = await QRCode.toBuffer(payload, { type: 'png', width: size, margin: 2, errorCorrectionLevel: 'M' });
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'no-store');
-    res.send(Buffer.from(await qrRes.arrayBuffer()));
+    res.send(png);
   } catch (err) { sendError(res, 500, 'QR failed', err); }
 });
 
-app.post('/api/inventory/:sku/adjust', authMiddleware, requireTenant, async (req, res) => {
+app.post('/api/inventory/:sku/adjust', authMiddleware, requireTenant, requireRole('owner', 'ops', 'warehouse'), async (req, res) => {
   try {
     const delta = parseInt(req.query.delta, 10);
     if (isNaN(delta) || delta === 0) return res.status(400).json({ error: 'delta must be non-zero integer' });
@@ -473,7 +465,7 @@ app.get('/api/sales/close-summary', authMiddleware, requireTenant, async (req, r
   } catch (err) { sendError(res, 500, 'Failed to get close summary', err); }
 });
 
-app.post('/api/sales', authMiddleware, requireTenant, async (req, res) => {
+app.post('/api/sales', authMiddleware, requireTenant, requireRole('owner', 'vendor'), async (req, res) => {
   const client = await pool.connect();
   const tenantId = req.tenantId;
   try {
@@ -701,7 +693,7 @@ app.get('/api/cash-sessions', authMiddleware, requireTenant, async (req, res) =>
   } catch (err) { sendError(res, 500, 'Failed to list cash sessions', err); }
 });
 
-app.post('/api/cash-sessions', authMiddleware, requireTenant, async (req, res) => {
+app.post('/api/cash-sessions', authMiddleware, requireTenant, requireRole('owner', 'vendor'), async (req, res) => {
   try {
     const openingAmount = Number(req.body.openingAmount);
     if (!Number.isFinite(openingAmount) || openingAmount < 0) {
@@ -722,7 +714,7 @@ app.post('/api/cash-sessions', authMiddleware, requireTenant, async (req, res) =
   } catch (err) { sendError(res, 500, 'Failed to open cash session', err); }
 });
 
-app.put('/api/cash-sessions/:id/close', authMiddleware, requireTenant, async (req, res) => {
+app.put('/api/cash-sessions/:id/close', authMiddleware, requireTenant, requireRole('owner', 'vendor'), async (req, res) => {
   try {
     const countedAmount = Number(req.body.countedAmount);
     if (!Number.isFinite(countedAmount) || countedAmount < 0) {
@@ -743,11 +735,16 @@ app.put('/api/cash-sessions/:id/close', authMiddleware, requireTenant, async (re
     const expectedAmount = Number(session.opening_amount) + Number(cashSales.total);
     const difference = countedAmount - expectedAmount;
 
+    // WHERE status='open' evita que dos cierres concurrentes de la misma sesion
+    // (doble submit) pisen el resultado uno del otro -- solo el primero en
+    // llegar la cierra, el segundo cae en el 404 de "ya cerrada" de arriba
+    // en su proximo intento.
     const closed = (await pool.query(
       `UPDATE cash_sessions SET closed_at=NOW(), counted_amount=$1, expected_amount=$2, difference=$3, status='closed'
-       WHERE id=$4 AND tenant_id=$5 RETURNING *`,
+       WHERE id=$4 AND tenant_id=$5 AND status='open' RETURNING *`,
       [countedAmount, expectedAmount, difference, req.params.id, req.tenantId]
     )).rows[0];
+    if (!closed) return res.status(404).json({ error: 'Sesión de caja no encontrada o ya cerrada' });
     res.json(closed);
   } catch (err) { sendError(res, 500, 'Failed to close cash session', err); }
 });

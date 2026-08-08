@@ -25,7 +25,7 @@ const DEFAULT_TENANT_SLUG = 'logify';
 // duplicado aca porque backend y frontend no comparten paquete de constantes.
 const RESERVED_TENANT_SLUGS = new Set(['www', 'api', 'app', 'admin', 'mail', 'logify', 'static', 'landing', 'demo', 'status']);
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
-const TRIAL_DAYS = 90;
+const TRIAL_DAYS = 30;
 const SUPPORT_WHATSAPP_URL = process.env.SUPPORT_WHATSAPP_URL || 'https://wa.me/56938980598';
 
 let bcrypt;
@@ -124,7 +124,7 @@ async function ensureTenants() {
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_phone VARCHAR(30)`);
 
   // Fase 4E del roadmap multi-tenant (ver wiki/Multi-Tenant.md): provisioning
-  // self-service. trial_ends_at soporta la demo gratuita de 90 dias;
+  // self-service. trial_ends_at soporta la demo gratuita de 30 dias;
   // subscription_status/plan_price_clp/billing_provider/billing_customer_id
   // quedan preparados para cuando se active el cobro real (un unico plan
   // mensual) pero ningun proveedor de pago se integra todavia — todos
@@ -134,6 +134,12 @@ async function ensureTenants() {
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_price_clp INTEGER`);
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_provider VARCHAR(30)`);
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_customer_id VARCHAR(100)`);
+
+  // Onboarding sin friccion (wizard tipo typeform en Landing/pages/registro.js):
+  // datos adicionales recolectados al crear la cuenta, para segmentar y
+  // personalizar la activacion del tenant nuevo.
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS used_pos_before BOOLEAN`);
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_goals JSONB DEFAULT '[]'`);
 
   // Cupones de bienvenida: dias extra de demo gratuita, canjeables una vez
   // por tenant. Tabla a nivel plataforma (sin tenant_id propio).
@@ -372,7 +378,8 @@ app.get('/api/signup/check-slug', async (req, res) => {
 });
 
 app.post('/api/signup', signupRateLimit, async (req, res) => {
-  const { companyName, slug: rawSlug, contactEmail, ownerName, ownerUsername, ownerPassword, couponCode } = req.body;
+  const { companyName, slug: rawSlug, contactEmail, ownerName, ownerUsername, ownerPassword, couponCode,
+    phone, businessIndustry, usedPosBefore, goals } = req.body;
   const slug = (rawSlug || '').trim().toLowerCase();
 
   if (!companyName || !companyName.trim()) return res.status(400).json({ error: 'El nombre de la empresa es obligatorio' });
@@ -415,9 +422,11 @@ app.post('/api/signup', signupRateLimit, async (req, res) => {
     const trialEndsAt = new Date(Date.now() + (TRIAL_DAYS + extraDays) * 24 * 60 * 60 * 1000);
 
     const tenant = (await client.query(
-      `INSERT INTO tenants (slug, name, status, plan, subscription_status, contact_email, trial_ends_at)
-       VALUES ($1,$2,'trial','pro','trialing',$3,$4) RETURNING id, slug, name, trial_ends_at`,
-      [slug, companyName.trim(), contactEmail.trim(), trialEndsAt]
+      `INSERT INTO tenants (slug, name, status, plan, subscription_status, contact_email, trial_ends_at,
+        business_phone, business_industry, used_pos_before, onboarding_goals)
+       VALUES ($1,$2,'trial','pro','trialing',$3,$4,$5,$6,$7,$8) RETURNING id, slug, name, trial_ends_at`,
+      [slug, companyName.trim(), contactEmail.trim(), trialEndsAt,
+       phone || null, businessIndustry || null, usedPosBefore ?? null, JSON.stringify(goals || [])]
     )).rows[0];
 
     const usernameNorm = ownerUsername.trim().toLowerCase();
@@ -519,14 +528,35 @@ app.put('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, requ
   try {
     bcrypt = require('bcryptjs');
     const { name, role, password } = req.body;
+    if (role && !VALID_ROLES.includes(role.toLowerCase())) {
+      return res.status(400).json({ error: 'Rol invalido. Validos: ' + VALID_ROLES.join(', ') });
+    }
     const existing = (await req.db.query('SELECT * FROM users WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Usuario no encontrado' });
     const newName = name || existing.name;
-    const newRole = role || existing.role;
+    const newRole = role ? role.toLowerCase() : existing.role;
+    // LIMITACION CONOCIDA: los JWT son stateless (shared/auth.js no consulta la
+    // DB en cada request) y llevan el rol embebido, asi que si el usuario tiene
+    // una sesion activa sigue operando con el rol viejo hasta que su token
+    // expire (JWT_EXPIRES_IN, 8h por defecto) o vuelva a iniciar sesion. Arreglar
+    // esto de raiz requiere versionar el token (columna token_version en users +
+    // chequeo en authMiddleware de los 4 servicios) - cambio mayor, fuera de
+    // alcance de este fix puntual.
+    // Mismo resguardo que en DELETE /api/auth/users/:id: si el unico owner
+    // del tenant se degrada a si mismo (u otro lo degrada) queda la cuenta
+    // sin administrador y sin panel de super-admin para recuperarla.
+    if (existing.role === 'owner' && newRole !== 'owner') {
+      const ownerCount = (await req.db.query(
+        "SELECT COUNT(*)::int AS count FROM users WHERE tenant_id=$1 AND role='owner'", [req.tenantId]
+      )).rows[0].count;
+      if (ownerCount <= 1) {
+        return res.status(400).json({ error: 'No puedes quitar el rol de administrador al único owner de la cuenta.' });
+      }
+    }
     const hash = password ? await bcrypt.hash(password, 10) : existing.password_hash;
     const updated = (await req.db.query(
       'UPDATE users SET name=$1, role=$2, password_hash=$3, updated_at=NOW() WHERE id=$4 AND tenant_id=$5 RETURNING id, username, name, role, created_at, updated_at',
-      [newName, newRole.toLowerCase(), hash, req.params.id, req.tenantId])).rows[0];
+      [newName, newRole, hash, req.params.id, req.tenantId])).rows[0];
     res.json(updated);
   } catch (err) { sendError(res, 500, 'Failed to update user', err); }
 });
@@ -585,7 +615,7 @@ app.get('/api/orders/report', authMiddleware, requireTenant, withTenantDb, async
   } catch (err) { sendError(res, 500, 'Failed to get orders report', err); }
 });
 
-app.post('/api/orders', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.post('/api/orders', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'ops'), async (req, res) => {
   try {
     const errors = validateOrderBody(req.body);
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
@@ -651,7 +681,7 @@ app.get('/api/orders/:id', authMiddleware, requireTenant, withTenantDb, async (r
   } catch (err) { sendError(res, 500, 'Failed to get order', err); }
 });
 
-app.put('/api/orders/:id/status', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.put('/api/orders/:id/status', authMiddleware, requireTenant, withTenantDb, requireRole('owner'), async (req, res) => {
   try {
     const statusErr = validateOrderStatus(req.query.status?.toUpperCase() || '');
     if (statusErr.length) return res.status(400).json({ error: statusErr.join(', ') });
@@ -669,7 +699,7 @@ app.put('/api/orders/:id/status', authMiddleware, requireTenant, withTenantDb, a
 // Si la compensacion en si falla, la orden queda en CREATED igual (para
 // permitir reintentar) pero el warning marca que requiere revision manual,
 // porque en ese caso el stock puede haber quedado descontado sin envio.
-app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'ops', 'warehouse'), async (req, res) => {
   const orderId = req.params.id;
   try {
     const order = (await req.db.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [orderId, req.tenantId])).rows[0];
@@ -714,7 +744,7 @@ app.put('/api/orders/:id/confirm', authMiddleware, requireTenant, withTenantDb, 
   } catch (err) { sendError(res, 500, 'Failed to confirm order', err); }
 });
 
-app.put('/api/orders/:id/cancel', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.put('/api/orders/:id/cancel', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'ops', 'warehouse'), async (req, res) => {
   try {
     const order = (await req.db.query('SELECT * FROM orders WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
     if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
@@ -739,7 +769,7 @@ app.put('/api/orders/:id/cancel', authMiddleware, requireTenant, withTenantDb, a
   } catch (err) { sendError(res, 500, 'Failed to cancel order', err); }
 });
 
-app.put('/api/orders/:id/assign', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.put('/api/orders/:id/assign', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'ops'), async (req, res) => {
   try {
     const transporter = (req.query.transporter || '').substring(0, 100);
     if (!transporter) return res.status(400).json({ error: 'transporter es requerido' });
@@ -749,7 +779,7 @@ app.put('/api/orders/:id/assign', authMiddleware, requireTenant, withTenantDb, a
   } catch (err) { sendError(res, 500, 'Failed to assign', err); }
 });
 
-app.delete('/api/orders/:id', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.delete('/api/orders/:id', authMiddleware, requireTenant, withTenantDb, requireRole('owner'), async (req, res) => {
   try {
     const result = await req.db.query('DELETE FROM orders WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
     if (!result.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
@@ -870,7 +900,7 @@ app.get('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, async
   } catch (err) { sendError(res, 500, 'Failed to get customer', err); }
 });
 
-app.post('/api/customers', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.post('/api/customers', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'ops'), async (req, res) => {
   try {
     const { name, phone, address, email, rut, province, customerType, creditLimit } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
@@ -884,7 +914,7 @@ app.post('/api/customers', authMiddleware, requireTenant, withTenantDb, async (r
   } catch (err) { sendError(res, 500, 'Failed to create customer', err); }
 });
 
-app.put('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.put('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'ops'), async (req, res) => {
   try {
     const { name, phone, address, email, rut, province, customerType, creditLimit } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
@@ -899,7 +929,7 @@ app.put('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, async
   } catch (err) { sendError(res, 500, 'Failed to update customer', err); }
 });
 
-app.delete('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+app.delete('/api/customers/:id', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'ops'), async (req, res) => {
   try {
     const r = await req.db.query('DELETE FROM customers WHERE id=$1 AND tenant_id=$2 RETURNING *', [req.params.id, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'Cliente no encontrado' });
@@ -1024,7 +1054,7 @@ app.post('/api/auth/invite', authMiddleware, requireTenant, withTenantDb, requir
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, email, role, status, expires_at`,
       [req.tenantId, email.trim().toLowerCase(), role.toLowerCase(), token, req.user?.sub || req.user?.name || null, expiresAt])).rows[0];
 
-    const acceptUrl = `${process.env.APP_URL || 'https://logify.cl'}/invite/${token}`;
+    const acceptUrl = `${process.env.APP_URL || 'https://app.logify.cl'}/invite/${token}`;
     sendEmail({
       to: invitation.email,
       subject: 'Te invitaron a unirte a Logify',

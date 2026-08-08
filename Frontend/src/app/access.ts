@@ -7,15 +7,19 @@ export type AppPermission =
   | "orders.view"
   | "orders.create"
   | "orders.review"
+  | "orders.assign"
+  | "orders.delete"
   | "shipments.view"
   | "shipments.dispatch"
   | "shipments.update"
   | "alerts.view"
   | "users.view"
   | "users.manage"
+  | "customers.manage"
   | "sales.create"
   | "sales.view"
   | "settings.manage"
+  | "notifications.manage"
   | "suppliers.manage"
   | "products.import"
   | "purchases.manage";
@@ -43,15 +47,19 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
       "orders.view",
       "orders.create",
       "orders.review",
+      "orders.assign",
+      "orders.delete",
       "shipments.view",
       "shipments.dispatch",
       "shipments.update",
       "alerts.view",
       "users.view",
       "users.manage",
+      "customers.manage",
       "sales.create",
       "sales.view",
       "settings.manage",
+      "notifications.manage",
       "suppliers.manage",
       "products.import",
       "purchases.manage"
@@ -68,11 +76,13 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
       "orders.view",
       "orders.create",
       "orders.review",
+      "orders.assign",
       "shipments.view",
       "shipments.dispatch",
       "shipments.update",
       "alerts.view",
-      "sales.view"
+      "sales.view",
+      "customers.manage"
     ]
   },
   warehouse: {
