@@ -23,7 +23,7 @@ export function RouteErrorFallback() {
           <summary className="cursor-pointer text-xs text-muted-foreground">Detalles del error</summary>
           <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-[10px] text-foreground">{message}</pre>
         </details>
-        <button
+        <button type="button"
           onClick={() => window.location.reload()}
           className="mt-5 rounded bg-[#4B98CF] px-4 py-2 text-sm font-bold text-white hover:bg-[#346384]"
         >

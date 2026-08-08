@@ -31,7 +31,7 @@ export default function Header1({ scroll, handleMobileMenuOpen }) {
                             className="text-sm font-bold text-brand-2 bg-brand-1 hover:bg-yellow-400 px-4 py-2.5 rounded-lg transition-all whitespace-nowrap hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
                             aria-label="Prueba Logify gratis por 30 dias"
                         >Prueba gratis</Link>
-                        <button onClick={handleMobileMenuOpen} className="xl:hidden flex flex-col gap-1.5 p-2">
+                        <button type="button" onClick={handleMobileMenuOpen} className="xl:hidden flex flex-col gap-1.5 p-2">
                             <span className="block w-6 h-0.5 bg-brand-2 rounded-sm"/>
                             <span className="block w-6 h-0.5 bg-brand-2 rounded-sm"/>
                             <span className="block w-6 h-0.5 bg-brand-2 rounded-sm"/>

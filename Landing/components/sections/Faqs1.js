@@ -23,7 +23,7 @@ export default function Faqs1() {
                 <div className="space-y-3">
                     {faqs.map((faq, i) => (
                         <div key={i} className={`border rounded-xl overflow-hidden transition-all duration-200 ${active === i ? 'border-brand-1 shadow-md' : 'border-grey-300'}`}>
-                            <button onClick={() => setActive(active === i ? null : i)} className="w-full flex items-center justify-between gap-4 p-5 text-left">
+                            <button type="button" onClick={() => setActive(active === i ? null : i)} className="w-full flex items-center justify-between gap-4 p-5 text-left">
                                 <span className="text-brand-2 font-semibold text-base flex-1">{faq.q}</span>
                                 <svg className={`w-5 h-5 text-grey-500 shrink-0 transition-transform duration-200 ${active === i ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
                             </button>

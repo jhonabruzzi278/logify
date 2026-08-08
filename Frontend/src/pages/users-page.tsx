@@ -3,7 +3,7 @@ import { AlertTriangle, Check, ChevronDown, Edit2, Mail, Search, Trash2, UserPlu
 import { getRoleProfile } from "@/app/access";
 import { useAuth } from "@/app/auth";
 import { fetchUsers, registerUser, updateUser, deleteUser, inviteUser } from "@/lib/local-jwt-auth";
-import { cn } from "@/lib/utils";
+import { cn, onActivateKey } from "@/lib/utils";
 import type { Role } from "@/types/domain";
 
 const ROLES: Role[] = ["owner", "ops", "warehouse", "support", "customer", "shipper", "vendor"];
@@ -189,14 +189,14 @@ export function UsersPage() {
           <h1 className="text-xl font-bold text-[#112b4a]">Usuarios y roles</h1>
         </div>
         <div className="flex gap-2">
-          <button
+          <button type="button"
             onClick={() => { setShowInvite(!showInvite); setShowAdd(false); }}
             className="flex items-center gap-1.5 rounded border border-[#4B98CF] px-3 py-1.5 text-xs font-bold text-[#4B98CF] hover:bg-[#4B98CF]/5"
           >
             <Mail className="h-3.5 w-3.5" />
             Invitar
           </button>
-          <button
+          <button type="button"
             onClick={() => { setShowAdd(!showAdd); setShowInvite(false); }}
             className="flex items-center gap-1.5 rounded bg-[#4B98CF] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#346384]"
           >
@@ -210,18 +210,18 @@ export function UsersPage() {
         <div className="rounded border border-[#DCE0E2] bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Email</label>
-              <input value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="empleado@empresa.com" />
+              <label htmlFor="users-page-f213" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Email</label>
+              <input id="users-page-f213" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="empleado@empresa.com" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Rol</label>
-              <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as Role })} className="h-9 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-sm">
+              <label htmlFor="users-page-f217" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Rol</label>
+              <select id="users-page-f217" value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as Role })} className="h-9 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-sm">
                 {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
               </select>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleInvite} disabled={inviting} className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384] disabled:opacity-50">{inviting ? "Enviando..." : "Enviar invitación"}</button>
-              <button onClick={() => setShowInvite(false)} className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]">Cancelar</button>
+              <button type="button" onClick={handleInvite} disabled={inviting} className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384] disabled:opacity-50">{inviting ? "Enviando..." : "Enviar invitación"}</button>
+              <button type="button" onClick={() => setShowInvite(false)} className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -231,26 +231,26 @@ export function UsersPage() {
         <div className="rounded border border-[#DCE0E2] bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Nombre</label>
-              <input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="Nombre completo" />
+              <label htmlFor="users-page-f234" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Nombre</label>
+              <input id="users-page-f234" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="Nombre completo" />
             </div>
             <div className="flex-1">
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Usuario</label>
-              <input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="usuario" />
+              <label htmlFor="users-page-f238" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Usuario</label>
+              <input id="users-page-f238" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="usuario" />
             </div>
             <div className="flex-1">
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Contraseña</label>
-              <input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="••••••" />
+              <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Contraseña</label>
+              <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="••••••" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Rol</label>
-              <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })} className="h-9 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-sm">
+              <label htmlFor="users-page-f246" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Rol</label>
+              <select id="users-page-f246" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })} className="h-9 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-sm">
                 {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
               </select>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleAddUser} className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384]">Crear</button>
-              <button onClick={() => setShowAdd(false)} className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]">Cancelar</button>
+              <button type="button" onClick={handleAddUser} className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384]">Crear</button>
+              <button type="button" onClick={() => setShowAdd(false)} className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -262,9 +262,9 @@ export function UsersPage() {
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar usuario..." className="h-9 w-full rounded border border-[#DDE0E2] bg-white pl-9 pr-3 text-sm outline-none placeholder:text-[#6B7280]" />
         </div>
         <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-0.5 overflow-x-auto">
-          <button onClick={() => setRoleFilter("all")} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", roleFilter === "all" ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>Todos</button>
+          <button type="button" onClick={() => setRoleFilter("all")} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", roleFilter === "all" ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>Todos</button>
           {ROLES.map((r) => (
-            <button key={r} onClick={() => setRoleFilter(r)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", roleFilter === r ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>{getRoleProfile(r).label}</button>
+            <button type="button" key={r} onClick={() => setRoleFilter(r)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", roleFilter === r ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>{getRoleProfile(r).label}</button>
           ))}
         </div>
       </div>
@@ -312,7 +312,7 @@ export function UsersPage() {
                   <span>Último acceso: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString("es-CL") : "Nunca"}</span>
                 </div>
                 <div className="flex gap-2 mt-2">
-                  <button
+                  <button type="button"
                     onClick={() => setEditingUser(user.id)}
                     className={cn("inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-bold group border border-[#4B98CF] text-[#4B98CF]", editingUser === user.id && "bg-[#4B98CF]/10")}
                   >
@@ -328,7 +328,7 @@ export function UsersPage() {
                     >
                       {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
                     </select>
-                    <button onClick={() => setEditingUser(null)} className="p-1 text-[#6B7280] hover:text-[#112b4a]"><X className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => setEditingUser(null)} className="p-1 text-[#6B7280] hover:text-[#112b4a]"><X className="h-3.5 w-3.5" /></button>
                   </div>
                 )}
               </div>
@@ -366,7 +366,13 @@ export function UsersPage() {
                       />
                     ) : (
                       <>
-                        <p className="font-semibold text-[#112b4a] cursor-pointer hover:text-[#4B98CF]" onClick={() => setEditingUser(user.id)}>{user.name}</p>
+                        <p
+                          role="button"
+                          tabIndex={0}
+                          className="font-semibold text-[#112b4a] cursor-pointer hover:text-[#4B98CF]"
+                          onClick={() => setEditingUser(user.id)}
+                          onKeyDown={onActivateKey(() => setEditingUser(user.id))}
+                        >{user.name}</p>
                         <p className="text-xs text-[#6B7280]">{user.username}</p>
                       </>
                     )}
@@ -381,10 +387,10 @@ export function UsersPage() {
                         >
                           {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
                         </select>
-                        <button onClick={() => setEditingUser(null)} className="p-1 text-[#6B7280] hover:text-[#112b4a]"><X className="h-3.5 w-3.5" /></button>
+                        <button type="button" onClick={() => setEditingUser(null)} className="p-1 text-[#6B7280] hover:text-[#112b4a]"><X className="h-3.5 w-3.5" /></button>
                       </div>
                     ) : (
-                      <button
+                      <button type="button"
                         onClick={() => setEditingUser(user.id)}
                         className={cn("inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold group", roleBadgeColors[user.role])}
                       >
@@ -419,7 +425,7 @@ export function UsersPage() {
       </div>
 
       <div className="rounded border border-[#DCE0E2] bg-white">
-        <button onClick={() => setShowMatrix(!showMatrix)} className="flex w-full items-center justify-between px-4 py-3 text-left">
+        <button type="button" onClick={() => setShowMatrix(!showMatrix)} className="flex w-full items-center justify-between px-4 py-3 text-left">
           <h2 className="text-sm font-bold text-[#112b4a]">Matriz de permisos por rol</h2>
           <ChevronDown className={cn("h-4 w-4 text-[#6B7280] transition-transform", showMatrix && "rotate-180")} />
         </button>

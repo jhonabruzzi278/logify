@@ -7,7 +7,7 @@ import { CUSTOMER_TYPE_BY_MODE, useBusinessMode } from "@/hooks/use-business-mod
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptCustomer } from "@/lib/api-adapters";
-import { cn } from "@/lib/utils";
+import { cn, onActivateKey } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,8 +175,8 @@ export function CustomersPage() {
                   <span className="text-[10px] text-[#6B7280]">(según modo {mode.toUpperCase()} activo)</span>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre *</label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Bar El Rincon" className="h-9 text-sm" />
+                  <label htmlFor="customers-page-f178" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre *</label>
+                  <Input id="customers-page-f178" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Bar El Rincon" className="h-9 text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -190,18 +190,18 @@ export function CustomersPage() {
                     )}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
-                    <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+56912345678" className="h-9 text-sm" />
+                    <label htmlFor="customers-page-f193" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
+                    <Input id="customers-page-f193" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+56912345678" className="h-9 text-sm" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email</label>
-                    <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contacto@email.cl" className="h-9 text-sm" />
+                    <label htmlFor="customers-page-f199" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email</label>
+                    <Input id="customers-page-f199" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contacto@email.cl" className="h-9 text-sm" />
                   </div>
                   <div className="relative space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Dirección</label>
-                    <Input
+                    <label htmlFor="customers-page-f203" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Dirección</label>
+                    <Input id="customers-page-f203"
                       value={form.address}
                       onChange={(e) => setForm({ ...form, address: e.target.value })}
                       onFocus={() => setAddressFocused(true)}
@@ -232,12 +232,12 @@ export function CustomersPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Provincia / Región</label>
-                    <Input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Región Metropolitana" className="h-9 text-sm" />
+                    <label htmlFor="customers-page-f235" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Provincia / Región</label>
+                    <Input id="customers-page-f235" value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Región Metropolitana" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Límite de crédito (fiado)</label>
-                    <Input type="number" min="0" value={form.creditLimit} onChange={(e) => setForm({ ...form, creditLimit: e.target.value })} placeholder="Sin límite" className="h-9 text-sm" />
+                    <label htmlFor="customers-page-f239" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Límite de crédito (fiado)</label>
+                    <Input id="customers-page-f239" type="number" min="0" value={form.creditLimit} onChange={(e) => setForm({ ...form, creditLimit: e.target.value })} placeholder="Sin límite" className="h-9 text-sm" />
                   </div>
                 </div>
                 {formError && <p className="text-xs text-red-500">{formError}</p>}
@@ -276,7 +276,14 @@ export function CustomersPage() {
 
       <div className="space-y-2">
         {filtered.map((customer) => (
-          <div key={customer.id} className="rounded border border-[#DCE0E2] bg-white p-4 hover:border-[#4B98CF]/40 transition-colors cursor-pointer" onClick={() => navigate(`/customers/${customer.id}`)}>
+          <div
+            key={customer.id}
+            role="button"
+            tabIndex={0}
+            className="rounded border border-[#DCE0E2] bg-white p-4 hover:border-[#4B98CF]/40 transition-colors cursor-pointer"
+            onClick={() => navigate(`/customers/${customer.id}`)}
+            onKeyDown={onActivateKey(() => navigate(`/customers/${customer.id}`))}
+          >
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4B98CF]/10">
                 <User className="h-5 w-5 text-[#4B98CF]" />
@@ -305,10 +312,10 @@ export function CustomersPage() {
               </div>
               {canManage && (
               <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => openEdit(customer)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-[#4B98CF] hover:bg-[#4B98CF]/5 active:scale-[0.95] transition-colors" title="Editar">
+                <button type="button" onClick={() => openEdit(customer)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-[#4B98CF] hover:bg-[#4B98CF]/5 active:scale-[0.95] transition-colors" title="Editar">
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button onClick={() => handleDelete(customer.id)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-red-400 hover:bg-red-50 hover:text-red-600 active:scale-[0.95] transition-colors" title="Eliminar">
+                <button type="button" onClick={() => handleDelete(customer.id)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-red-400 hover:bg-red-50 hover:text-red-600 active:scale-[0.95] transition-colors" title="Eliminar">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>

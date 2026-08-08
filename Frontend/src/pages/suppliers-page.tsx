@@ -88,26 +88,26 @@ export function SuppliersPage() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre *</label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Distribuidora Andes" className="h-9 text-sm" />
+                  <label htmlFor="suppliers-page-f91" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre *</label>
+                  <Input id="suppliers-page-f91" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Distribuidora Andes" className="h-9 text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT</label>
-                    <Input value={form.rut} onChange={(e) => setForm({ ...form, rut: e.target.value })} placeholder="76.123.456-7" className="h-9 text-sm" />
+                    <label htmlFor="suppliers-page-f96" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT</label>
+                    <Input id="suppliers-page-f96" value={form.rut} onChange={(e) => setForm({ ...form, rut: e.target.value })} placeholder="76.123.456-7" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
-                    <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+56912345678" className="h-9 text-sm" />
+                    <label htmlFor="suppliers-page-f100" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
+                    <Input id="suppliers-page-f100" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+56912345678" className="h-9 text-sm" />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email</label>
-                  <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ventas@proveedor.cl" className="h-9 text-sm" />
+                  <label htmlFor="suppliers-page-f105" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email</label>
+                  <Input id="suppliers-page-f105" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ventas@proveedor.cl" className="h-9 text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Dirección</label>
-                  <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Ruta 5 Km 10" className="h-9 text-sm" />
+                  <label htmlFor="suppliers-page-f109" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Dirección</label>
+                  <Input id="suppliers-page-f109" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Ruta 5 Km 10" className="h-9 text-sm" />
                 </div>
                 {formError && <p className="text-xs text-red-500">{formError}</p>}
                 <div className="flex justify-end gap-2 pt-1">
@@ -148,10 +148,10 @@ export function SuppliersPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => openEdit(supplier)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-[#4B98CF] hover:bg-[#4B98CF]/5 active:scale-[0.95] transition-colors" title="Editar">
+                <button type="button" onClick={() => openEdit(supplier)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-[#4B98CF] hover:bg-[#4B98CF]/5 active:scale-[0.95] transition-colors" title="Editar">
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button onClick={() => handleDelete(supplier.id)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-red-400 hover:bg-red-50 hover:text-red-600 active:scale-[0.95] transition-colors" title="Eliminar">
+                <button type="button" onClick={() => handleDelete(supplier.id)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-red-400 hover:bg-red-50 hover:text-red-600 active:scale-[0.95] transition-colors" title="Eliminar">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>

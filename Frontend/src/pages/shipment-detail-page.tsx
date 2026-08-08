@@ -179,7 +179,7 @@ export function ShipmentDetailPage() {
             <Cloud className="h-4 w-4 text-[#4B98CF]" />
             <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Condiciones de entrega</p>
           </div>
-          <button
+          <button type="button"
             onClick={handleCheckConditions}
             disabled={conditionsLoading}
             className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10 disabled:opacity-50"
@@ -241,7 +241,7 @@ export function ShipmentDetailPage() {
           <p className="text-xs text-[#6B7280] mb-3">Entrega este código al cliente para que pueda rastrear su pedido en <span className="font-mono text-[#4B98CF]">/tracking</span></p>
           <div className="flex items-center justify-between rounded-lg bg-white border border-[#4B98CF]/30 px-4 py-3">
             <span className="text-2xl font-bold font-mono tracking-widest text-[#112b4a]">{orderClientCode}</span>
-            <button
+            <button type="button"
               onClick={() => navigator.clipboard.writeText(orderClientCode)}
               className="text-xs font-semibold text-[#4B98CF] hover:text-[#346384] border border-[#4B98CF]/30 rounded px-3 py-1.5 hover:bg-[#4B98CF]/5 transition-colors"
             >

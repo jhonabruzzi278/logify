@@ -151,7 +151,7 @@ export function ProfilePage() {
               {pushStatus === "unsubscribed" && "Activa para recibir alertas de stock y clima."}
             </p>
             {pushStatus !== "unsupported" && pushStatus !== "checking" && (
-              <button
+              <button type="button"
                 onClick={handleTogglePush}
                 disabled={pushBusy}
                 className={cn(

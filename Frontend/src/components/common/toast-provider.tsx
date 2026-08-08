@@ -74,7 +74,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
                   {toast.action.label}
                 </a>
               )}
-              <button onClick={() => removeToast(toast.id)} className="shrink-0 text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={() => removeToast(toast.id)} className="shrink-0 text-muted-foreground hover:text-foreground">
                 <X className="h-3 w-3" />
               </button>
             </div>

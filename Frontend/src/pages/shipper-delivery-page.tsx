@@ -8,7 +8,7 @@ import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
-import { cn } from "@/lib/utils";
+import { cn, onEscapeKey } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { ApiOrder, ApiShipment } from "@/types/api";
 import type { Order, Shipment } from "@/types/domain";
@@ -195,7 +195,7 @@ export function ShipperDeliveryPage() {
         <div className="flex items-center gap-2 rounded-lg bg-[#4B98CF] text-white px-4 py-3 text-sm animate-pulse">
           <Truck className="h-4 w-4" />
           <span className="flex-1 font-medium">{toastMessage}</span>
-          <button onClick={() => setToastMessage(null)} className="text-white/70 hover:text-white">
+          <button type="button" onClick={() => setToastMessage(null)} className="text-white/70 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -209,7 +209,7 @@ export function ShipperDeliveryPage() {
         {!isShipper && (
           <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-0.5">
             {(["all", "pending", "delivered"] as const).map((f) => (
-              <button key={f} onClick={() => setFilter(f)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", filter === f ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>
+              <button type="button" key={f} onClick={() => setFilter(f)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", filter === f ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>
                 {f === "all" ? "Todos" : f === "pending" ? "Pendientes" : "Entregados"}
               </button>
             ))}
@@ -264,14 +264,14 @@ export function ShipperDeliveryPage() {
                     <div className="flex items-center gap-1">
                       {shipment.stage === "en_preparacion" && (
                         <>
-                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleQrScan(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/5 flex items-center gap-1">
+                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleQrScan(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/5 flex items-center gap-1">
                             <QrCode className="h-3 w-3" /> QR
                           </button>
-                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePickup(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#E3AA75] hover:bg-amber-50/5">Retirar</button>
+                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePickup(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#E3AA75] hover:bg-amber-50/5">Retirar</button>
                         </>
                       )}
                       {shipment.stage === "en_reparto" && (
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelivery(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#4EB4A5] hover:bg-[#4EB4A5]/5">Entregar</button>
+                        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelivery(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#4EB4A5] hover:bg-[#4EB4A5]/5">Entregar</button>
                       )}
                     </div>
                   )}
@@ -303,11 +303,18 @@ export function ShipperDeliveryPage() {
       </div>
 
       {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowQrModal(null)}>
+        <div
+          role="button"
+          tabIndex={-1}
+          aria-label="Cerrar"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowQrModal(null)}
+          onKeyDown={onEscapeKey(() => setShowQrModal(null))}
+        >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-sm text-[#112b4a]">QR de retiro</h3>
-              <button onClick={() => setShowQrModal(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setShowQrModal(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
             </div>
             <div className="bg-white border-2 border-dashed border-[#4B98CF] rounded-xl p-4 mx-auto w-fit">
               <div className="w-40 h-40 bg-[#F8FBFD] flex items-center justify-center">
@@ -336,7 +343,7 @@ export function ShipperDeliveryPage() {
           <div className="w-full max-w-sm rounded-t-2xl bg-white p-5 sm:rounded-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-[#112b4a]">Confirmar retiro</h2>
-              <button onClick={() => { setStageShipment(null); setStageAction(null); }} className="rounded p-1 hover:bg-muted">
+              <button type="button" onClick={() => { setStageShipment(null); setStageAction(null); }} className="rounded p-1 hover:bg-muted">
                 <X className="h-4 w-4 text-[#6B7280]" />
               </button>
             </div>
@@ -365,7 +372,7 @@ export function ShipperDeliveryPage() {
           <div className="w-full max-w-sm rounded-t-2xl bg-white p-5 sm:rounded-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-[#112b4a]">Confirmar entrega</h2>
-              <button onClick={() => { setStageShipment(null); setStageAction(null); }} className="rounded p-1 hover:bg-muted">
+              <button type="button" onClick={() => { setStageShipment(null); setStageAction(null); }} className="rounded p-1 hover:bg-muted">
                 <X className="h-4 w-4 text-[#6B7280]" />
               </button>
             </div>
@@ -377,8 +384,8 @@ export function ShipperDeliveryPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Código del cliente</label>
-                <input
+                <label htmlFor="shipper-delivery-page-f380" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Código del cliente</label>
+                <input id="shipper-delivery-page-f380"
                   value={customerCode}
                   onChange={(e) => setCustomerCode(e.target.value)}
                   placeholder="Ingresa el código proporcionado por el cliente"
@@ -387,8 +394,8 @@ export function ShipperDeliveryPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">RUT de quien recibe</label>
-                <input
+                <label htmlFor="shipper-delivery-page-f390" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">RUT de quien recibe</label>
+                <input id="shipper-delivery-page-f390"
                   value={recipientRut}
                   onChange={(e) => setRecipientRut(formatRut(e.target.value))}
                   placeholder="12.345.678-9"
@@ -398,7 +405,7 @@ export function ShipperDeliveryPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Foto de entrega</label>
+                <label htmlFor="shipper-delivery-proof-photo" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Foto de entrega</label>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -409,6 +416,7 @@ export function ShipperDeliveryPage() {
                     {proofImage ? "Cambiar foto" : "Tomar / Subir foto"}
                   </button>
                   <input
+                    id="shipper-delivery-proof-photo"
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
@@ -420,7 +428,7 @@ export function ShipperDeliveryPage() {
                 {proofImage && (
                   <div className="mt-2 relative">
                     <img src={proofImage} alt="Preview" className="w-full h-32 object-cover rounded border border-border" />
-                    <button onClick={() => setProofImage(null)} className="absolute top-1 right-1 rounded-full bg-black/50 p-1">
+                    <button type="button" onClick={() => setProofImage(null)} className="absolute top-1 right-1 rounded-full bg-black/50 p-1">
                       <X className="h-3 w-3 text-white" />
                     </button>
                   </div>
@@ -433,7 +441,7 @@ export function ShipperDeliveryPage() {
                 </div>
               )}
 
-              <button
+              <button type="button"
                 onClick={confirmDelivery}
                 disabled={submitting}
                 className="w-full h-10 rounded bg-[#4B98CF] text-white text-sm font-bold hover:bg-[#3d85be] disabled:opacity-50"

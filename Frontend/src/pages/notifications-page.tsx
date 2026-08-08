@@ -236,14 +236,14 @@ export function NotificationsPage() {
         <div className="flex flex-wrap items-center gap-2">
           {canViewAlerts && (
             <>
-              <button
+              <button type="button"
                 onClick={checkWeatherAlert}
                 disabled={weatherLoading}
                 className="rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10 flex items-center gap-1 disabled:opacity-50"
               >
                 <Cloud className="h-3 w-3" /> {weatherLoading ? "Consultando..." : "Verificar clima"}
               </button>
-              <button
+              <button type="button"
                 onClick={handleDownloadPdf}
                 disabled={pdfLoading}
                 className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] flex items-center gap-1 disabled:opacity-50"
@@ -252,7 +252,7 @@ export function NotificationsPage() {
               </button>
               <Dialog open={qrDialogOpen} onOpenChange={(open) => { setQrDialogOpen(open); if (!open) { setQrText(""); setQrGenerated(null); } }}>
                 <DialogTrigger render={
-                  <button className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] flex items-center gap-1">
+                  <button type="button" className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] flex items-center gap-1">
                     <QrCode className="h-3 w-3" /> Generar QR
                   </button>
                 } />
@@ -262,8 +262,8 @@ export function NotificationsPage() {
                   </DialogHeader>
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Texto a codificar</label>
-                      <Input value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="LOGIFY-TRACK123" className="h-9 text-sm" />
+                      <label htmlFor="notifications-page-f265" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Texto a codificar</label>
+                      <Input id="notifications-page-f265" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="LOGIFY-TRACK123" className="h-9 text-sm" />
                     </div>
                     {qrGenerated && (
                       <div className="flex flex-col items-center gap-2 py-2">
@@ -282,20 +282,20 @@ export function NotificationsPage() {
             </>
           )}
           {canManageNotifications && (
-          <button
+          <button type="button"
             onClick={clearDatabase}
             className="rounded border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 flex items-center gap-1"
           >
             <Trash2 className="h-3 w-3" /> Vaciar BD
           </button>
           )}
-          <button
+          <button type="button"
             onClick={markAllRead}
             className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#F5F7F9]"
           >
             Marcar todas leídas
           </button>
-          <button
+          <button type="button"
             onClick={clearAll}
             className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50"
           >
@@ -321,7 +321,7 @@ export function NotificationsPage() {
               {weatherAlert.weather.temperature}°C · viento {weatherAlert.weather.windSpeed} km/h · precipitación {weatherAlert.weather.precipitation} mm
             </p>
           </div>
-          <button onClick={() => setWeatherAlert(null)} className="shrink-0 rounded p-1 text-[#6B7280] hover:bg-black/5">
+          <button type="button" onClick={() => setWeatherAlert(null)} className="shrink-0 rounded p-1 text-[#6B7280] hover:bg-black/5">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -332,7 +332,7 @@ export function NotificationsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-0.5 overflow-x-auto scroll-x">
             {typeFilters.map((f) => (
-              <button
+              <button type="button"
                 key={f.value}
                 onClick={() => setFilter(f.value)}
                 className={cn(
@@ -347,7 +347,7 @@ export function NotificationsPage() {
             ))}
           </div>
 
-          <button
+          <button type="button"
             onClick={() => setCriticalOnly(!criticalOnly)}
             className={cn(
               "rounded border px-3 py-1.5 text-xs font-semibold transition-colors",
@@ -398,7 +398,7 @@ export function NotificationsPage() {
                 <p className="mt-0.5 text-xs text-[#6B7280]">{n.detail}</p>
               </div>
 
-              <button
+              <button type="button"
                 onClick={(e) => { e.preventDefault(); clearOne(n.id); }}
                 className="shrink-0 self-center rounded p-1 text-[#6B7280] hover:bg-[#ECEEF0] hover:text-red-500"
               >

@@ -63,7 +63,7 @@ export function CloseRegisterModal({ onClose, onClosed }: Readonly<CloseRegister
       <div className="w-full max-w-sm rounded-lg bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">Cierre de caja</h3>
-          <button onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -122,8 +122,8 @@ export function CloseRegisterModal({ onClose, onClosed }: Readonly<CloseRegister
               <span className="font-semibold text-foreground">{formatCurrency(activeSession.openingAmount)}</span>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground">Monto contado en caja</label>
-              <Input type="number" min="0" value={countedAmount} onChange={(e) => setCountedAmount(e.target.value)} placeholder="0" className="h-9 text-sm" />
+              <label htmlFor="close-register-modal-f125" className="text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground">Monto contado en caja</label>
+              <Input id="close-register-modal-f125" type="number" min="0" value={countedAmount} onChange={(e) => setCountedAmount(e.target.value)} placeholder="0" className="h-9 text-sm" />
             </div>
             {closeError && <p className="text-xs text-red-500">{closeError}</p>}
             <Button type="submit" size="sm" className="w-full bg-amber-500 hover:bg-amber-600 text-white" disabled={closing}>

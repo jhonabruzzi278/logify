@@ -11,7 +11,7 @@ import { downloadFile } from "@/lib/api-blob";
 import { buildOrderTimeline } from "@/lib/operational-insights";
 import { getOrderHistory } from "@/lib/order-history";
 import { useCustomerScope } from "@/hooks/use-customer-scope";
-import { cn } from "@/lib/utils";
+import { cn, onEscapeKey } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { ApiNotificationRecord, ApiOrder, ApiShipment } from "@/types/api";
 import type { Order, Shipment } from "@/types/domain";
@@ -137,7 +137,7 @@ export function OrderDetailPage() {
           <span className={cn("rounded-full px-3 py-1 text-xs font-bold", badgeClass())}>
             {badgeLabel()}
           </span>
-          <button
+          <button type="button"
             onClick={handleDownloadPdf}
             disabled={pdfLoading}
             title="Descargar comprobante PDF"
@@ -146,7 +146,7 @@ export function OrderDetailPage() {
             <Download className="h-3.5 w-3.5" /> {pdfLoading ? "Generando..." : "Comprobante"}
           </button>
           {isCancelled && canDelete && (
-            <button
+            <button type="button"
               onClick={() => setShowDeleteModal(true)}
               title="Eliminar pedido"
               className="inline-flex items-center justify-center rounded-lg border border-red-200 min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] text-red-500 hover:bg-red-50 active:scale-[0.95] transition-colors"
@@ -188,14 +188,21 @@ export function OrderDetailPage() {
       )}
 
       {showDeleteModal && order && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowDeleteModal(false)}>
+        <div
+          role="button"
+          tabIndex={-1}
+          aria-label="Cerrar"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowDeleteModal(false)}
+          onKeyDown={onEscapeKey(() => setShowDeleteModal(false))}
+        >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
                 <h3 className="font-bold text-sm text-[#112b4a]">Eliminar pedido #{order.id}</h3>
               </div>
-              <button onClick={() => setShowDeleteModal(false)} className="p-1 rounded hover:bg-gray-100">
+              <button type="button" onClick={() => setShowDeleteModal(false)} className="p-1 rounded hover:bg-gray-100">
                 <X className="h-4 w-4" />
               </button>
             </div>

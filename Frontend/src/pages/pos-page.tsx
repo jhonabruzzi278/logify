@@ -15,7 +15,7 @@ import { CloseRegisterModal } from "@/components/pos/close-register-modal";
 import { ExtrasModal } from "@/components/pos/extras-modal";
 import { OpenRegisterModal } from "@/components/pos/open-register-modal";
 import { PriceCheckModal } from "@/components/pos/price-check-modal";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, onEscapeKey } from "@/lib/utils";
 import type { ApiCashSession, ApiCustomer, ApiInventory } from "@/types/api";
 import type { Customer, PaymentMethod, Product, ProductCategory, Sale } from "@/types/domain";
 
@@ -227,7 +227,7 @@ export function PosPage() {
             </span>
           )}
         </div>
-        <button onClick={clearCart} className="text-xs text-muted-foreground hover:text-red-500">
+        <button type="button" onClick={clearCart} className="text-xs text-muted-foreground hover:text-red-500">
           Vaciar
         </button>
       </div>
@@ -257,14 +257,14 @@ export function PosPage() {
                   <span className="flex h-8 min-w-[32px] items-center justify-center text-sm font-bold text-foreground">{entry.quantity}</span>
                 ) : (
                   <div className="flex items-center gap-1">
-                    <button
+                    <button type="button"
                       onClick={() => updateQuantity(entry.cartId, entry.quantity - 1)}
                       className="flex h-8 w-8 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted active:scale-[0.95]"
                     >
                       {entry.quantity === 1 ? <Trash2 className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
                     </button>
                     <span className="flex h-8 min-w-[32px] items-center justify-center text-sm font-bold text-foreground">{entry.quantity}</span>
-                    <button
+                    <button type="button"
                       onClick={() => {
                         if (entry.quantity < entry.product.stock) {
                           updateQuantity(entry.cartId, entry.quantity + 1);
@@ -285,7 +285,7 @@ export function PosPage() {
                   {formatCurrency(entry.product.price * entry.quantity)}
                 </p>
 
-                <button
+                <button type="button"
                   onClick={() => removeFromCart(entry.cartId)}
                   className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground/40 hover:text-red-500"
                 >
@@ -328,7 +328,7 @@ export function PosPage() {
                 {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((pm) => {
                   const Icon = PAYMENT_ICONS[pm];
                   return (
-                    <button
+                    <button type="button"
                       key={pm}
                       onClick={() => setPaymentMethod(pm)}
                       className={cn(
@@ -389,7 +389,7 @@ export function PosPage() {
               </div>
             )}
 
-            <button
+            <button type="button"
               onClick={handleCheckout}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#4EB4A5] py-3 text-sm font-bold text-white transition-colors hover:bg-[#3d9e91] active:scale-[0.98]"
             >
@@ -421,7 +421,7 @@ export function PosPage() {
             {creditWarning}
           </p>
         )}
-        <button
+        <button type="button"
           onClick={() => { setSuccessSale(null); setCreditWarning(null); }}
           className="btn-touch-primary mt-6"
         >
@@ -443,7 +443,7 @@ export function PosPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <button type="button"
             onClick={() => setScannerOpen(true)}
             className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted"
             title="Escanear código de barras"
@@ -451,7 +451,7 @@ export function PosPage() {
             <Camera className="h-5 w-5" />
           </button>
           {!activeCashSession && (
-            <button
+            <button type="button"
               onClick={() => setOpenRegisterOpen(true)}
               className="flex items-center gap-1.5 rounded-lg border border-[#4EB4A5]/30 bg-[#4EB4A5]/10 px-2.5 py-2 text-sm font-semibold text-[#3a9184] hover:bg-[#4EB4A5]/20 sm:px-3"
               title="Abrir caja"
@@ -460,7 +460,7 @@ export function PosPage() {
               <span className="hidden sm:inline">Abrir caja</span>
             </button>
           )}
-          <button
+          <button type="button"
             onClick={() => setCloseRegisterOpen(true)}
             className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted sm:px-3"
             title="Cierre de caja"
@@ -468,7 +468,7 @@ export function PosPage() {
             <Receipt className="h-4 w-4" />
             <span className="hidden sm:inline">Cierre de caja</span>
           </button>
-          <button
+          <button type="button"
             onClick={() => setCartOpen(true)}
             className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted lg:hidden"
           >
@@ -497,7 +497,7 @@ export function PosPage() {
           {/* Category tabs + Search */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="flex gap-1 overflow-x-auto scroll-x rounded border border-border bg-card p-0.5">
-              <button
+              <button type="button"
                 onClick={() => setCategory("all")}
                 className={cn(
                   "rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors",
@@ -507,7 +507,7 @@ export function PosPage() {
                 Todos
               </button>
               {categories.map((cat) => (
-                <button
+                <button type="button"
                   key={cat}
                   onClick={() => setCategory(cat)}
                   className={cn(
@@ -558,7 +558,7 @@ export function PosPage() {
               const cartQty = inCart ? inCart.quantity : 0;
               const atLimit = cartQty >= product.stock;
               return (
-                <button
+                <button type="button"
                   key={product.sku}
                   onClick={() => handleQuickAdd(product)}
                   disabled={product.stock <= 0 || atLimit}
@@ -609,11 +609,18 @@ export function PosPage() {
       {/* Mobile cart overlay */}
       {cartOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setCartOpen(false)} />
+          <div
+            role="button"
+            tabIndex={-1}
+            aria-label="Cerrar"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setCartOpen(false)}
+            onKeyDown={onEscapeKey(() => setCartOpen(false))}
+          />
           <div className="absolute bottom-0 left-0 right-0 flex max-h-[80vh] flex-col rounded-t-2xl border border-border bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div className="flex items-center gap-2">
-                <button onClick={() => setCartOpen(false)} className="text-sm font-semibold text-[#4B98CF]">
+                <button type="button" onClick={() => setCartOpen(false)} className="text-sm font-semibold text-[#4B98CF]">
                   ← Seguir comprando
                 </button>
                 {itemCount > 0 && (

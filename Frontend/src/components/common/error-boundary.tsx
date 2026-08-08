@@ -50,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </pre>
               </details>
             )}
-            <button
+            <button type="button"
               onClick={() => {
                 this.setState({ hasError: false, error: null });
                 window.location.reload();

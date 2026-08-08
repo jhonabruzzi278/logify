@@ -122,28 +122,28 @@ export function SettingsPage() {
           <form onSubmit={handleSaveBusiness} className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre del negocio *</label>
-                <Input value={businessForm.name} onChange={(e) => setBusinessForm({ ...businessForm, name: e.target.value })} className="h-9 text-sm" />
+                <label htmlFor="settings-page-f125" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre del negocio *</label>
+                <Input id="settings-page-f125" value={businessForm.name} onChange={(e) => setBusinessForm({ ...businessForm, name: e.target.value })} className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email de contacto</label>
-                <Input type="email" value={businessForm.contactEmail} onChange={(e) => setBusinessForm({ ...businessForm, contactEmail: e.target.value })} className="h-9 text-sm" />
+                <label htmlFor="settings-page-f129" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email de contacto</label>
+                <Input id="settings-page-f129" type="email" value={businessForm.contactEmail} onChange={(e) => setBusinessForm({ ...businessForm, contactEmail: e.target.value })} className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT / CUIT</label>
-                <Input value={businessForm.businessRut} onChange={(e) => setBusinessForm({ ...businessForm, businessRut: e.target.value })} placeholder="76.123.456-7" className="h-9 text-sm" />
+                <label htmlFor="settings-page-f133" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT / CUIT</label>
+                <Input id="settings-page-f133" value={businessForm.businessRut} onChange={(e) => setBusinessForm({ ...businessForm, businessRut: e.target.value })} placeholder="76.123.456-7" className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
-                <Input value={businessForm.businessPhone} onChange={(e) => setBusinessForm({ ...businessForm, businessPhone: e.target.value })} placeholder="+56912345678" className="h-9 text-sm" />
+                <label htmlFor="settings-page-f137" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
+                <Input id="settings-page-f137" value={businessForm.businessPhone} onChange={(e) => setBusinessForm({ ...businessForm, businessPhone: e.target.value })} placeholder="+56912345678" className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">País</label>
-                <Input value={businessForm.businessCountry} onChange={(e) => setBusinessForm({ ...businessForm, businessCountry: e.target.value })} placeholder="Chile" className="h-9 text-sm" />
+                <label htmlFor="settings-page-f141" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">País</label>
+                <Input id="settings-page-f141" value={businessForm.businessCountry} onChange={(e) => setBusinessForm({ ...businessForm, businessCountry: e.target.value })} placeholder="Chile" className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Rubro</label>
-                <Input value={businessForm.businessIndustry} onChange={(e) => setBusinessForm({ ...businessForm, businessIndustry: e.target.value })} placeholder="Kiosco, retail, distribución..." className="h-9 text-sm" />
+                <label htmlFor="settings-page-f145" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Rubro</label>
+                <Input id="settings-page-f145" value={businessForm.businessIndustry} onChange={(e) => setBusinessForm({ ...businessForm, businessIndustry: e.target.value })} placeholder="Kiosco, retail, distribución..." className="h-9 text-sm" />
               </div>
             </div>
             {businessError && <p className="text-xs text-red-500">{businessError}</p>}

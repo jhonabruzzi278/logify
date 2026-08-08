@@ -33,7 +33,7 @@ export default function Services1() {
                 <div className="space-y-4">
                     {features.map((f, i) => (
                         <div key={i} className={`border rounded-2xl overflow-hidden transition-all duration-300 ${openIndex === i ? 'border-brand-1 shadow-lg shadow-brand-1/15' : 'border-grey-300 hover:shadow-md'}`}>
-                            <button onClick={() => setOpenIndex(openIndex === i ? null : i)} className="w-full flex items-center gap-4 p-5 sm:p-6 text-left">
+                            <button type="button" onClick={() => setOpenIndex(openIndex === i ? null : i)} className="w-full flex items-center gap-4 p-5 sm:p-6 text-left">
                                 <span className="text-4xl shrink-0">{f.icon}</span>
                                 <div className="flex-1 min-w-0">
                                     <h5 className="text-brand-2 font-bold text-lg mb-1">{f.title}</h5>
