@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Truck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { adaptShipment } from "@/lib/api-adapters";
+import { getMonthlyShipments, getMonthlyShipmentStats, groupShipmentsByDay } from "@/lib/calendar-shipments";
 import { cn } from "@/lib/utils";
 import type { ApiShipment } from "@/types/api";
 import type { Shipment } from "@/types/domain";
@@ -32,39 +33,10 @@ export function CalendarPage() {
     return result;
   }, [startPad, daysInMonth]);
 
-  const shipmentsByDay = useMemo(() => {
-    const map = new Map<number, Shipment[]>();
-    (shipments ?? []).forEach((s) => {
-      const d = new Date(s.createdAt ?? s.shippedAt ?? "");
-      if (d.getFullYear() === year && d.getMonth() === month) {
-        const day = d.getDate();
-        if (!map.has(day)) map.set(day, []);
-        map.get(day)!.push(s);
-      }
-    });
-
-    // Add some scheduled for future days
-    for (let d = new Date().getDate() + 2; d <= Math.min(daysInMonth, new Date().getDate() + 5); d++) {
-      if (!map.has(d)) map.set(d, []);
-      const s = map.get(d)!;
-      if (s.length < 2) {
-        s.push({
-          id: `sched-${d}`,
-          orderId: `${100 + d}`,
-          customerId: "cliente-001",
-          sku: "100001",
-          quantity: 2,
-          carrier: "Transportista asignado",
-          tracking: `SLX-${year}${month + 1}${d.toString().padStart(2, "0")}`,
-          stage: "en_preparacion",
-          eta: null,
-          createdAt: new Date(year, month, d).toISOString(),
-          shippedAt: null,
-        } as Shipment);
-      }
-    }
-    return map;
-  }, [shipments, year, month, daysInMonth]);
+  const shipmentsByDay = useMemo(
+    () => groupShipmentsByDay(shipments ?? [], year, month),
+    [shipments, year, month],
+  );
 
   const today = new Date();
   const isToday = (d: number) => today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
@@ -72,18 +44,18 @@ export function CalendarPage() {
   function prevMonth() { setCurrentDate(new Date(year, month - 1, 1)); }
   function nextMonth() { setCurrentDate(new Date(year, month + 1, 1)); }
 
-  const stats = useMemo(() => ({
-    total: shipments?.length ?? 0,
-    active: shipments?.filter((s) => s.stage !== "entregado").length ?? 0,
-    scheduled: 3,
-  }), [shipments]);
+  const monthlyShipments = useMemo(
+    () => getMonthlyShipments(shipments ?? [], year, month),
+    [shipments, year, month],
+  );
+  const stats = useMemo(() => getMonthlyShipmentStats(monthlyShipments), [monthlyShipments]);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Calendario</p>
-          <h1 className="text-xl font-bold text-[#112b4a]">Despachos programados</h1>
+          <h1 className="text-xl font-bold text-[#112b4a]">Actividad de envíos</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -102,7 +74,7 @@ export function CalendarPage() {
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded border border-[#DCE0E2] bg-white p-3 text-center">
-          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Totales</p>
+          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Este mes</p>
           <p className="mt-1 text-xl font-bold text-[#112b4a]">{stats.total}</p>
         </div>
         <div className="rounded border border-[#DCE0E2] bg-white p-3 text-center">
@@ -110,8 +82,8 @@ export function CalendarPage() {
           <p className="mt-1 text-xl font-bold text-[#4EB4A5]">{stats.active}</p>
         </div>
         <div className="rounded border border-[#DCE0E2] bg-white p-3 text-center">
-          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Programados</p>
-          <p className="mt-1 text-xl font-bold text-[#4B98CF]">{stats.scheduled}</p>
+          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Entregados</p>
+          <p className="mt-1 text-xl font-bold text-[#4B98CF]">{stats.delivered}</p>
         </div>
       </div>
 
@@ -160,7 +132,6 @@ export function CalendarPage() {
                               s.stage === "en_reparto" && "bg-[#4B98CF]/10 text-[#4B98CF]",
                               s.stage === "en_preparacion" && "bg-[#E3AA75]/10 text-[#E3AA75]",
                               s.stage === "cancelado" && "bg-red-50 text-red-500",
-                              s.id.startsWith("sched-") && "bg-purple-50 text-purple-600",
                             )}
                           >
                             <Truck className="h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0" />
@@ -183,7 +154,7 @@ export function CalendarPage() {
       {/* Daily detail */}
       <div className="rounded border border-[#DCE0E2] bg-white">
         <div className="border-b border-[#ECEEF0] px-4 py-3">
-          <h2 className="text-sm font-bold text-[#112b4a]">Envíos de hoy ({today.toLocaleDateString("es-CL")})</h2>
+          <h2 className="text-sm font-bold text-[#112b4a]">Envíos registrados hoy ({today.toLocaleDateString("es-CL")})</h2>
         </div>
         <div className="p-3">
           {shipments?.filter((s) => {
