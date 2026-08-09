@@ -94,7 +94,7 @@ export async function inviteUser(
 export async function acceptInvite(
   token: string,
   data: { username: string; password: string; name: string }
-): Promise<{ id: number; username: string; name: string; role: string }> {
+): Promise<{ id: number; username: string; name: string; role: string; tenantSlug: string }> {
   const response = await fetch(apiUrl(`/api/auth/invite/${token}/accept`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -106,7 +106,7 @@ export async function acceptInvite(
     throw new Error(body.error || "Error al aceptar la invitacion");
   }
 
-  return response.json() as Promise<{ id: number; username: string; name: string; role: string }>;
+  return response.json() as Promise<{ id: number; username: string; name: string; role: string; tenantSlug: string }>;
 }
 
 export async function fetchUsers(token: string): Promise<Array<{ id: number; username: string; name: string; role: string; created_at: string; updated_at: string; last_login_at: string | null }>> {

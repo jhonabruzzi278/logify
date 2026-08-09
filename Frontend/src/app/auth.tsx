@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
 import { getDefaultPathForRole, isPathAllowedForRole } from "@/app/access";
 import { setApiAuthErrorListener, setApiAuthRefreshHandler, updateApiToken } from "@/lib/api-client";
 import { loginWithBackend, type Session } from "@/lib/auth-service";
@@ -113,6 +114,10 @@ export function useAuth() {
 export function RequireAuth() {
   const { session } = useAuth();
   const location = useLocation();
+
+  if (typeof window !== "undefined" && isPlatformPortalHostname(window.location.hostname)) {
+    return <Navigate to="/login" replace />;
+  }
 
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;

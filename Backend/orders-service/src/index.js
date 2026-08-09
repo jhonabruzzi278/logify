@@ -1072,7 +1072,9 @@ app.post('/api/auth/invite/:token/accept', async (req, res) => {
       return res.status(400).json({ error: 'username, password y name son requeridos' });
     }
     const invitation = (await pool.query(
-      `SELECT * FROM user_invitations WHERE token=$1 AND status='pending' AND expires_at > NOW()`,
+      `SELECT i.*, t.slug AS tenant_slug FROM user_invitations i
+       JOIN tenants t ON t.id=i.tenant_id
+       WHERE i.token=$1 AND i.status='pending' AND i.expires_at > NOW()`,
       [req.params.token])).rows[0];
     if (!invitation) return res.status(404).json({ error: 'Invitación inválida o expirada' });
 
@@ -1087,7 +1089,7 @@ app.post('/api/auth/invite/:token/accept', async (req, res) => {
       [username.trim().toLowerCase(), hash, name.trim(), invitation.role, invitation.email, invitation.tenant_id])).rows[0];
 
     await pool.query(`UPDATE user_invitations SET status='accepted' WHERE id=$1`, [invitation.id]);
-    res.status(201).json(user);
+    res.status(201).json({ ...user, tenantSlug: invitation.tenant_slug });
   } catch (err) { sendError(res, 500, 'Failed to accept invitation', err); }
 });
 

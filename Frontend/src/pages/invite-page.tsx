@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, KeyRound, Lock, User } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { acceptInvite } from "@/lib/local-jwt-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
+import { buildTenantUrl } from "@/lib/tenant-navigation";
 
 export function InvitePage() {
   useDocumentMeta({ title: "Aceptar invitación" });
@@ -18,6 +19,7 @@ export function InvitePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const tenantSlugRef = useRef("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,7 +36,8 @@ export function InvitePage() {
 
     setBusy(true);
     try {
-      await acceptInvite(token, { username: username.trim(), password, name: name.trim() });
+      const result = await acceptInvite(token, { username: username.trim(), password, name: name.trim() });
+      tenantSlugRef.current = result.tenantSlug;
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo aceptar la invitación.");
@@ -63,7 +66,7 @@ export function InvitePage() {
               </p>
               <Button
                 type="button"
-                onClick={() => navigate("/login", { replace: true })}
+                onClick={() => tenantSlugRef.current ? window.location.assign(buildTenantUrl(tenantSlugRef.current)) : navigate("/login", { replace: true })}
                 className="mt-5 h-11 w-full bg-[#4B98CF] font-bold hover:bg-[#346384]"
               >
                 <KeyRound className="mr-2 h-4 w-4" />

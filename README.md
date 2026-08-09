@@ -6,7 +6,7 @@ inventario, envíos y notificaciones, más un punto de venta B2C completo
 un solo sistema, con control de acceso por rol.
 
 **Repositorio:** https://github.com/jhonabruzzi278/logify
-**En producción:** [logify.cl](https://logify.cl) (landing) · [app.logify.cl](https://app.logify.cl) (dashboard) · [api.logify.cl](https://api.logify.cl) (backend) · [status.logify.cl](https://status.logify.cl) (monitoreo)
+**En producción:** [logify.cl](https://logify.cl) (landing) · [app.logify.cl](https://app.logify.cl) (portal central de acceso) · `<empresa>.logify.cl` (dashboard del tenant) · [api.logify.cl](https://api.logify.cl) (backend) · [status.logify.cl](https://status.logify.cl) (monitoreo)
 
 ---
 

@@ -5,6 +5,8 @@ import { getSecretQuestion, resetPasswordWithToken, verifySecretAnswer } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
+import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
+import { WorkspacePortalPage } from "@/pages/workspace-portal-page";
 
 type Step = "username" | "question" | "reset" | "done";
 
@@ -28,6 +30,10 @@ export function ForgotPasswordPage() {
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  if (typeof window !== "undefined" && isPlatformPortalHostname(window.location.hostname)) {
+    return <WorkspacePortalPage destination="/forgot-password" />;
+  }
 
   async function handleUsernameSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
