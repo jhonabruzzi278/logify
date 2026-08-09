@@ -39,13 +39,16 @@ jobs:
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
           SMTP_REPLY_TO: ${{ secrets.SMTP_REPLY_TO }}
           SUPPORT_WHATSAPP_URL: ${{ secrets.SUPPORT_WHATSAPP_URL }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         with:
           host: ${{ secrets.VPS_HOST }}
           port: ${{ secrets.VPS_PORT }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 15m
-          envs: SYNC_ENV_FROM_CI,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASS,SMTP_FROM,SMTP_REPLY_TO,SUPPORT_WHATSAPP_URL
+          envs: SYNC_ENV_FROM_CI,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASS,SMTP_FROM,SMTP_REPLY_TO,SUPPORT_WHATSAPP_URL,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY,VAPID_SUBJECT
           script: |
             cd ~/logify
             bash Backend/scripts/02-vps-deploy.sh

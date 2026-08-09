@@ -26,7 +26,7 @@
 #
 # Sincronizacion de credenciales (SYNC_ENV_FROM_CI=1): cuando el workflow
 # "Deploy VPS" invoca este script via SSH, exporta esa variable junto con
-# SMTP_HOST/PORT/USER/PASS/FROM/REPLY_TO y SUPPORT_WHATSAPP_URL (leidas de
+# SMTP_HOST/PORT/USER/PASS/FROM/REPLY_TO, SUPPORT_WHATSAPP_URL y VAPID (leidas de
 # GitHub Secrets/Variables) -- este script las escribe en el .env local del
 # VPS antes de levantar los contenedores, para que el .env del VPS nunca
 # quede desincronizado de lo configurado en GitHub. Si se corre a mano por
@@ -62,6 +62,9 @@ sync_env_from_ci() {
   sync_env_var SMTP_FROM "${SMTP_FROM:-}"
   sync_env_var SMTP_REPLY_TO "${SMTP_REPLY_TO:-}"
   sync_env_var SUPPORT_WHATSAPP_URL "${SUPPORT_WHATSAPP_URL:-}"
+  sync_env_var VAPID_PUBLIC_KEY "${VAPID_PUBLIC_KEY:-}"
+  sync_env_var VAPID_PRIVATE_KEY "${VAPID_PRIVATE_KEY:-}"
+  sync_env_var VAPID_SUBJECT "${VAPID_SUBJECT:-}"
   if [ "$before" != "$(sha256sum .env 2>/dev/null || true)" ]; then
     echo "==> .env cambio -- se forzara redeploy aunque el commit no haya cambiado."
     ENV_CHANGED=1
