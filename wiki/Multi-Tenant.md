@@ -12,6 +12,19 @@ en `api.logify.cl` (VPS detrás de Caddy). El frontend deriva el tenant de
 `window.location.hostname` y lo manda como header `X-Tenant-Slug` en cada
 request. Esto mantiene una API central y evita problemas de CORS.
 
+### Portal central de acceso
+
+`app.logify.cl` es un host reservado y neutral: no resuelve al tenant por
+defecto ni permite iniciar sesión directamente. Solicita el slug de la empresa
+y redirige el login o la recuperación a `<empresa>.logify.cl`. Las invitaciones
+sí comienzan en `app.logify.cl`, porque su token aleatorio identifica la
+invitación; al aceptarla, el backend devuelve el `tenantSlug` y el frontend
+continúa en el subdominio correcto.
+
+No se ofrece una búsqueda pública de empresas por correo o username para
+evitar enumeración de tenants y usuarios. El soporte puede recuperar el slug
+desde el correo de bienvenida o mediante el canal de soporte.
+
 **Regla de seguridad dura:** el header `X-Tenant-Slug` nunca se usa para
 filtrar SQL directamente — solo `req.user.tenant_id`, ya verificado desde el
 JWT, se usa para scoping de datos. El header solo sirve para (a) resolver el

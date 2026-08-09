@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { useStaggerReveal } from "@/hooks/use-stagger-reveal";
+import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
+import { WorkspacePortalPage } from "@/pages/workspace-portal-page";
 
 const FEATURES = [
   { icon: Truck, text: "Seguimiento de despachos en tiempo real, desde bodega hasta la entrega." },
@@ -30,6 +32,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const routeSvgRef = useRef<SVGSVGElement>(null);
   const featuresRef = useStaggerReveal<HTMLUListElement>(true);
+  const isPlatformPortal = typeof window !== "undefined" && isPlatformPortalHostname(window.location.hostname);
 
   useEffect(() => {
     if (!routeSvgRef.current) return;
@@ -53,6 +56,8 @@ export function LoginPage() {
 
   const from = (location.state as { from?: string; deniedFrom?: string } | null)?.from;
   const deniedFrom = (location.state as { from?: string; deniedFrom?: string } | null)?.deniedFrom;
+
+  if (isPlatformPortal) return <WorkspacePortalPage />;
 
   if (session) {
     return <Navigate to={getDefaultPathForRole(session.role)} replace />;

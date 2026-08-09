@@ -797,7 +797,7 @@ describe('orders-service', () => {
   describe('POST /api/auth/invite/:token/accept', () => {
     it('acepta invitación válida → 201 con el usuario creado', async () => {
       mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 1, tenant_id: 1, email: 'nuevo@empresa.com', role: 'ops', status: 'pending', expires_at: new Date(Date.now() + 86400000).toISOString() }]
+        rows: [{ id: 1, tenant_id: 1, tenant_slug: 'lapercha', email: 'nuevo@empresa.com', role: 'ops', status: 'pending', expires_at: new Date(Date.now() + 86400000).toISOString() }]
       });
       mockQuery.mockResolvedValueOnce({ rows: [] }); // username disponible
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevo.usuario', name: 'Nuevo Usuario', role: 'ops' }] });
@@ -807,6 +807,7 @@ describe('orders-service', () => {
       expect(res.status).toBe(201);
       expect(res.body.username).toBe('nuevo.usuario');
       expect(res.body.role).toBe('ops');
+      expect(res.body.tenantSlug).toBe('lapercha');
     });
 
     it('retorna 404 si el token no existe o ya expiró', async () => {
