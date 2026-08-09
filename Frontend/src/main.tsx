@@ -19,7 +19,26 @@ if (isLocalEnvironment && "caches" in window) {
   });
 }
 
-registerSW({ immediate: true });
+let isReloadingForUpdate = false;
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (isReloadingForUpdate) return;
+    isReloadingForUpdate = true;
+    window.location.reload();
+  });
+}
+
+let updateServiceWorker: (reloadPage?: boolean) => Promise<void> = async () => undefined;
+updateServiceWorker = registerSW({
+  immediate: true,
+  onNeedRefresh: () => {
+    void updateServiceWorker(true);
+  },
+  onRegisteredSW: (_serviceWorkerUrl, registration) => {
+    void registration?.update();
+  },
+});
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
