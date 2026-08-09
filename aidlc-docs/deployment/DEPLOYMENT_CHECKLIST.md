@@ -59,6 +59,7 @@ inalcanzable, resuelto — ver post-mortem).
 | Backups Postgres | ✅ | Cron diario 3AM, retención 14 días (`Backend/postgres/backup.sh` + `01-vps-post-clone-setup.sh`) — **recomendado copiar periódicamente a storage externo**, hoy vive solo en el mismo disco |
 | Monitoreo | ✅ | Uptime Kuma self-hosted en `status.logify.cl`, contenedores con `healthcheck` |
 | Web Push | ✅ | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` almacenados en GitHub Secrets y sincronizados al `.env` del VPS durante el despliegue |
+| Actualización PWA | ✅ | `sw.js` no se almacena en caché intermedia y el cliente recarga automáticamente cuando un nuevo service worker toma control |
 | `render.yaml` / infra Render | ❌ (retirado) | Backend migrado de Render a VPS propio |
 
 ## Gaps reales vigentes (2026-08-08)
