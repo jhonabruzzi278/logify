@@ -151,10 +151,10 @@ curl https://api.logify.cl/api/admin/coupons -H "X-Admin-Key: $PLATFORM_ADMIN_KE
 
 ```bash
 # npm test ya incluye cobertura (jest --coverage)
-cd Backend/orders-service && npm test        # 60 pruebas
-cd Backend/inventory-service && npm test     # 45 pruebas
-cd Backend/shipping-service && npm test      # 28 pruebas
-cd Backend/notification-service && npm test  # 26 pruebas
+cd Backend/orders-service && npm test        # 187 pruebas
+cd Backend/inventory-service && npm test     # 122 pruebas
+cd Backend/shipping-service && npm test      # 59 pruebas
+cd Backend/notification-service && npm test  # 67 pruebas
 ```
 
 Reportes generados en `coverage/index.html` de cada servicio. Detalle y cobertura actual en [wiki/Pruebas.md](../wiki/Pruebas.md).

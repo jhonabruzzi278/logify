@@ -30,7 +30,7 @@ Inferidos de la arquitectura y flujo de negocio implementado (no hay un document
 ### Technical
 Extraído directamente del stack detectado (ver `design-artifacts/LOGICAL_DESIGN.md` para el detalle completo):
 - Arquitectura de microservicios (4 servicios Node.js/Express) + base de datos por servicio (PostgreSQL, sin ORM, SQL parametrizado + stored procedures).
-- Sin broker de mensajería (no Kafka/RabbitMQ/Redis pub-sub) — la comunicación entre servicios es HTTP síncrono, lo que implica que el sistema asume baja latencia entre servicios y no tolera bien fallos parciales de red (mitigado parcialmente por captura de errores en `warnings` sin rollback automático en el Saga).
+- Sin broker de mensajería (no Kafka/RabbitMQ/Redis pub-sub) — la comunicación entre servicios es HTTP síncrono, lo que implica que el sistema asume baja latencia entre servicios. El Saga compensa automáticamente el stock si shipping falla; una caída durante la compensación todavía requiere revisión manual.
 - Autenticación JWT propia (no proveedor externo) — decisión post-migración fuera de AWS Cognito (ver `code-generation/GENERATED_CODE_LOG.md` para el historial de este cambio).
 - Frontend PWA instalable (React + Vite + vite-plugin-pwa) — implica soporte offline parcial y necesidad de gestionar Service Worker/caché.
 - Infraestructura actual: backend y PostgreSQL en VPS propio mediante Docker Compose; Frontend/Landing en Vercel. La decisión histórica de Render/Neon quedó reemplazada el 2026-08-06.

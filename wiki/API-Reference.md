@@ -1,6 +1,9 @@
 # API Reference
 
-Todos los endpoints expuestos por el API Gateway en `http://localhost:8080`.
+Todos los endpoints expuestos por el API Gateway en `http://localhost:8080`
+(desarrollo) y `https://api.logify.cl` (producción). En el flujo multi-tenant,
+el frontend envía `X-Tenant-Slug: <empresa>`; las rutas protegidas derivan el
+tenant efectivo del JWT y rechazan inconsistencias entre token y subdominio.
 
 ---
 
@@ -22,6 +25,7 @@ Sistema de autenticación JWT propio (sin proveedores externos). Manejado por `o
 ```
 POST /api/auth/login
 Content-Type: application/json
+X-Tenant-Slug: <empresa>
 
 { "username": "admin", "password": "..." }
 ```
@@ -57,6 +61,63 @@ DELETE /api/auth/users/:id
 ```
 
 Requiere rol `owner`/`admin`.
+
+---
+
+### Invitaciones
+
+```http
+POST /api/auth/invite
+Authorization: Bearer <jwt-owner>
+X-Tenant-Slug: <empresa>
+Content-Type: application/json
+
+{ "email": "persona@empresa.cl", "role": "ops" }
+```
+
+Genera una invitación válida por 7 días. La aceptación es pública porque el
+token identifica el tenant:
+
+```http
+POST /api/auth/invite/:token/accept
+Content-Type: application/json
+
+{ "username": "persona", "password": "...", "name": "Persona" }
+```
+
+La respuesta incluye `tenantSlug` para continuar en
+`https://<empresa>.logify.cl`.
+
+---
+
+## Signup multi-tenant
+
+```http
+GET  /api/signup/check-slug?slug=<empresa>
+POST /api/signup
+```
+
+`POST /api/signup` crea en una transacción el tenant y su primer usuario
+`owner`, con trial de 30 días y cupón opcional. Está protegido por un rate
+limit específico (5 intentos por IP cada 15 minutos por defecto).
+
+Campos obligatorios: `companyName`, `slug`, `contactEmail`, `ownerName`,
+`ownerUsername` y `ownerPassword`. La respuesta `201` incluye `tenantSlug`,
+`appUrl`, `trialEndsAt` y `ownerUsername`.
+
+---
+
+## Recuperación de contraseña
+
+```http
+GET  /api/security/forgot-password/question?username=<usuario>
+POST /api/security/forgot-password/verify
+POST /api/security/forgot-password/reset
+```
+
+El inicio de recuperación debe incluir `X-Tenant-Slug`; `app.logify.cl`
+primero redirige al subdominio de la empresa para evitar búsquedas globales y
+enumeración de usuarios entre tenants.
 
 ---
 

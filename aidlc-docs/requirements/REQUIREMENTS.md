@@ -45,12 +45,14 @@ Extraído del código, README y wiki existentes — el proyecto no tiene un docu
 ### Multi-Tenancy
 - FR-27: El sistema debe aislar datos por tenant (`tenant_id`) en las 4 bases de datos, derivado exclusivamente del JWT verificado (nunca de un header no autenticado). *(Implementado — Fase 4C, ver `wiki/Multi-Tenant.md`)*
 - FR-28: El sistema debe rechazar tokens JWT cuyo tenant no coincida con el subdominio/tenant resuelto de la request (previene reuso cross-tenant de tokens). *(Implementado y verificado con tenant de prueba `acme`)*
-- FR-29 (pendiente): Aprovisionamiento self-service de nuevos tenants y panel de super-admin. *(No implementado — Fase 4E del roadmap)*
-- FR-30 (pendiente): Dominio wildcard `*.logify.cl` con SSL para subdominios por tenant. *(No implementado — Fase 4D del roadmap)*
+- FR-29: El sistema debe aprovisionar tenants y su usuario owner mediante signup self-service, con prueba gratuita y cupones administrables por API. *(Implementado — Fase 4E; el panel visual de super-admin sigue pendiente)*
+- FR-30: El sistema debe servir cada tenant mediante `*.logify.cl` con TLS y reservar `app.logify.cl` como portal central neutral. *(Implementado — Fase 4D + portal central)*
 
 ### Frontend / PWA
 - FR-31: La aplicación debe ser instalable como PWA con soporte de notificaciones push en background. *(Implementado — `vite-plugin-pwa`, `src/sw.ts`)*
 - FR-32: La navegación debe restringirse por rol (redirect automático a la ruta por defecto del rol si se intenta acceder a una ruta no permitida). *(Implementado — `app/auth.tsx`, `usePermissions()`)*
+- FR-33: El cliente PWA debe detectar una nueva versión del service worker y recargar una sola vez al tomar control, evitando ejecutar bundles obsoletos. *(Implementado — `Frontend/src/main.tsx`)*
+- FR-34: El calendario debe mostrar únicamente envíos obtenidos desde la API, sin generar registros sintéticos en el cliente. *(Implementado — `calendar-page.tsx`, `calendar-shipments.ts`)*
 
 ## Non-Functional Requirements
 
@@ -58,13 +60,13 @@ Extraído del código, README y wiki existentes — el proyecto no tiene un docu
 |---|---|---|
 | Seguridad | Rate limiting (200 req/min por defecto), Helmet, CORS explícito por allowlist | Implementado (`shared/security.js`) |
 | Seguridad | Contraseñas hasheadas con bcrypt, nunca en texto plano en BD | Implementado |
-| Seguridad | JWT compartido entre microservicios vía `JWT_SECRET` env var | Implementado — ⚠️ riesgo: mismo secreto en todos los servicios, sin rotación documentada |
-| Disponibilidad | Health checks (`/health`, `/healthz`) en cada servicio + gateway | Implementado, usado por Docker `HEALTHCHECK` y `render.yaml` |
+| Seguridad | JWT compartido entre microservicios vía `JWT_SECRET` env var | Implementado — rotación coordinada documentada en `wiki/Rotacion-JWT.md` |
+| Disponibilidad | Health checks (`/health`, `/healthz`) en cada servicio + gateway | Implementado, usado por Docker `HEALTHCHECK`, CI/CD y Uptime Kuma |
 | Resiliencia | Apagado ordenado (graceful shutdown) ante SIGTERM/SIGINT | Implementado (`shared/shutdown.js`) |
-| Resiliencia | Manejo de fallas parciales en el Saga de confirmación de orden | Parcial — errores se registran en `warnings` pero **no hay rollback automático** (compensación manual) |
+| Resiliencia | Manejo de fallas parciales en el Saga de confirmación de orden | Parcial — existe compensación automática de stock si falla shipping; si la compensación falla se requiere revisión manual |
 | Performance | Cobertura de tests backend | En progreso — ver discrepancia de números en `testing/TEST_COVERAGE_REPORT.md`, meta interna declarada de 60% |
-| Observabilidad | Logging estructurado, métricas, APM | ⚠️ **No implementado** — `shared/logger.js` es un wrapper simple de `console.*` sin niveles estructurados ni correlación de requests |
+| Observabilidad | Logging estructurado, métricas, APM | Parcial — logs JSON y `X-Request-ID` implementados; faltan métricas, APM y agregación centralizada |
 | Portabilidad | Contenerización completa (Docker) de todos los servicios | Implementado |
-| Costo | Despliegue de costo $0/mes en infraestructura free-tier | Implementado como objetivo explícito, con trade-offs de cold-start documentados |
+| Costo | Infraestructura de costo controlado | Implementado con VPS de costo fijo bajo y Vercel para Frontend/Landing |
 
-⚠️ **Pendiente validación humana:** requisitos de compliance/protección de datos (RUT y datos personales de clientes almacenados sin política de retención/anonimización documentada), requisitos de SLA de negocio, requisitos de escalabilidad más allá del free tier.
+⚠️ **Pendiente validación humana:** requisitos regulatorios/compliance para RUT y datos personales, SLA de negocio y requisitos de escalabilidad más allá de la capacidad medida del VPS actual. La política técnica de retención está documentada en `wiki/Politica-Retencion-Datos.md`, pero requiere validación legal y operativa.

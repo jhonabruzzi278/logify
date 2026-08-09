@@ -37,6 +37,8 @@
 </head>
 <body>
 
+<div style="padding:12px 14px;margin-bottom:18px;border:1px solid #4da6ff;background:#eef7ff;border-radius:6px;font-size:12px;line-height:1.5;"><strong>Estado vigente (2026-08-09):</strong> producción usa Frontend wildcard en Vercel, portal neutral <code>app.logify.cl</code>, API en el VPS y aislamiento multi-tenant por JWT. Este diagrama conserva el detalle visual original; la fuente de verdad actual es <code>aidlc-docs/design-artifacts/ARCHITECTURE.md</code>.</div>
+
 <h1>Logify — Arquitectura de Microservicios</h1>
 <p class="subtitle">Documentación técnica &nbsp;|&nbsp; Plataforma logística distribuida</p>
 
@@ -66,7 +68,7 @@
   <text x="271" y="80" text-anchor="middle" fill="white" font-size="12" font-weight="700">FRONTEND</text>
   <text x="271" y="96" text-anchor="middle" fill="#a0c4ff" font-size="10">React 18 + TypeScript</text>
   <text x="271" y="110" text-anchor="middle" fill="#a0c4ff" font-size="10">Vite + Tailwind + shadcn</text>
-  <text x="271" y="126" text-anchor="middle" fill="#4da6ff" font-size="10">PWA + RBAC (5 roles)</text>
+  <text x="271" y="126" text-anchor="middle" fill="#4da6ff" font-size="10">PWA + RBAC (7 roles)</text>
   <text x="271" y="140" text-anchor="middle" fill="#a0c4ff" font-size="10">Vercel Deploy</text>
 
   <!-- Arrow: Frontend → BFF -->
@@ -203,12 +205,12 @@
 <table>
   <thead><tr><th>Componente</th><th>Tecnología</th><th>Puerto</th><th>Responsabilidad</th></tr></thead>
   <tbody>
-    <tr><td><strong>Frontend</strong></td><td><span class="badge badge-react">React 18 + TS + Vite</span></td><td>—</td><td>SPA + PWA con RBAC (5 roles). Consume el BFF vía REST.</td></tr>
+    <tr><td><strong>Frontend</strong></td><td><span class="badge badge-react">React 18 + TS + Vite</span></td><td>—</td><td>SPA + PWA multi-tenant con RBAC (7 roles). Consume el BFF vía REST.</td></tr>
     <tr><td><strong>Nginx BFF</strong></td><td><span class="badge badge-nginx">Nginx Alpine</span></td><td>8080</td><td>API Gateway: enruta por prefijo de path, punto único de entrada.</td></tr>
     <tr><td><strong>orders-service</strong></td><td><span class="badge badge-node">Node.js + Express</span></td><td>8081</td><td>Ciclo de vida de pedidos. Orquesta Saga: descuento de inventario + creación de envío.</td></tr>
     <tr><td><strong>inventory-service</strong></td><td><span class="badge badge-node">Node.js + Express</span></td><td>8082</td><td>Catálogo de productos, control de stock, registro de ventas.</td></tr>
     <tr><td><strong>shipping-service</strong></td><td><span class="badge badge-node">Node.js + Express</span></td><td>8084</td><td>Gestión de envíos, tracking, etapas de despacho. Notifica al notification-service.</td></tr>
-    <tr><td><strong>notification-service</strong></td><td><span class="badge badge-node">Node.js + Express</span></td><td>8085</td><td>Trazabilidad de eventos. Recibe notificaciones con idempotencia (eventId único).</td></tr>
+    <tr><td><strong>notification-service</strong></td><td><span class="badge badge-node">Node.js + Express</span></td><td>8085</td><td>Trazabilidad idempotente y Web Push VAPID segmentado por tenant.</td></tr>
     <tr><td><strong>PostgreSQL</strong></td><td><span class="badge badge-pg">PostgreSQL 15</span></td><td>5432</td><td>1 base de datos por microservicio (Database-per-Service pattern).</td></tr>
   </tbody>
 </table>
@@ -221,7 +223,7 @@
   </div>
   <div class="card">
     <div class="card-title">Saga (Orquestación)</div>
-    <p>Al confirmar un pedido (<code>PUT /api/orders/:id/confirm</code>), orders-service orquesta en secuencia: (1) descuenta inventario, (2) crea envío en shipping-service. Los errores en pasos intermedios se registran como <em>warnings</em> sin revertir los pasos anteriores.</p>
+    <p>Al confirmar un pedido (<code>PUT /api/orders/:id/confirm</code>), orders-service orquesta en secuencia: (1) descuenta inventario, (2) crea envío. Si shipping falla, intenta compensar automáticamente el stock; solo una falla de esa compensación requiere revisión manual.</p>
   </div>
   <div class="card">
     <div class="card-title">Database-per-Service</div>

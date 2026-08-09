@@ -4,8 +4,9 @@
 
 ## Contenido público
 
-- /login: formulario de acceso al panel. No contiene información de negocio ni de clientes.
-- /tracking: página pública de seguimiento de pedidos mediante un código de cliente (formato SL-XXXXXX).
+- app.logify.cl: portal neutral para ingresar el slug de una empresa, aceptar invitaciones y comenzar recuperaciones; no permite acceder a datos privados.
+- /login: formulario de acceso dentro de `<empresa>.logify.cl`. No contiene información de negocio ni de clientes.
+- /tracking: página pública por tenant para seguimiento mediante un código de cliente (formato SL-XXXXXX).
 
 ## Restricciones
 

@@ -1,6 +1,6 @@
 # Pruebas
 
-Logify incluye pruebas unitarias en cada microservicio, en el frontend, pruebas E2E de regresión visual (Playwright) y pruebas de carga (k6). Estado medido el 2026-08-08: **548 pruebas unitarias/integración + 15 E2E**. Las 548 pasan al ejecutar cada suite de forma aislada, igual que en CI.
+Logify incluye pruebas unitarias en cada microservicio, en el frontend, pruebas E2E de regresión visual (Playwright) y pruebas de carga (k6). Estado medido el 2026-08-09: **558 pruebas unitarias/integración + 15 E2E**. Las 558 pasan al ejecutar cada suite de forma aislada, igual que en CI.
 
 ---
 
@@ -97,6 +97,8 @@ npm run test:coverage    # Reporte de cobertura en coverage/index.html
 | Utilidades | cn(), formatDate(), formatCurrency() |
 | RBAC | isPathAllowedForRole, hasPermission, getDefaultPathForRole, filtro por modo B2B/B2C |
 | Componentes POS | close-register-modal, open-register-modal, price-check-modal, extras-modal, add-amount-modal |
+| Portal y tenancy | portal central, navegación por tenant, invitaciones y protección del host `app` |
+| Calendario | agrupación mensual basada exclusivamente en envíos recibidos desde la API |
 
 ---
 
@@ -110,8 +112,8 @@ npm run test:coverage    # Reporte de cobertura en coverage/index.html
 | inventory-service | 122 | 92,84 % |
 | shipping-service | 59 | 93,44 % |
 | notification-service | 67 | 94,11 % |
-| Frontend (Vitest) | 113 | ver reporte generado por CI |
-| **Total unitarias/integración** | **548** | — |
+| Frontend (Vitest) | 123 | ver reporte generado por CI |
+| **Total unitarias/integración** | **558** | — |
 | Frontend E2E (Playwright) | 15 | — (regresión visual + flujos críticos) |
 
 > Meta del equipo: 80% en backend. Alcanzada en los 4 servicios. Lo que queda

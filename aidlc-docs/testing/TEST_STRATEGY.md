@@ -1,7 +1,7 @@
 # Test Strategy
 
-> **Actualización 2026-08-08:** existen 548 pruebas registradas (435 backend
-> y 113 Frontend), además de 15 E2E Playwright. Las secciones con 226 pruebas
+> **Actualización 2026-08-09:** existen 558 pruebas registradas (435 backend
+> y 123 Frontend), además de 15 E2E Playwright. Las secciones con 226 pruebas
 > describen la medición histórica del 2026-07-19. CI ejecuta actualmente las
 > suites, typecheck y builds antes de integrar a `main`.
 
@@ -23,14 +23,16 @@
 
 ## Enfoque de Testing Frontend
 
-- Solo 3 archivos de test encontrados: `use-api-query.test.tsx`, `api-adapters.test.ts`, `api-client.test.ts` — cobertura muy concentrada en la capa de datos (hooks + cliente API), **no hay tests de componentes de página ni de flujos de usuario** (ej. no hay test de "el flujo de login funciona", "la tabla de inventario se renderiza correctamente por rol").
-- MSW (Mock Service Worker) disponible como dependencia — sugiere que la intención de diseño es mockear la API a nivel de red para tests de componentes, pero esto no está siendo aprovechado ampliamente todavía dado el bajo número de archivos de test.
+- Hay 19 archivos de test frontend que cubren cliente/adaptadores API, hooks,
+  RBAC y navegación, componentes POS, administración de usuarios, portal
+  central y calendario. La cobertura de páginas completas sigue siendo menor
+  que la de utilidades y componentes aislados.
 
 ## Gaps Identificados (⚠️ genuinos, no inventados — basados en conteo de archivos)
 
-1. **Sin tests de componentes de UI/páginas en el Frontend** — con 20+ páginas y un sistema RBAC complejo (7 roles, cada uno con vistas distintas), solo 3 archivos de test cubren la capa de datos, no la de presentación ni la de navegación por rol.
+1. **Cobertura parcial de páginas completas en Frontend** — ya existen tests de componentes y páginas críticas, pero no todas las 20+ vistas tienen una prueba de interacción completa por rol.
 2. **Sin tests para integraciones externas añadidas al final del desarrollo** — confirmado explícitamente en `wiki/Pruebas.md`: "la brecha actual se concentra en las integraciones externas agregadas al final (push, indicadores, QR/PDF), que se verificaron end-to-end pero aún no tienen pruebas unitarias dedicadas."
-3. **Sin test automatizado que ejerza el flujo completo de fallo parcial del Saga** (ej. ¿qué pasa realmente si shipping-service no responde durante la confirmación de un pedido? — el comportamiento está documentado como "warnings sin rollback" pero no se confirmó durante esta auditoría que exista un test que lo verifique explícitamente).
+3. **Saga cubierta a nivel HTTP mockeado, no con servicios reales** — existen tests de compensación cuando shipping falla y de fallo de la propia compensación, pero falta una prueba integrada con las bases y servicios reales.
 4. **No hay `coverageThreshold` configurado en Jest** — confirmado explícitamente en `wiki/Pruebas.md`: nada bloquea un commit o build que reduzca la cobertura por debajo de la meta interna de 60%.
 5. ~~**Sin CI que ejecute estos tests automáticamente.**~~ Resuelto: GitHub Actions ejecuta las suites y builds; los seis checks principales son obligatorios para `main`.
 

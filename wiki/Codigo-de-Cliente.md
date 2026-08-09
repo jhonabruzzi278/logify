@@ -77,7 +77,7 @@ Incluso si el frontend fuera modificado, el servidor nunca devolvería el códig
 El cliente accede a `/tracking` (página pública, sin login) e ingresa su código:
 
 ```
-https://logify-five.vercel.app/tracking
+https://<empresa>.logify.cl/tracking
 ```
 
 La página solo acepta códigos que empiecen con `SL-`. Si el código es válido, muestra:

@@ -388,31 +388,31 @@ puede mergear hasta que los 6 checks de CI (`.github/workflows/ci.yml`)
 estén en verde — aplica también a administradores del repo. Detalle
 completo del flujo en [wiki/Flujo-Git.md](wiki/Flujo-Git.md).
 
-## Roadmap: multi-tenant
+## Arquitectura multi-tenant
 
-Hoy el sistema es single-tenant (una sola empresa operadora). El plan de
-evolución a SaaS multi-tenant con subdominio por empresa
-(`<empresa>.logify.cl`) está documentado como diseño de arquitectura y se
-implementa de forma incremental, sin romper el sistema actual en ningún
-paso intermedio.
+El sistema opera como SaaS multi-tenant con una empresa por subdominio
+(`<empresa>.logify.cl`) y aislamiento por `tenant_id` derivado del JWT.
+`app.logify.cl` funciona como portal neutral para encontrar la empresa,
+aceptar invitaciones y comenzar recuperaciones; las sesiones privadas siempre
+continúan en el subdominio del tenant. Ver [wiki/Multi-Tenant.md](wiki/Multi-Tenant.md).
 
 ---
 
 ## Pruebas
 
-**470 pruebas unitarias/integración** (backend 375 con Jest + Supertest, cobertura 83%+ en los 4 servicios; frontend 95 con Vitest + RTL) **+ 15 E2E** con Playwright (regresión visual + flujos críticos) **+ pruebas de carga** con k6. Ver detalle completo en [wiki/Pruebas.md](wiki/Pruebas.md).
+**558 pruebas unitarias/integración** (backend 435 con Jest + Supertest; frontend 123 con Vitest + RTL) **+ 15 E2E** con Playwright (regresión visual + flujos críticos) **+ pruebas de carga** con k6. Ver detalle completo en [wiki/Pruebas.md](wiki/Pruebas.md).
 
 Todas corren automáticamente en CI (`.github/workflows/ci.yml`) en cada PR — `main` tiene branch protection y no acepta merges si el CI falla (ver [wiki/Flujo-Git.md](wiki/Flujo-Git.md)).
 
 ```bash
 # Backend — npm test ya incluye cobertura (jest --coverage)
-cd Backend/orders-service && npm test        # 142 pruebas — 85% cobertura
-cd Backend/inventory-service && npm test     # 117 pruebas — 92.7% cobertura
-cd Backend/shipping-service && npm test      # 54 pruebas — 92.8% cobertura
-cd Backend/notification-service && npm test  # 62 pruebas — 93.4% cobertura
+cd Backend/orders-service && npm test        # 187 pruebas — 82.23% cobertura
+cd Backend/inventory-service && npm test     # 122 pruebas — 92.84% cobertura
+cd Backend/shipping-service && npm test      # 59 pruebas — 93.44% cobertura
+cd Backend/notification-service && npm test  # 67 pruebas — 94.11% cobertura
 
 # Frontend
-cd Frontend && npm test                      # 113 pruebas unitarias (Vitest)
+cd Frontend && npm test                      # 123 pruebas unitarias/integración (Vitest)
 npm run test:coverage                        # Reporte en Frontend/coverage/index.html
 npm run test:e2e                             # 15 pruebas E2E (Playwright) — requiere `npm run dev` corriendo
 
@@ -471,4 +471,4 @@ Documentación completa en [`/aidlc-docs/`](./aidlc-docs/):
 - [Deployment Checklist](./aidlc-docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Operations](./aidlc-docs/operations/) *(producción activa: VPS + Vercel, Uptime Kuma, CI/CD y post-mortems)*
 
-Última auditoría: 2026-08-08 (producción, accesibilidad y hardening DevSecOps: Dependabot, SBOM, CodeQL, Gitleaks, Trivy y auditoría npm).
+Última auditoría: 2026-08-09 (portal central, VAPID en producción, calendario basado solo en API, actualización automática PWA y sincronización documental).

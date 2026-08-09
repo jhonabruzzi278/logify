@@ -4,16 +4,16 @@ La observación histórica de ausencia de revisión quedó superada desde el 202
 
 ## Observaciones — Prioridad Alta
 
-1. **Sin rollback/compensación automática en el Saga de confirmación de pedido** (orders-service `confirm`). Si el descuento de stock tiene éxito pero la creación de envío falla, el pedido avanza igual con un `warnings` en la respuesta. Riesgo: inconsistencia de datos (stock descontado sin envío real) que requiere intervención manual para corregir. Ver `design-artifacts/ADR/ADR-001-...md`.
-2. **`shared/logger.js` no es logging estructurado** — solo `console.*` con timestamp ISO prefijado. Sin niveles configurables por severidad real, sin IDs de correlación de request entre los 4 servicios (crítico para depurar un fallo de Saga que atraviesa 3 servicios). Recomendado antes de operar en producción real.
-3. **Credenciales demo en texto plano en `README.md`** (`admin`/`Admin123!`, etc.) — aceptable para un entorno de desarrollo/demo, pero **debe verificarse que estos usuarios semilla no existan o tengan contraseñas rotadas en cualquier entorno de producción real** antes de considerar el sistema "producción". `RENDER_DEPLOY.md` ya lista esto como parte de su checklist.
+1. ~~**Sin rollback/compensación automática en el Saga**~~ — **resuelto**: si shipping falla después del descuento, orders-service compensa el stock; una falla de la propia compensación queda marcada para revisión manual. Ver `design-artifacts/ADR/ADR-001-...md`.
+2. ~~**Sin logging estructurado ni correlación**~~ — **resuelto**: `shared/logger.js` emite JSON por nivel y `shared/app.js` propaga `X-Request-ID` mediante `AsyncLocalStorage` y `forwardedFetch`. Continúa pendiente agregar agregación centralizada/APM.
+3. **Credenciales demo en texto plano en `README.md`** (`admin`/`Admin123!`, etc.) — aceptable para desarrollo local, pero los usuarios de producción deben usar contraseñas distintas. El control vigente está en `deployment/DEPLOYMENT_CHECKLIST.md`; la referencia histórica a `RENDER_DEPLOY.md` fue retirada con la migración al VPS.
 4. **Aislamiento multi-tenant depende 100% de disciplina de código, no de RLS nativo de Postgres** — cualquier query nueva que un desarrollador olvide filtrar por `tenant_id` es una fuga de datos cross-tenant silenciosa, sin red de seguridad del motor de BD. Ver `design-artifacts/ADR/ADR-002-...md`.
 
 ## Observaciones — Prioridad Media
 
 5. **Sin capa de repositorio/servicio separada** — los 4 microservicios backend mezclan rutas HTTP, validación, SQL y lógica de negocio en un único archivo `src/index.js` por servicio. Funciona a la escala actual, pero dificultará testing unitario granular y onboarding de nuevos desarrolladores a medida que el sistema crezca.
 6. **Sin migraciones de BD versionadas** — el esquema se crea/actualiza con `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ADD COLUMN IF NOT EXISTS` idempotente en el arranque de cada servicio, en vez de un migrator formal (ej. `node-pg-migrate`, Knex migrations). Funciona para evolución aditiva simple, pero no hay forma de hacer rollback de un cambio de esquema ni de ver un historial versionado de cambios de schema.
-7. **`.env.example` del Frontend contiene variables obsoletas** (`VITE_COGNITO_ENDPOINT`, `VITE_COGNITO_CLIENT_ID`) de la época de autenticación con AWS Cognito, ya migrada a JWT local — configuración muerta que puede confundir a un desarrollador nuevo.
+7. **Compatibilidad Cognito residual** — `Frontend/.env.example` y `lib/cognito-auth.ts` conservan variables/código de la autenticación anterior, aunque el flujo activo usa JWT local. Debe decidirse si se elimina definitivamente o se mantiene como fallback documentado.
 8. **Tabla `processed_events` sin uso** en `inventory_db`/`shipping_db` — esquema muerto preparado para una idempotencia de mensajería asíncrona que nunca se completó. Limpiar o completar la implementación.
 9. **`Dockerfile` no usa build multi-stage** (aceptable dado que son servicios JS sin paso de compilación, pero vale confirmar que no hay devDependencies innecesarias empaquetadas — el `Dockerfile` de inventory-service sí usa `npm install --omit=dev`, correcto).
 

@@ -30,8 +30,8 @@ Logify/ (repo raíz)
 │   └── api/                      # Colección Postman con 16 carpetas (CRUD + 5 flujos E2E)
 ├── aidlc-docs/                  # ← Esta carpeta (generada por esta auditoría)
 ├── docker-compose.yml           # Orquestación local completa (6 contenedores)
-├── render.yaml                  # Blueprint de despliegue Render (5 servicios web)
-└── RENDER_DEPLOY.md             # Runbook de despliegue paso a paso (Render+Neon+Vercel)
+├── docker-compose.prod.yml      # Stack backend de producción en VPS
+└── .github/workflows/           # CI, seguridad y despliegue automático al VPS
 ```
 
 ## Diagrama de Componentes
@@ -40,7 +40,7 @@ Logify/ (repo raíz)
 ┌─────────────────────────────────────────────────────┐
 │  Frontend  React 18 + TypeScript + Vite   :3000     │  ← PWA instalable, RBAC client-side
 └──────────────────────┬──────────────────────────────┘
-                        │ /api/*  (proxy Vite en dev / vercel.json en prod)
+                        │ /api/*  (proxy Vite en dev / api.logify.cl en prod)
 ┌───────────────────────▼──────────────────────────────┐
 │  API Gateway / BFF   Nginx Alpine          :8080      │  ← único punto de entrada público
 └──────┬───────────┬──────────────┬────────────────────┘
@@ -71,8 +71,9 @@ Cliente/ops → orders-service PUT /orders/:id/confirm
                 ├─ 2. POST shipping-service /shipments                (crea envío, TRACK-XXXXXXXX)
                 └─ 3. UPDATE orders SET status='EN_PREPARACION'
 
-Fallos parciales → registrados en campo `warnings` de la respuesta,
-                    el pedido avanza igual (sin rollback automático).
+Fallo de inventario → la orden permanece en CREATED.
+Fallo de shipping tras descontar stock → compensación automática de inventario;
+si la compensación también falla → warning explícito para revisión manual.
 ```
 
 ## Flujo de validación de entrega (2 factores)

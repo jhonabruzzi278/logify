@@ -4,21 +4,22 @@
 **Owner:** JONAHBRUZZI (`jon.guerra@duocuc.cl`) — GitHub: [jhonabruzzi278/logify](https://github.com/jhonabruzzi278/logify.git)
 **Analyzed On:** 2026-07-19
 **Current Phase:** **Operations — producción activa y estabilización continua**
-**Last Updated:** 2026-08-08
+**Last Updated:** 2026-08-09
 
 ## Status
 - [x] Inception Phase — complete (retroactively reconstructed from README, wiki/, and code; no formal PRD/backlog tool was used, but intent, roles, and business flow are fully documented in `wiki/`)
-- [x] Construction Phase — complete (4 working microservices, RBAC, Saga order flow, 548 tests + 15 E2E, CI/CD wired via `.github/workflows/ci.yml` with branch protection)
+- [x] Construction Phase — complete (4 working microservices, RBAC, Saga order flow, 558 tests + 15 E2E, CI/CD wired via `.github/workflows/ci.yml` with branch protection)
 - [x] Operations Phase — **activa desde 2026-08-06**: backend en VPS propio, Frontend/Landing en Vercel, dominios públicos con TLS, monitoreo básico vía Uptime Kuma y CI/CD automático con rollback. Los incidentes reales se registran en `operations/POST_MORTEMS/`.
 
-## Estado operativo verificado al 2026-08-08
+## Estado operativo verificado al 2026-08-09
 
 - `main` está protegida: PR obligatorio, seis checks de CI requeridos, rama al día y conversaciones resueltas.
 - `.github/workflows/ci.yml` ejecuta las cuatro suites backend, typecheck/tests/build del Frontend, build de Landing y análisis SonarCloud.
 - `.github/workflows/deploy.yml` despliega el backend al VPS únicamente después de CI verde y usa `Backend/scripts/02-vps-deploy.sh` con health check y rollback.
 - Frontend y Landing se despliegan en Vercel; Uptime Kuma se publica en `status.logify.cl`.
-- El onboarding self-service, la prueba gratuita de 30 días, RBAC estricto y recuperación administrativa de tenants están implementados.
-- Deuda abierta: Quality Gate de SonarCloud por cobertura de código nuevo, E2E periódicos contra producción, SMTP/VAPID según secretos del entorno, observabilidad avanzada y compensación automática de la Saga.
+- El onboarding self-service, portal neutral `app.logify.cl`, prueba gratuita de 30 días, RBAC estricto e invitaciones/recuperación por tenant están implementados.
+- Web Push está activo: VAPID vive en GitHub Secrets y se sincroniza al VPS; el cliente PWA se actualiza automáticamente sin conservar bundles obsoletos.
+- Deuda abierta: Quality Gate de SonarCloud como regla requerida, E2E periódicos contra producción, observabilidad avanzada, backups externos y runbook para fallos de compensación de la Saga.
 
 **Nota:** la sección "Notas del Análisis Automático" de abajo describe el estado histórico auditado el 2026-07-19. No debe usarse como estado actual; se conserva como trazabilidad del análisis original.
 

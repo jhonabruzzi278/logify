@@ -15,8 +15,8 @@ Levantar Logify completo en 3 pasos.
 ## Paso 1 — Clonar el repositorio
 
 ```bash
-git clone https://github.com/jhonabruzzi278/logify-eva.git
-cd logify-eva
+git clone https://github.com/jhonabruzzi278/logify.git
+cd logify
 ```
 
 ---
@@ -117,9 +117,10 @@ docker compose ps
 
 ## Frontend en producción (Vercel)
 
-El frontend está desplegado en: **https://logify-five.vercel.app**
-
-Los rewrites de `vercel.json` redirigen `/api/*` al backend. Asegúrate de tener el backend accesible desde internet o configura `BACKEND_URL` en las variables de entorno de Vercel.
+El acceso central está desplegado en **https://app.logify.cl** y cada empresa
+opera en `https://<empresa>.logify.cl`. El frontend llama directamente a
+`https://api.logify.cl` mediante `VITE_API_BASE_URL`; `vercel.json` se usa para
+el fallback de React Router y los headers de seguridad/caché, no como proxy API.
 
 ---
 

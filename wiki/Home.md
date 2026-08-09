@@ -17,7 +17,7 @@ Plataforma de gestión logística basada en microservicios.
 | [[Seguridad-y-RLS]] | JWT, RLS, validación de entrega |
 | [[Frontend]] | Páginas, hooks, PWA |
 | [[Pruebas]] | Tests unitarios y cobertura |
-| [[Multi-Tenant]] | Roadmap y modelo de datos SaaS multi-tenant |
+| [[Multi-Tenant]] | Arquitectura SaaS, portal central y aislamiento por tenant |
 
 ---
 
@@ -49,4 +49,6 @@ comerciales" del [README](../README.md).
 ### Repositorio
 
 - **GitHub:** https://github.com/jhonabruzzi278/logify
-- **Dominio:** logify.cl (en configuración)
+- **Producción:** `logify.cl` (Landing), `app.logify.cl` (portal central),
+  `<empresa>.logify.cl` (aplicación), `api.logify.cl` (API) y
+  `status.logify.cl` (monitoreo)

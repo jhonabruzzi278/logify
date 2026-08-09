@@ -124,6 +124,10 @@ todavía — podés apuntarlo igual y simplemente no anunciarla).
 `ALLOWED_ORIGINS` debe listar los dominios **reales** desde donde el
 frontend en Vercel va a llamar a la API (CORS los rechaza si no están acá).
 
+Para Web Push también se requieren `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y
+`VAPID_SUBJECT`. En producción se almacenan como GitHub Secrets; no deben
+copiarse al repositorio ni imprimirse en logs.
+
 ---
 
 ## 5. Levantar el stack
@@ -219,17 +223,19 @@ con el CI en verde dispara `.github/workflows/deploy.yml`, que se
 conecta por SSH al VPS y corre `Backend/scripts/02-vps-deploy.sh`. Ese
 script:
 
-1. Hace `git reset --hard origin/main` — **no** `git pull` con merge.
+1. Sincroniza SMTP opcional, soporte y VAPID desde GitHub Secrets al `.env`
+   del VPS sin exponer sus valores.
+2. Hace `git reset --hard origin/main` — **no** `git pull` con merge.
    El VPS deja de tener working tree propio: es un espejo exacto de
    `main`. Cualquier edición manual hecha directo por SSH se pierde en
    el próximo deploy, a propósito — el incidente del 2026-08-06 (ver
    `aidlc-docs/operations/POST_MORTEMS/2026-08-06-signup-404-produccion.md`)
    pasó justamente porque el VPS y `main` habían divergido.
-2. Reconstruye y levanta los contenedores esperando a que los
+3. Reconstruye y levanta los contenedores esperando a que los
    healthchecks pasen (`docker compose up -d --build --wait`).
-3. Reinicia `api-gateway` siempre — `nginx.conf` es un bind mount,
+4. Reinicia `api-gateway` siempre — `nginx.conf` es un bind mount,
    `--build` no lo recarga solo.
-4. Prueba `https://api.logify.cl/healthz` de verdad (con reintentos).
+5. Prueba `https://api.logify.cl/healthz` de verdad (con reintentos).
    Si falla, **revierte solo** al commit anterior y el job de GitHub
    Actions queda en rojo — nunca deja el VPS a medio desplegar sin que
    quede visible.
