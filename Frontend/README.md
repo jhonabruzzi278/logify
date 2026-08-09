@@ -105,7 +105,7 @@ Frontend/
 ├── components.json       # Config shadcn/ui
 ├── tailwind.config.ts
 ├── vite.config.ts        # Vite + PWA (vite-plugin-pwa)
-├── vercel.json           # Rewrites Vercel → backend
+├── vercel.json           # Rewrite SPA, seguridad y caché del service worker
 └── package.json
 ```
 
@@ -113,7 +113,7 @@ Frontend/
 
 ## Decisiones técnicas
 
-- **PWA**: Instalable en dispositivos móviles con soporte offline (Service Worker via vite-plugin-pwa)
+- **PWA**: Instalable con soporte offline; `sw.js` no se cachea y una nueva versión recarga automáticamente la pestaña al tomar control
 - **Bottom nav (mobile)**: 4 secciones principales accesibles desde la barra inferior
 - **Sidebar lateral (desktop)**: Navegación completa con todas las secciones según rol
 - **Sheet drawer (mobile)**: Sidebar desplegable via botón hamburguesa
@@ -122,4 +122,5 @@ Frontend/
 - **useCustomerScope**: Filtra vistas de órdenes/envíos al customer logueado (por email)
 - **shadcn/ui**: Componentes accesibles y personalizables via CSS variables
 - **Proxy Vite → :8080**: En desarrollo el frontend no conoce puertos del backend; todo va a `/api/*`
+- **API en producción**: `VITE_API_BASE_URL=https://api.logify.cl`; Vercel solo resuelve rutas de la SPA, no actúa como proxy del backend
 - **Código del cliente (SL-XXXXXX)**: Nunca renderizado en vistas de shipper (defensa en profundidad; el backend también lo omite en el response)

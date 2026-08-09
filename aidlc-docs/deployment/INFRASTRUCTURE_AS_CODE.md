@@ -1,6 +1,6 @@
 # Infrastructure as Code
 
-**Estado al 2026-08-08: infraestructura reproducible de forma parcial y
+**Estado al 2026-08-09: infraestructura reproducible de forma parcial y
 despliegue automatizado.**
 
 ## Artefactos versionados
@@ -17,12 +17,12 @@ despliegue automatizado.**
 | `Backend/scripts/02-vps-deploy.sh` | Sincronización, despliegue, health check y rollback |
 | `.github/workflows/ci.yml` | Gate de tests, builds y SonarCloud |
 | `.github/workflows/deploy.yml` | CD del backend al VPS después de CI verde |
-| `Frontend/vercel.json` | Rewrite SPA y headers del Frontend |
+| `Frontend/vercel.json` | Rewrite SPA, headers de seguridad y política sin caché para `sw.js` |
 
 ## Gestión de secretos
 
 - Los valores de producción no están versionados.
-- GitHub Secrets entrega credenciales SSH y configuración opcional SMTP al workflow de despliegue.
+- GitHub Secrets entrega credenciales SSH, configuración opcional SMTP y claves VAPID al workflow de despliegue.
 - El VPS conserva las variables obligatorias en `.env`.
 - Vercel administra las variables de Frontend y Landing.
 

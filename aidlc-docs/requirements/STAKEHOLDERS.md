@@ -12,7 +12,7 @@
 
 El diferenciador central del producto no es genérico: Logify resuelve un problema concreto de **última milla** — cómo probar, de forma verificable, que un pedido llegó a la persona correcta — con un mecanismo de doble factor (código único de cliente `SL-XXXXXX` + RUT del receptor) que el propio repartidor no puede ver ni falsificar. Esto es un detalle de diseño de producto, no un checkbox de feature list: fue pensado, implementado, y está cubierto por tests automatizados.
 
-**Etapa actual:** producto técnicamente completo y operando en producción desde el 2026-08-06, con backend en VPS, Frontend/Landing en Vercel, monitoreo Uptime Kuma y **548 tests automatizados** medidos el 2026-08-08. No hay evidencia en el repositorio de clientes pagando ni ingresos; esa validación comercial continúa pendiente.
+**Etapa actual:** producto técnicamente completo y operando en producción desde el 2026-08-06, con backend en VPS, Frontend/Landing en Vercel, monitoreo Uptime Kuma y **558 tests automatizados** medidos el 2026-08-09. No hay evidencia en el repositorio de clientes pagando ni ingresos; esa validación comercial continúa pendiente.
 
 **La tesis para un inversionista o comprador potencial:** el riesgo técnico de "¿se puede construir esto?" ya está resuelto — el producto existe, opera en producción y completó las fases multi-tenant 4A-4E. El riesgo principal restante es comercial: validar clientes, precios y canal de adquisición.
 
@@ -93,7 +93,7 @@ Ninguno de los siguientes es un interesado confirmado hoy — es el **mapa de a 
 | Dimensión | Estado real, verificado | Fuente |
 |---|---|---|
 | Producto funcional | Sí — 4 microservicios + frontend + gateway corriendo vía `docker compose up` | `docker-compose.yml`, `README.md` |
-| Tests automatizados | **548 tests registrados**: 435 backend + 113 Frontend, validados por suite y en CI | `aidlc-docs/testing/TEST_COVERAGE_REPORT.md` |
+| Tests automatizados | **558 tests registrados**: 435 backend + 123 Frontend, validados por suite y en CI | `aidlc-docs/testing/TEST_COVERAGE_REPORT.md` |
 | Cobertura de código | Backend 82,23%-94,11% statements por servicio en ejecución local; SonarCloud mantiene una deuda separada de cobertura sobre código nuevo | ídem |
 | Arquitectura multi-tenant SaaS | Fases 4A-4E implementadas: aislamiento, wildcard y onboarding self-service | `wiki/Multi-Tenant.md` |
 | Costo de infraestructura | ~~Objetivo explícito de US$0/mes (Render + Neon + Vercel, planes free)~~ **actualizado el 2026-08-06**: backend migrado a VPS propio (costo fijo bajo) + Vercel free para Frontend/Landing | `wiki/Despliegue-VPS.md` |
@@ -102,7 +102,7 @@ Ninguno de los siguientes es un interesado confirmado hoy — es el **mapa de a 
 | CI/CD automatizado | ~~No — fue removido deliberadamente~~ **resuelto el 2026-08-06**: `.github/workflows/ci.yml` corre tests de los 4 microservicios + Frontend + Landing, y `main` tiene branch protection exigiendo esos 6 checks antes de mergear | `wiki/Flujo-Git.md`, `aidlc-docs/design-artifacts/ADR/ADR-003-no-cicd-platform-native-autodeploy.md` |
 | Monitoreo/observabilidad en producción | Monitoreo básico con Uptime Kuma y health checks; APM, logs centralizados y `X-Request-ID` siguen pendientes | `wiki/Monitoreo.md` |
 
-**Cómo enmarcar esto en un pitch:** la narrativa honesta y defendible es *"riesgo técnico resuelto, riesgo comercial es exactamente lo que buscamos financiar."* Un producto con 548 tests, CI obligatorio, CD con rollback, monitoreo básico y multi-tenancy self-service es una base fuerte. Lo que sigue faltando son clientes e ingresos verificables; tampoco debe prometerse escala masiva sin métricas de carga y operación sostenida.
+**Cómo enmarcar esto en un pitch:** la narrativa honesta y defendible es *"riesgo técnico resuelto, riesgo comercial es exactamente lo que buscamos financiar."* Un producto con 558 tests, CI obligatorio, CD con rollback, monitoreo básico y multi-tenancy self-service es una base fuerte. Lo que sigue faltando son clientes e ingresos verificables; tampoco debe prometerse escala masiva sin métricas de carga y operación sostenida.
 
 ---
 

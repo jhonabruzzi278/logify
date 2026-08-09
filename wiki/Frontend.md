@@ -174,6 +174,7 @@ La app es instalable en cualquier dispositivo con soporte offline básico y reci
 
 - Configurada con `vite-plugin-pwa` en modo `injectManifest`: el service worker es código propio (`src/sw.ts`)
 - El SW precachea la aplicación (workbox-precaching) y maneja los eventos `push` y `notificationclick`
+- `sw.js` se sirve con `no-cache, no-store, must-revalidate`; al activarse una versión nueva, el cliente toma control y recarga la pestaña una sola vez para evitar bundles obsoletos
 - El manifiesto se genera desde `vite.config.ts` (no hay `manifest.json` en `public/`); iconos SVG en `/public/`
 - La suscripción push se activa desde el perfil del usuario (`push-notifications.ts` + claves VAPID del backend)
 
@@ -193,7 +194,9 @@ server: {
 }
 ```
 
-En producción (Vercel), los rewrites en `vercel.json` cumplen la misma función.
+En producción, `VITE_API_BASE_URL=https://api.logify.cl` hace que el navegador
+llame directamente al gateway del VPS. Los rewrites de `vercel.json` solo
+entregan `index.html` para las rutas de React Router.
 
 ---
 

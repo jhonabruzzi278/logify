@@ -61,13 +61,22 @@ Reconstruidas retroactivamente a partir del flujo de negocio documentado en `wik
 **US-17** — Como cualquier usuario, quiero recuperar mi contraseña respondiendo una pregunta secreta, sin depender de un email de recuperación, para no bloquearme del sistema si pierdo acceso a mi correo.
 *Fuente: `security-module.js`, flujo de pregunta secreta*
 
-## Épica: Multi-tenancy (parcialmente implementada)
+## Épica: Multi-tenancy y acceso central
 
-**US-18** — Como operador de la plataforma (rol de plataforma, no un rol de negocio existente hoy), quiero que los datos de cada empresa cliente estén completamente aislados de las demás, para poder ofrecer Logify como SaaS a múltiples empresas sin riesgo de fuga de datos entre ellas.
-*Fuente: `wiki/Multi-Tenant.md` Fase 4A-4C, implementado y verificado con tenant de prueba `acme`*
+**US-18 (implementada)** — Como operador de la plataforma, quiero que los datos de cada empresa cliente estén completamente aislados de las demás, para poder ofrecer Logify como SaaS a múltiples empresas sin riesgo de fuga de datos entre ellas.
+*Fuente: `wiki/Multi-Tenant.md` Fases 4A-4C, aislamiento por JWT y `tenant_id`*
 
 **US-19 (implementada)** — Como nueva empresa interesada, quiero registrarme mediante onboarding self-service, crear mi tenant y activar una prueba gratuita de 30 días sin intervención manual, para empezar a usar Logify inmediatamente.
-*Fuente: `wiki/Multi-Tenant.md` Fase 4E — ⚠️ no implementado, historia inferida del roadmap, no de código existente*
+*Fuente: `POST /api/signup`, Landing de registro y `wiki/Multi-Tenant.md` Fase 4E*
+
+**US-20 (implementada)** — Como usuario, quiero ingresar mi empresa en `app.logify.cl` y ser redirigido a su subdominio para iniciar sesión o recuperar mi contraseña sin confundir el portal de plataforma con un tenant.
+*Fuente: `workspace-portal-page.tsx`, `tenant-navigation.ts`*
+
+**US-21 (implementada)** — Como usuario de la PWA, quiero recibir automáticamente la versión nueva después de un despliegue para no seguir viendo datos o componentes de un bundle obsoleto.
+*Fuente: `Frontend/src/main.tsx`, `Frontend/vercel.json`, `Frontend/src/sw.ts`*
+
+**US-22 (implementada)** — Como operador, quiero que el calendario muestre únicamente envíos registrados en el backend para no confundir datos ficticios con despachos reales.
+*Fuente: `calendar-page.tsx`, `calendar-shipments.ts`*
 
 ---
 ⚠️ **Nota:** estas historias fueron reconstruidas desde el comportamiento del sistema (ingeniería inversa), no desde un backlog original. No tienen estimaciones (story points), prioridad formal, ni fueron escritas/aprobadas por un Product Owner. Útiles como documentación de comportamiento actual, no como proceso de descubrimiento de producto.

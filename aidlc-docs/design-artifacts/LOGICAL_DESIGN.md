@@ -37,15 +37,15 @@
 | Frontend build | Vite | 6 | `Frontend/package.json` |
 | Frontend lenguaje | TypeScript | 5.7 | `Frontend/package.json` |
 | UI components | shadcn/ui + `@base-ui/react` + Tailwind CSS | — | `Frontend/components.json`, `tailwind.config.ts` |
-| Routing | react-router-dom | 6 | `Frontend/package.json` |
+| Routing | react-router-dom | 7 | `Frontend/package.json` |
 | PWA | vite-plugin-pwa (injectManifest) | — | `Frontend/vite.config.ts`, `Frontend/src/sw.ts` |
 | Test frontend | Vitest 4 + React Testing Library + MSW | — | `Frontend/vite.config.ts` |
 | Landing framework | Next.js (Pages Router) | 16.1.1 | `Landing/package.json` |
 | Landing UI | React 19.2, Tailwind CSS 4, Sass, Swiper | — | `Landing/package.json` |
 | Contenerización | Docker + Docker Compose | — | raíz del repo |
-| Deploy backend | Render (Blueprint, free tier) | — | `render.yaml` |
+| Deploy backend | VPS propio + Docker Compose + Caddy | — | `docker-compose.prod.yml`, `.github/workflows/deploy.yml` |
 | Deploy frontend/landing | Vercel | — | `Frontend/vercel.json`, `Landing/.vercel/` |
-| Deploy BD | Neon (Postgres serverless, free tier) | — | `RENDER_DEPLOY.md` |
+| Deploy BD | PostgreSQL 15 en el VPS, cuatro bases lógicas | — | `docker-compose.prod.yml`, `Backend/postgres/` |
 
 ## Servicios Externos Detectados
 
@@ -57,7 +57,7 @@
 | QR Server (goqr.me) | Generación de códigos QR | Ninguna |
 | mindicador.cl | Indicadores económicos chilenos (UF/USD/UTM), cacheados 1h en memoria | Ninguna |
 | Openverse | Búsqueda de imágenes de producto de licencia abierta | Ninguna |
-| Neon (Postgres) | Base de datos en producción | Connection string (`DB_URL`) |
+| Vercel | Hosting del Frontend wildcard y Landing | Integración GitHub + variables del proyecto |
 | SMTP (proveedor no especificado en código, configurable por env) | Envío de emails transaccionales, con modo demo/log si no hay credenciales | `SMTP_USER`/`SMTP_PASS` vía env |
 
 ⚠️ **Riesgo de diseño no documentado formalmente en el repo:** todas las integraciones externas anteriores son APIs públicas gratuitas sin autenticación ni SLA garantizado (Nominatim, Open-Meteo, OSRM demo instance en particular tienen políticas de uso justo que pueden bloquear tráfico de producción real). No hay circuit breakers ni fallback documentado si estas APIs fallan o dan rate-limit.

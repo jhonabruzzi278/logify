@@ -10,11 +10,11 @@ Criterios de aceptación reconstruidos a partir del comportamiento real implemen
 
 - **Given** un pedido en estado `CREATED` con stock **insuficiente**
   **When** `ops` intenta confirmar el pedido
-  **Then** el sistema debe rechazar o registrar la falla — ⚠️ comportamiento exacto de este caso límite no fue verificado en el código durante esta auditoría; se recomienda revisión explícita (ver `code-generation/CODE_REVIEW_NOTES.md`).
+  **Then** inventory-service rechaza el ajuste y el pedido permanece en `CREATED`, sin intentar crear el envío.
 
 - **Given** que la llamada a shipping-service falla durante la confirmación (después de ya haber descontado stock)
   **When** ocurre el fallo de red/servicio
-  **Then** el error se registra en un campo `warnings` de la respuesta, pero el pedido **avanza igualmente** de estado — no hay rollback automático del stock ya descontado (compensación manual requerida). *(Fuente: `wiki/Arquitectura.md`, "compensación manual si es necesario")* — ⚠️ este es un riesgo de consistencia documentado, no un bug oculto.
+  **Then** orders-service intenta restaurar automáticamente el stock y mantiene el pedido en `CREATED`; si también falla la restauración, agrega una advertencia explícita de revisión manual.
 
 ## US-6: Confirmar entrega con verificación de dos factores
 
@@ -61,6 +61,26 @@ Criterios de aceptación reconstruidos a partir del comportamiento real implemen
 - **Given** un JWT válido emitido para el tenant `acme`
   **When** se usa ese token contra un subdominio/contexto que resuelve a un tenant distinto
   **Then** la request es rechazada con 403 (previene reuso cross-tenant de tokens). Verificado según `wiki/Multi-Tenant.md`.
+
+## US-20: Portal central de empresa
+
+- **Given** una persona abre `app.logify.cl`
+  **When** ingresa un slug válido
+  **Then** el frontend la redirige a `https://<slug>.logify.cl/login` sin intentar autenticarla en el host neutral.
+
+- **Given** una invitación válida aceptada desde `app.logify.cl`
+  **When** el backend crea al usuario
+  **Then** responde con `tenantSlug` y el frontend continúa en el subdominio correcto.
+
+## US-21 / US-22: Actualización PWA y calendario
+
+- **Given** que Vercel publica una versión nueva
+  **When** el service worker nuevo toma control
+  **Then** la pestaña se recarga una sola vez y `sw.js` se revalida sin caché intermedia.
+
+- **Given** una respuesta de `/api/shipments`
+  **When** se renderiza el calendario
+  **Then** solo aparecen los envíos presentes en esa respuesta; el frontend no genera tracking, fechas ni registros sintéticos.
 
 ---
 ⚠️ **Nota general:** estos criterios se derivaron leyendo el código de producción, no de una suite de tests exhaustiva revisada línea por línea durante esta auditoría automática. Varios casos límite están marcados explícitamente como "no verificado" — se recomienda que el equipo los confirme y los convierta en tests automatizados si no existen ya (ver `testing/TEST_STRATEGY.md` para gaps de cobertura conocidos).

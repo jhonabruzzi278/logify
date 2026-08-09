@@ -1,11 +1,12 @@
 # Generated Code Log
 
-## Actualización 2026-08-08
+## Actualización 2026-08-09
 
 El proyecto ya opera en producción y el historial posterior a esta auditoría
 incluye CI/CD al VPS, onboarding self-service, RBAC estricto, recuperación y
-eliminación de tenants, correcciones de incidentes reales y una auditoría de
-accesibilidad SonarCloud. La referencia a `85591f3` más abajo corresponde al
+eliminación de tenants, portal neutral `app.logify.cl`, VAPID sincronizado a
+producción, calendario sin datos sintéticos y actualización automática del
+cliente PWA. La referencia a `85591f3` más abajo corresponde al
 HEAD histórico del 2026-07-19, no al estado actual.
 
 Este proyecto no fue generado mediante flujo AI-DLC formal (Intent → Unit → Bolt) desde su origen — el código ya existía antes de esta auditoría. Este log documenta la evolución real del código según el historial de git (145 commits en `main`), como sustituto retroactivo de un log de generación.
@@ -21,7 +22,10 @@ Este proyecto no fue generado mediante flujo AI-DLC formal (Intent → Unit → 
 | `6018f89` | "eliminar infraestructura AWS/Terraform y CI/CD asociado" — retiro deliberado de CI/CD (ver `design-artifacts/ADR/ADR-003-...md`) |
 | — | Rebrand de "SmartLogix" a "Logify" (nombre de producto cambiado; carpetas/repo mantuvieron el nombre original hasta el 2026-08-05, cuando se renombraron para coincidir) |
 | — | Roadmap multi-tenant, fases 4A → 4C (schema, propagación de tenant, enforcement) — ver `design-artifacts/ADR/ADR-002-...md` |
-| `85591f3` (HEAD) | "fix: soportar subdominios de tenant en CORS + guia completa de deploy" (2026-07-16) |
+| `add4eaa` | Portal neutral `app.logify.cl`, redirección segura al subdominio e invitaciones con `tenantSlug` |
+| `36281e5` | VAPID sincronizado desde GitHub Secrets al VPS y calendario limitado a datos reales de API |
+| `bd51611` | Actualización automática de clientes PWA y política sin caché para `sw.js` |
+| `85591f3` (HEAD histórico de la auditoría inicial) | "fix: soportar subdominios de tenant en CORS + guia completa de deploy" (2026-07-16) |
 
 ⚠️ **Nota sobre el historial de git:** `git log --reverse` devuelve el mismo commit que HEAD como "primero", con 145 commits totales fechados aparentemente todos el mismo día visible desde la herramienta usada en esta auditoría — esto sugiere un posible squash/rebase del historial, o que el desarrollo ocurrió en una ventana de tiempo muy corta y concentrada. No se pudo determinar con certeza la duración real de desarrollo. Si se requiere un log de generación AI-DLC preciso hacia adelante, se recomienda empezar a usar `prompts.md` (ver ese archivo) de forma consistente desde ahora.
 

@@ -7,7 +7,7 @@
 │   Frontend   React 18 + TypeScript + Vite       :3000  │
 └───────────────────────┬────────────────────────────────┘
                         │  /api/*  →  proxy Vite en dev
-                        │  /api/*  →  rewrites Vercel en prod
+                        │  /api/*  →  api.logify.cl en prod
 ┌───────────────────────▼────────────────────────────────┐
 │   API Gateway / BFF   Nginx Alpine              :8080   │
 └──────┬────────────┬──────────────┬─────────────────────┘
@@ -64,6 +64,7 @@ Trazabilidad y auditoría de eventos.
 - Persiste cada cambio de etapa
 - Permite consultar el historial completo de una orden
 - Soporte de audiencias (cliente, operaciones, transportista)
+- Web Push segmentado por tenant mediante VAPID
 
 ### Nginx BFF (`:8080`)
 
@@ -99,7 +100,9 @@ orders-service
   └─[3]─► UPDATE orders SET status='EN_PREPARACION'
 ```
 
-Si algún paso falla, se registra el error en el response (campo `warnings`) pero la orden avanza igualmente — compensación manual si es necesario.
+Si inventario falla, la orden permanece en `CREATED`. Si shipping falla después
+de descontar stock, orders-service intenta compensarlo automáticamente; solo
+si también falla la compensación se devuelve una advertencia de revisión manual.
 
 ### Flujo de entrega validada
 

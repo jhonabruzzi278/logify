@@ -1,9 +1,8 @@
 # Arquitectura Multi-Tenant
 
-Logify está migrando de single-tenant (una sola empresa operadora) a SaaS
-multi-tenant, con una empresa cliente por subdominio (`<empresa>.logify.cl`).
-La migración se hace en fases incrementales; cada una se puede desplegar sin
-romper el sistema actual.
+Logify opera como SaaS multi-tenant, con una empresa cliente por subdominio
+(`<empresa>.logify.cl`). La migración incremental 4A–4E está desplegada; se
+conservan las fases como trazabilidad de la evolución arquitectónica.
 
 ## Topología
 

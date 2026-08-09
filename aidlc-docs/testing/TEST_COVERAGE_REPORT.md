@@ -1,12 +1,12 @@
 # Test Coverage Report
 
-## Actualización 2026-08-08
+## Actualización 2026-08-09
 
-El estado actual contiene **548 pruebas automatizadas registradas**: 435 en
-backend (orders 187, inventory 122, shipping 59, notification 67) y 113 en
-Frontend. El workflow del PR #23 ejecutó cada componente en un runner aislado
-y dejó en verde los seis checks requeridos, además de los builds de Frontend y
-Landing.
+El estado actual contiene **558 pruebas automatizadas registradas**: 435 en
+backend (orders 187, inventory 122, shipping 59, notification 67) y 123 en
+Frontend. La suite frontend del 2026-08-09 pasó 123/123 junto con typecheck y
+build PWA. Incluye regresiones para portal central/tenant, calendario sin datos
+sintéticos y flujos de administración de usuarios.
 
 Una ejecución diagnóstica local de las cuatro suites backend en paralelo
 produjo timeout en una prueba PDF de orders, inventory y notification por

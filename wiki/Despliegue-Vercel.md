@@ -83,8 +83,8 @@ sea `/` da 404).
 Como `main` está protegida (ver [Flujo-Git.md](Flujo-Git.md)), el único
 camino a producción es: PR → CI verde → merge → Vercel autodetecta el
 push a `main` vía el webhook de GitHub y redespliega solo. No hace falta
-tocar nada manual acá — a diferencia del backend en VPS, que sí requiere
-un `docker compose up` manual después del merge.
+tocar nada manual acá. El backend también se despliega automáticamente al VPS
+después de que la CI de `main` termina en verde.
 
 ## Pendiente conocido
 

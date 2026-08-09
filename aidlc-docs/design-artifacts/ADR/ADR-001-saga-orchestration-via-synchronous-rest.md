@@ -16,17 +16,17 @@ Implementar el patrón Saga por **orquestación**: orders-service actúa como or
 **Positivas:**
 - Simplicidad de implementación e infraestructura — no hay broker que operar, monitorear o pagar.
 - Flujo de ejecución fácil de razonar y depurar (llamadas HTTP lineales, trazables con logs simples).
-- Consistente con el tamaño del equipo y el objetivo de costo $0/mes.
+- Consistente con el tamaño del equipo y una infraestructura de costo controlado.
 
 **Negativas:**
-- **Sin rollback automático (compensación)** ante fallo parcial: si el descuento de stock tiene éxito pero la creación del envío falla, el error se registra en un campo `warnings` de la respuesta pero el pedido avanza igual de estado. La compensación es manual (documentado explícitamente en `wiki/Arquitectura.md`).
+- **Compensación limitada:** si el descuento de stock tiene éxito pero la creación del envío falla, orders-service revierte automáticamente el stock. Si esa segunda llamada también falla, responde con una advertencia explícita y requiere revisión manual.
 - **Acoplamiento temporal fuerte:** orders-service depende de que inventory-service y shipping-service estén disponibles y respondan rápido en el momento exacto de la llamada — sin colas de reintento, sin dead-letter queue.
 - **Latencia acumulada:** la confirmación de un pedido es tan lenta como la suma secuencial de las 3 llamadas, sin paralelización.
-- El traslado a un VPS eliminó los cold starts históricos de Render, pero el riesgo de fallo parcial sigue vigente porque la coordinación continúa siendo HTTP síncrona y no existe compensación automática.
+- El traslado a un VPS eliminó los cold starts históricos de Render, pero el riesgo de fallo parcial sigue vigente porque la coordinación continúa siendo HTTP síncrona y no hay reintentos persistentes ni cola de compensación.
 
 ## Alternativas consideradas
 
-⚠️ No hay documentación explícita de que se hayan evaluado alternativas (ej. Saga por coreografía con eventos, transacciones distribuidas con 2PC, un broker ligero como Redis Streams). Se infiere que la decisión priorizó velocidad de desarrollo y costo de infraestructura sobre resiliencia — razonable para la etapa actual del proyecto, pero **debe revisarse antes de operar con tráfico de producción real**, dado que el propio `RENDER_DEPLOY.md` advierte que la configuración actual "no es para tráfico real constante".
+⚠️ No hay documentación explícita de que se hayan evaluado alternativas (ej. Saga por coreografía con eventos, transacciones distribuidas con 2PC, un broker ligero como Redis Streams). La migración de Render al VPS eliminó los cold starts y el flujo actual compensa el stock cuando shipping falla, pero la coordinación continúa siendo HTTP síncrona y una falla de la propia compensación requiere intervención manual.
 
 ## Evidencia de preparación futura
 
