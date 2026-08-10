@@ -28,7 +28,7 @@ export default function Sidebar({ openClass, handleMobileMenuClose }) {
                     <nav className="flex-1 py-6">
                         <ul className="space-y-0">
                             {["Inicio","Características","Cómo Funciona","Planes","Prueba gratis","FAQ"].map((item, i) => {
-                                const hrefs = ["/","#caracteristicas","#como-funciona","#planes","/registro","#faq"]
+                                const hrefs = ["/","/#caracteristicas","/#como-funciona","/#planes","/registro","/#faq"]
                                 return (
                                     <li key={i}>
                                         <Link href={hrefs[i]} onClick={handleMobileMenuClose}

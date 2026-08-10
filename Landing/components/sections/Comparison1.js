@@ -19,7 +19,7 @@ function Cross() {
 
 export default function Comparison1() {
     return (
-        <section className="py-24 sm:py-28 bg-canvas" id="comparar">
+        <section className="py-24 sm:py-28" id="comparar">
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-14">
                     <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.9rem, 3.4vw, 2.75rem)' }}>Logify vs. planillas y cuadernos</h2>

@@ -1,6 +1,6 @@
 export default function Hero1() {
     return (
-        <section className="relative overflow-hidden bg-canvas pt-32 pb-20 lg:pt-44 lg:pb-28">
+        <section className="relative overflow-hidden pt-32 pb-20 lg:pt-44 lg:pb-28">
             <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none" />
             <div className="absolute top-[-220px] right-[-160px] w-[600px] h-[600px] rounded-full bg-brand-1/10 blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-260px] left-[-200px] w-[560px] h-[560px] rounded-full bg-brand-4/10 blur-[120px] pointer-events-none" />
@@ -29,7 +29,7 @@ export default function Hero1() {
                                 Prueba gratis 30 días
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                             </a>
-                            <a href="#planes" className="inline-flex items-center gap-2 text-fg font-semibold px-6 py-4 rounded-xl border border-tint/15 hover:border-tint/30 hover:bg-tint/5 transition-all focus:outline-none focus:ring-2 focus:ring-tint/30" aria-label="Ver precios de Logify">
+                            <a href="/#planes" className="inline-flex items-center gap-2 text-fg font-semibold px-6 py-4 rounded-xl border border-tint/15 hover:border-tint/30 hover:bg-tint/5 transition-all focus:outline-none focus:ring-2 focus:ring-tint/30" aria-label="Ver precios de Logify">
                                 Ver precios
                             </a>
                         </div>

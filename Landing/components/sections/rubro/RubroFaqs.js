@@ -3,7 +3,7 @@ import { useState } from "react"
 export default function RubroFaqs({ rubro }) {
     const [active, setActive] = useState(0)
     return (
-        <section className="py-20 sm:py-24 bg-canvas-2" id="faq">
+        <section className="py-20 sm:py-24" id="faq">
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="mb-12">
                     <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.7rem, 3vw, 2.4rem)' }}>

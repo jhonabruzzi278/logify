@@ -14,7 +14,7 @@ const faqs = [
 export default function Faqs1() {
     const [active, setActive] = useState(0)
     return (
-        <section className="py-24 sm:py-28 bg-canvas-2" id="faq">
+        <section className="py-24 sm:py-28" id="faq">
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-14">
                     <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.9rem, 3.4vw, 2.75rem)' }}>¿Dudas? Las resolvemos.</h2>

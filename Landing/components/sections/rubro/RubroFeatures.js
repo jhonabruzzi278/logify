@@ -1,6 +1,6 @@
 export default function RubroFeatures({ rubro }) {
     return (
-        <section className="py-20 sm:py-24 bg-canvas" id="funciones">
+        <section className="py-20 sm:py-24" id="funciones">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="max-w-2xl mb-4">
                     <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.7rem, 3vw, 2.4rem)' }}>

@@ -17,7 +17,7 @@ export default function Info1() {
     const data = ranges[range]
 
     return (
-        <section className="py-24 sm:py-28 bg-canvas-2">
+        <section className="py-24 sm:py-28">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="max-w-2xl mb-12">
                     <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.9rem, 3.4vw, 2.75rem)' }}>

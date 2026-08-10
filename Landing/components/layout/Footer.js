@@ -35,7 +35,7 @@ export default function Footer() {
                         <h5 className="text-fg font-bold mb-4">Producto</h5>
                         <ul className="space-y-3">
                             {["Características","Cómo Funciona","Planes y Precios","Prueba gratis","Preguntas Frecuentes"].map((item, i) => (
-                                <li key={i}><a href={["#caracteristicas","#como-funciona","#planes","/registro","#faq"][i]} className="text-sm text-fg/50 hover:text-brand-3 transition-colors">{item}</a></li>
+                                <li key={i}><a href={["/#caracteristicas","/#como-funciona","/#planes","/registro","/#faq"][i]} className="text-sm text-fg/50 hover:text-brand-3 transition-colors">{item}</a></li>
                             ))}
                         </ul>
                     </div>

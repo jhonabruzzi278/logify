@@ -15,7 +15,7 @@ export default function Header1({ scroll, handleMobileMenuOpen }) {
                     </Link>
                     <nav className="hidden xl:flex items-center gap-1">
                         {["Inicio","Características","Cómo Funciona","Planes","Prueba gratis","FAQ"].map((item, i) => {
-                            const hrefs = ["/","#caracteristicas","#como-funciona","#planes","/registro","#faq"]
+                            const hrefs = ["/","/#caracteristicas","/#como-funciona","/#planes","/registro","/#faq"]
                             return (
                                 <Link key={i} href={hrefs[i]}
                                     className="text-sm font-semibold text-fg/75 hover:text-fg hover:bg-tint/5 px-3 py-2 rounded-lg transition-colors whitespace-nowrap"

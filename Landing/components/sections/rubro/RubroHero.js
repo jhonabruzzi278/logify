@@ -2,7 +2,7 @@ import Link from "next/link"
 
 export default function RubroHero({ rubro }) {
     return (
-        <section className="relative overflow-hidden bg-canvas pt-10 pb-20 lg:pb-24">
+        <section className="relative overflow-hidden pt-10 pb-20 lg:pb-24">
             <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none" />
             <div className="absolute top-[-180px] right-[-160px] w-[500px] h-[500px] rounded-full bg-brand-1/10 blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-220px] left-[-200px] w-[460px] h-[460px] rounded-full bg-brand-4/10 blur-[120px] pointer-events-none" />

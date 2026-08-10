@@ -32,7 +32,7 @@ export default function Pricing1() {
     const displayPrice = annual ? Math.round(plan.annualTotal / 12) : plan.monthly
 
     return (
-        <section className="py-24 sm:py-28 bg-canvas-2" id="planes">
+        <section className="py-24 sm:py-28" id="planes">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center max-w-2xl mx-auto mb-10">
                     <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.9rem, 3.4vw, 2.75rem)' }}>Elige tu plan.</h2>

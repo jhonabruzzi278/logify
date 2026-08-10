@@ -2,7 +2,7 @@ import Link from "next/link"
 
 export default function RubroCta({ rubro }) {
     return (
-        <section className="py-20 sm:py-24 bg-canvas">
+        <section className="py-20 sm:py-24">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="relative overflow-hidden bg-gradient-to-br from-brand-2 to-brand-5 rounded-3xl px-8 sm:px-14 py-14 shadow-[0_40px_100px_-30px_rgba(3,68,96,0.6)] border border-brand-1/20 text-center">
                     <div className="absolute inset-0 bg-noise opacity-30 pointer-events-none" />

@@ -28,7 +28,7 @@ export function validatePassword(value = "") {
     )
 }
 
-const fieldClass = "w-full px-4 py-3.5 border-2 border-grey-300 rounded-xl text-base bg-grey-100 focus:border-brand-1 focus:bg-white focus:ring-4 focus:ring-brand-1/10 outline-none transition-all"
+const fieldClass = "w-full px-4 py-3.5 border-2 border-grey-300 rounded-xl text-base bg-grey-100 text-brand-2 [color-scheme:light] focus:border-brand-1 focus:bg-white focus:ring-4 focus:ring-brand-1/10 outline-none transition-all"
 
 export function TextField({ type = "text", value, onChange, placeholder, autoFocus }) {
     return (
@@ -50,7 +50,7 @@ export function PhoneField({ countryCode, phoneNumber, onCountryChange, onNumber
             <select
                 value={countryCode}
                 onChange={(e) => onCountryChange(e.target.value)}
-                className="px-3 border-2 border-grey-300 rounded-xl text-base bg-grey-100 focus:border-brand-1 focus:bg-white outline-none transition-all shrink-0"
+                className="px-3 border-2 border-grey-300 rounded-xl text-base bg-grey-100 text-brand-2 [color-scheme:light] focus:border-brand-1 focus:bg-white outline-none transition-all shrink-0"
                 aria-label="Código de país"
             >
                 {COUNTRY_CODES.map((c) => (
