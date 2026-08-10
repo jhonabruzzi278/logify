@@ -1,4 +1,4 @@
-﻿import { useState } from "react"
+import { useState } from "react"
 
 const faqs = [
     { q: "¿Qué necesito para usar Logify?", a: "Solo un navegador web moderno y conexión a internet. Logify funciona 100% en la nube, no necesitas instalar nada." },
@@ -12,23 +12,23 @@ const faqs = [
 ]
 
 export default function Faqs1() {
-    const [active, setActive] = useState(null)
+    const [active, setActive] = useState(0)
     return (
-        <section className="py-24" id="faq">
+        <section className="py-24 sm:py-28 bg-canvas-2" id="faq">
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-14">
-                    <h2 className="text-brand-2 font-extrabold mb-4" style={{fontSize: 'clamp(1.8rem, 3vw, 2.5rem)'}}>Preguntas Frecuentes</h2>
-                    <p className="text-grey-700 text-lg">Todo lo que necesitas saber sobre Logify.</p>
+                    <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.9rem, 3.4vw, 2.75rem)' }}>¿Dudas? Las resolvemos.</h2>
+                    <p className="text-fg/55 text-lg">Todo lo que necesitas saber sobre Logify.</p>
                 </div>
                 <div className="space-y-3">
                     {faqs.map((faq, i) => (
-                        <div key={i} className={`border rounded-xl overflow-hidden transition-all duration-200 ${active === i ? 'border-brand-1 shadow-md' : 'border-grey-300'}`}>
+                        <div key={i} className={`rounded-xl overflow-hidden transition-all duration-200 border ${active === i ? 'border-brand-1/40 bg-canvas-3' : 'border-canvas-border bg-canvas-3/50'}`}>
                             <button type="button" onClick={() => setActive(active === i ? null : i)} className="w-full flex items-center justify-between gap-4 p-5 text-left">
-                                <span className="text-brand-2 font-semibold text-base flex-1">{faq.q}</span>
-                                <svg className={`w-5 h-5 text-grey-500 shrink-0 transition-transform duration-200 ${active === i ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                <span className="text-fg font-semibold text-base flex-1">{faq.q}</span>
+                                <svg className={`w-5 h-5 text-fg/40 shrink-0 transition-transform duration-200 ${active === i ? 'rotate-180 text-brand-3' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                             </button>
                             <div className={`transition-all duration-200 overflow-hidden ${active === i ? 'max-h-96 pb-5 px-5' : 'max-h-0'}`}>
-                                <p className="text-grey-700 text-sm leading-relaxed">{faq.a}</p>
+                                <p className="text-fg/55 text-sm leading-relaxed">{faq.a}</p>
                             </div>
                         </div>
                     ))}

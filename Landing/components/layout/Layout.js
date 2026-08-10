@@ -5,7 +5,7 @@ import Header1 from './Header1'
 import PageHead from './PageHead'
 import Sidebar from './Sidebar'
 
-export default function Layout({ headTitle, children }) {
+export default function Layout({ headTitle, description, path, children }) {
     const [scroll, setScroll] = useState(false)
     const [openClass, setOpenClass] = useState('')
 
@@ -29,7 +29,7 @@ export default function Layout({ headTitle, children }) {
 
     return (
         <>
-            <PageHead headTitle={headTitle} />
+            <PageHead headTitle={headTitle} description={description} path={path} />
             <Header1 scroll={scroll} handleMobileMenuOpen={handleMobileMenuOpen} />
             <Sidebar openClass={openClass} handleMobileMenuClose={handleMobileMenuClose} />
             <main className="min-h-screen">

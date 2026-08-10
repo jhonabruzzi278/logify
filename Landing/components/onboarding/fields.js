@@ -135,7 +135,7 @@ export function MultiChoiceGrid({ options, values, onToggle }) {
                     >
                         <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${checked ? "border-brand-1 bg-brand-1" : "border-grey-300"}`}>
                             {checked && (
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#034460" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-ink)" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                             )}
                         </span>
                         {opt}
