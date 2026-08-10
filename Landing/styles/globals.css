@@ -1,28 +1,55 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-1: #FEC201;
-  --color-brand-2: #034460;
-  --color-brand-3: #16BA8F;
-  --color-brand-4: #28A7E6;
-  --color-brand-5: #1C6180;
+  /* Cold Winter palette: https://colorhunt.co/palette/efece38fabd44a70a9000000
+     + a soft periwinkle purple used sparingly for border/edge accents. */
+  --color-brand-1: #8FABD4;
+  --color-brand-2: #000000;
+  --color-brand-3: #4A70A9;
+  --color-brand-4: #8FABD4;
+  --color-brand-5: #4A70A9;
+  --color-purple: #8B7FD6;
   --color-grey-100: #f8f9fa;
   --color-grey-200: #e9ecef;
   --color-grey-300: #dee2e6;
   --color-grey-500: #6B7280;
   --color-grey-700: #4B5563;
   --color-grey-900: #111827;
-  --color-success: #16BA8F;
+  --color-success: #4A70A9;
   --color-warning: #F69D30;
   --color-danger: #FF3E3E;
+
+  /* ink is a fixed dark tone (not theme-swapped) — used for text/icons that sit on
+     always-bright surfaces (brand-1 buttons, white mockup cards) in both themes. */
+  --color-ink: #000000;
+
+  /* Theme-aware surface system. Defaults below are the dark theme; the light
+     theme overrides live in [data-theme="light"] further down this file.
+     Borders lean cool (blue-tinted) instead of neutral grey, on purpose. */
+  --color-canvas: #000000;
+  --color-canvas-2: #05070a;
+  --color-canvas-3: #0a0f18;
+  --color-canvas-border: #212e45;
+  --color-fg: #EFECE3;
+  --color-tint: #EFECE3;
 
   --animate-float: float 6s ease-in-out infinite;
   --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
   --animate-fade-in: fade-in 0.6s ease-out;
   --animate-fade-in-up: fade-in-up 0.6s ease-out;
   --animate-slide-left: slide-left 0.5s ease-out;
+  --animate-marquee: marquee 28s linear infinite;
 
   --font-sans: Inter, system-ui, -apple-system, sans-serif;
+}
+
+:root[data-theme="light"] {
+  --color-canvas: #FAFAF8;
+  --color-canvas-2: #F2F3F6;
+  --color-canvas-3: #FFFFFF;
+  --color-canvas-border: #dbe1ee;
+  --color-fg: #000000;
+  --color-tint: #000000;
 }
 
 @keyframes float {
@@ -50,6 +77,30 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+html {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
 body {
   font-family: var(--font-sans);
+  background-color: var(--color-canvas);
+  background-image:
+    radial-gradient(1200px 600px at 85% -10%, color-mix(in oklab, var(--color-brand-1) 10%, transparent), transparent),
+    radial-gradient(900px 500px at -10% 15%, color-mix(in oklab, var(--color-purple) 8%, transparent), transparent);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.bg-noise {
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--color-tint) 8%, transparent) 1px, transparent 0);
+  background-size: 22px 22px;
 }

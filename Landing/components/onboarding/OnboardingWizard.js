@@ -154,7 +154,7 @@ export default function OnboardingWizard() {
         return (
             <div className="w-full max-w-lg mx-auto text-center animate-fade-in-up">
                 <div className="w-20 h-20 rounded-full bg-brand-3/10 flex items-center justify-center mx-auto mb-5">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#16BA8F" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-3)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
                 <h2 className="text-white font-extrabold text-2xl mb-3">Tu cuenta está lista</h2>
                 <p className="text-white/80 mb-4">
@@ -169,7 +169,7 @@ export default function OnboardingWizard() {
                     </p>
                 </div>
                 <a href={`${success.appUrl}/login`}
-                    className="inline-flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-3.5 px-8 rounded-xl hover:bg-yellow-400 hover:-translate-y-0.5 transition-all shadow-lg shadow-brand-1/30"
+                    className="inline-flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-3.5 px-8 rounded-xl hover:brightness-90 hover:-translate-y-0.5 transition-all shadow-lg shadow-brand-1/30"
                 >
                     Ir a mi panel
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
@@ -186,7 +186,7 @@ export default function OnboardingWizard() {
 
     const continueButton = (
         <button type="submit" disabled={!valid || submitting}
-            className="mt-6 w-full flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-3.5 rounded-xl hover:bg-yellow-400 transition-all disabled:opacity-40 disabled:pointer-events-none"
+            className="mt-6 w-full flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-3.5 rounded-xl hover:brightness-90 transition-all disabled:opacity-40 disabled:pointer-events-none"
         >
             {continueLabel}
         </button>
