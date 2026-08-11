@@ -1,3 +1,5 @@
+import QrModel3D from "../elements/QrModel3D"
+
 const stockItems = [
     { name: "Coca-Cola 500ml", ratio: 0.88, count: "44/50", color: "bg-brand-3" },
     { name: "Pan lactal Bimbo", ratio: 0.27, count: "8/30", color: "bg-brand-1" },
@@ -108,7 +110,9 @@ export default function Services1() {
                         <h3 className="text-fg font-bold text-xl mb-2">Despachos con QR</h3>
                         <p className="text-fg/55 text-sm leading-relaxed mb-5 flex-1">Retiro y entrega verificados con QR único, código de cliente y RUT.</p>
                         <div className="rounded-xl bg-tint/[0.03] border border-tint/10 p-4 flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-lg bg-brand-3/15 border border-brand-3/25 flex items-center justify-center text-brand-3 font-bold text-xs">QR</div>
+                            <div className="w-16 h-16 rounded-lg bg-brand-3/15 border border-brand-3/25 overflow-hidden shrink-0">
+                                <QrModel3D />
+                            </div>
                             <div>
                                 <p className="text-fg text-xs font-semibold">Despacho #DSP-0219</p>
                                 <p className="text-brand-3 text-[11px] font-medium">Entregado · RUT verificado</p>
