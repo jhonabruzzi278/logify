@@ -1,4 +1,5 @@
 const webpush = require('web-push');
+const QRCode = require('qrcode');
 const { createApp } = require('../shared/app');
 const { validateNotificationBody } = require('../shared/validate');
 const { authMiddleware, requireTenant, requireRole } = require('../shared/auth');
@@ -200,13 +201,12 @@ app.get('/api/notifications/qr', authMiddleware, requireTenant, async (req, res)
   try {
     const text = (req.query.text || '').trim();
     if (!text) return res.status(400).json({ error: 'text es requerido. Ej: ?text=LOGIFY-TRACK123' });
-    const size = req.query.size || '200x200';
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}&data=${encodeURIComponent(text)}&format=png&margin=10`;
-    const qrRes = await fetch(qrUrl);
-    if (!qrRes.ok) throw new Error('QR service error');
+    const requestedSize = Number.parseInt(String(req.query.size || '').split('x')[0], 10);
+    const size = Number.isFinite(requestedSize) ? Math.min(Math.max(requestedSize, 100), 1000) : 200;
+    const png = await QRCode.toBuffer(text, { type: 'png', width: size, margin: 2, errorCorrectionLevel: 'M' });
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.send(Buffer.from(await qrRes.arrayBuffer()));
+    res.send(png);
   } catch (err) { sendError(res, 500, 'QR failed', err); }
 });
 
