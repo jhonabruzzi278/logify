@@ -1,6 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 import { getDefaultPathForRole } from "@/app/access";
 import { getVisibleNavItems } from "@/components/layout/navigation";
+import { Logo } from "@/components/common/logo";
 import { useBusinessMode } from "@/hooks/use-business-mode";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/domain";
@@ -14,7 +15,7 @@ export function Sidebar({ role }: { role: Role }) {
     <aside className="hidden w-64 shrink-0 flex-col overflow-hidden bg-[#172554] text-white lg:flex">
       <div className="shrink-0 px-5 py-6">
         <Link to={homePath} className="flex items-center gap-2.5">
-          <p className="text-lg font-bold tracking-tight text-white">Logify</p>
+          <Logo variant="light" size="sm" />
         </Link>
       </div>
 

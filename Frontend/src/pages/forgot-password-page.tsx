@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
 import { WorkspacePortalPage } from "@/pages/workspace-portal-page";
+import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
+import { Logo } from "@/components/common/logo";
 
 type Step = "username" | "question" | "reset" | "done";
 
@@ -94,7 +96,7 @@ export function ForgotPasswordPage() {
 
       <div className="relative z-10 w-full max-w-sm">
         <div className="mb-6 flex items-center gap-3">
-          <span className="text-xl font-bold tracking-tight text-foreground">Logify</span>
+          <Logo variant="brand" />
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
@@ -234,6 +236,7 @@ export function ForgotPasswordPage() {
           </p>
         ) : null}
       </div>
+      <SupportWhatsappButton variant="mono" />
     </div>
   );
 }

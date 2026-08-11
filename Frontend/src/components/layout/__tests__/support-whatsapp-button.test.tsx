@@ -11,4 +11,19 @@ describe("SupportWhatsappButton", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
+
+  it("usa el verde de marca por defecto", () => {
+    render(<SupportWhatsappButton />);
+
+    const link = screen.getByRole("link", { name: "Contactar soporte por WhatsApp" });
+    expect(link.className).toContain("bg-[#25D366]");
+  });
+
+  it("usa estilo blanco y negro cuando variant es mono", () => {
+    render(<SupportWhatsappButton variant="mono" />);
+
+    const link = screen.getByRole("link", { name: "Contactar soporte por WhatsApp" });
+    expect(link.className).toContain("bg-[#0f172a]");
+    expect(link.className).not.toContain("bg-[#25D366]");
+  });
 });

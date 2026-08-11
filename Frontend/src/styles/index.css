@@ -6,6 +6,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Midcent Disco";
+  src:
+    url("/fonts/MidcentDisco-Regular.woff2") format("woff2"),
+    url("/fonts/MidcentDisco-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: 210 40% 98%;
   --foreground: 222.2 84% 4.9%;
@@ -148,6 +158,14 @@ body {
            min-h-[44px] min-w-[44px] text-muted-foreground
            hover:bg-muted active:scale-[0.95] transition-colors
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  }
+
+  /* Wordmark "Logify" únicamente — nunca para texto de UI ni cuerpo,
+     la fuente display no está optimizada para legibilidad en tamaños chicos. */
+  .font-logo {
+    font-family: "Midcent Disco", var(--font-heading);
+    font-weight: 400;
+    letter-spacing: 0.02em;
   }
 }
 

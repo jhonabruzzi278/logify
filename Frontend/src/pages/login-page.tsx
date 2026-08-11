@@ -10,6 +10,8 @@ import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { useStaggerReveal } from "@/hooks/use-stagger-reveal";
 import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
 import { WorkspacePortalPage } from "@/pages/workspace-portal-page";
+import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
+import { Logo } from "@/components/common/logo";
 
 const FEATURES = [
   { icon: Truck, text: "Seguimiento de despachos en tiempo real, desde bodega hasta la entrega." },
@@ -111,7 +113,7 @@ export function LoginPage() {
         </svg>
 
         <div className="relative z-10 flex items-center gap-3">
-          <span className="text-xl font-bold tracking-tight text-white">Logify</span>
+          <Logo variant="light" />
         </div>
 
         <div className="relative z-10 max-w-md">
@@ -141,7 +143,7 @@ export function LoginPage() {
           </ul>
         </div>
 
-        <p className="relative z-10 border-t border-white/10 pt-6 text-xs text-[#64748B]">
+        <p className="relative z-10 border-t border-white/10 pt-6 text-xs text-[#94A3B8]">
           &copy; {new Date().getFullYear()} Logify &middot; Plataforma interna de operaciones
         </p>
       </div>
@@ -161,7 +163,7 @@ export function LoginPage() {
 
         <div className="relative z-10 w-full max-w-sm">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <span className="text-xl font-bold tracking-tight text-foreground">Logify</span>
+            <Logo variant="brand" />
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
@@ -269,6 +271,7 @@ export function LoginPage() {
           </p>
         </div>
       </div>
+      <SupportWhatsappButton variant="mono" />
     </div>
   );
 }
