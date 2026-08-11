@@ -43,7 +43,7 @@ export function AddAmountModal({ onAdd, onClose }: AddAmountModalProps) {
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar (Esc)</Button>
-            <Button type="button" size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" onClick={handleConfirm}>Confirmar (Enter)</Button>
+            <Button type="button" size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" onClick={handleConfirm}>Confirmar (Enter)</Button>
           </div>
         </div>
       </div>

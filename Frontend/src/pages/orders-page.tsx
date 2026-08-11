@@ -208,8 +208,8 @@ export function OrdersPage() {
   };
 
   const badgeColor = (stage: string) =>
-    stage === "created" ? "bg-[#4B98CF]/10 text-[#4B98CF]" :
-    stage === "en_preparacion" ? "bg-[#E3AA75]/10 text-[#E3AA75]" :
+    stage === "created" ? "bg-[#2563EB]/10 text-[#2563EB]" :
+    stage === "en_preparacion" ? "bg-[#D97706]/10 text-[#D97706]" :
     stage === "en_reparto" ? "bg-purple-50 text-purple-600" :
     stage === "entregado" ? "bg-green-50 text-green-600" :
     stage === "cancelado" ? "bg-red-50 text-red-500" : "bg-muted text-muted-foreground";
@@ -236,8 +236,8 @@ export function OrdersPage() {
           <span className="rounded bg-muted px-2 py-0.5">{counts.total} total</span>
           {!customerScope.isCustomer && (
             <>
-              <span className="rounded bg-[#4B98CF]/10 px-2 py-0.5 text-[#4B98CF] font-bold">{counts.pending} pendientes</span>
-              <span className="rounded bg-[#E3AA75]/10 px-2 py-0.5 text-[#E3AA75] font-bold">{counts.preparing} preparacion</span>
+              <span className="rounded bg-[#2563EB]/10 px-2 py-0.5 text-[#2563EB] font-bold">{counts.pending} pendientes</span>
+              <span className="rounded bg-[#D97706]/10 px-2 py-0.5 text-[#D97706] font-bold">{counts.preparing} preparacion</span>
             </>
           )}
           {canCreate && !customerScope.isCustomer && (
@@ -268,7 +268,7 @@ export function OrdersPage() {
                   onChange={(e) => { setCustomerSearch(e.target.value); setSelectedCustomer(null); }}
                   onFocus={() => setShowCustomerDropdown(true)}
                   placeholder="Buscar cliente..."
-                  className="h-9 w-full rounded border border-input bg-[#F8FBFD] pl-8 pr-3 text-sm"
+                  className="h-9 w-full rounded border border-input bg-[#F8FAFC] pl-8 pr-3 text-sm"
                 />
               </div>
               {showCustomerDropdown && !selectedCustomer && (
@@ -283,7 +283,7 @@ export function OrdersPage() {
                       onClick={() => { setSelectedCustomer(c); setCustomerSearch(c.name); setShowCustomerDropdown(false); }}
                       className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
                     >
-                      <User className="h-3.5 w-3.5 text-[#4B98CF] shrink-0" />
+                      <User className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{c.name}</p>
                         {c.phone && <p className="text-[10px] text-muted-foreground">{c.phone}</p>}
@@ -298,7 +298,7 @@ export function OrdersPage() {
               <select id="orders-page-f297"
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
-                className="h-9 w-full rounded border border-input bg-[#F8FBFD] px-2 text-sm"
+                className="h-9 w-full rounded border border-input bg-[#F8FAFC] px-2 text-sm"
               >
                 <option value="" disabled>Seleccionar...</option>
                 {(products ?? []).filter((p) => p.stock > 0).map((p) => (
@@ -308,25 +308,25 @@ export function OrdersPage() {
             </div>
             <div className="w-20 sm:w-20">
               <label htmlFor="orders-page-f310" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Cant</label>
-              <input id="orders-page-f310" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="h-9 w-full rounded border border-input bg-[#F8FBFD] px-3 text-sm text-center" placeholder="1" />
+              <input id="orders-page-f310" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="h-9 w-full rounded border border-input bg-[#F8FAFC] px-3 text-sm text-center" placeholder="1" />
             </div>
             <div className="sm:w-44">
               <label className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">
                 <Truck className="inline h-3 w-3 mr-1" />Transportista
               </label>
-              <select value={transporter} onChange={(e) => setTransporter(e.target.value)} className="h-9 w-full rounded border border-input bg-[#F8FBFD] px-2 text-xs">
+              <select value={transporter} onChange={(e) => setTransporter(e.target.value)} className="h-9 w-full rounded border border-input bg-[#F8FAFC] px-2 text-xs">
                 {TRANSPORTERS.map((t) => (
                   <option key={t.username} value={t.username}>{t.name}</option>
                 ))}
               </select>
             </div>
-            <button type="submit" disabled={creating} className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384] disabled:opacity-50">
+            <button type="submit" disabled={creating} className="h-9 rounded bg-[#2563EB] px-4 text-xs font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-50">
               {creating ? "..." : "Crear"}
             </button>
             <button type="button" onClick={() => setShowForm(false)} className="h-9 rounded border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
           </form>
           {feedback && (
-            <p className={cn("mt-2 text-xs font-medium", feedback.type === "success" ? "text-[#4EB4A5]" : "text-red-500")}>{feedback.msg}</p>
+            <p className={cn("mt-2 text-xs font-medium", feedback.type === "success" ? "text-[#0D9488]" : "text-red-500")}>{feedback.msg}</p>
           )}
         </div>
       )}
@@ -340,7 +340,7 @@ export function OrdersPage() {
             onChange={(e) => setCsvText(e.target.value)}
             placeholder={"1,COCA-COLA-2L,3\n2,SPRITE-2L,1"}
             rows={5}
-            className="w-full rounded border border-input bg-[#F8FBFD] p-3 text-sm font-mono"
+            className="w-full rounded border border-input bg-[#F8FAFC] p-3 text-sm font-mono"
           />
           <div className="flex items-center gap-2 mt-2">
             <button type="button"
@@ -362,13 +362,13 @@ export function OrdersPage() {
                 setCsvText("");
                 refresh();
               }}
-              className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384]"
+              className="h-9 rounded bg-[#2563EB] px-4 text-xs font-bold text-white hover:bg-[#1D4ED8]"
             >
               Procesar CSV
             </button>
             <button type="button" onClick={() => setShowBulk(false)} className="h-9 rounded border border-border px-3 text-xs font-semibold text-muted-foreground">Cancelar</button>
           </div>
-          {bulkFeedback && <p className="mt-2 text-xs text-[#4B98CF]">{bulkFeedback}</p>}
+          {bulkFeedback && <p className="mt-2 text-xs text-[#2563EB]">{bulkFeedback}</p>}
         </div>
       )}
 
@@ -379,7 +379,7 @@ export function OrdersPage() {
         </div>
         <div className="flex gap-1 rounded border border-border bg-card p-0.5 overflow-x-auto scroll-x">
           {tabs.map((t) => (
-            <button type="button" key={t} onClick={() => setTab(t)} className={cn("rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors", tab === t ? "bg-[#4B98CF] text-white" : "text-muted-foreground hover:text-foreground")}>
+            <button type="button" key={t} onClick={() => setTab(t)} className={cn("rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors", tab === t ? "bg-[#2563EB] text-white" : "text-muted-foreground hover:text-foreground")}>
               {tabLabels[t]}
             </button>
           ))}
@@ -405,15 +405,15 @@ export function OrdersPage() {
             {filtered.map((order) => {
               const tName = getTransporterName(order);
               return (
-                <tr key={order.id} className="border-b border-[#F5F7F9] hover:bg-muted cursor-pointer" onClick={() => navigate(`/orders/${order.id}`)}>
-                  <td className="px-4 py-3 font-bold text-[#4B98CF]">#{order.id}</td>
+                <tr key={order.id} className="border-b border-[#F8FAFC] hover:bg-muted cursor-pointer" onClick={() => navigate(`/orders/${order.id}`)}>
+                  <td className="px-4 py-3 font-bold text-[#2563EB]">#{order.id}</td>
                   <td className="px-4 py-3 text-foreground font-medium">{order.customer}</td>
                   <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{order.sku}</td>
                   <td className="px-4 py-3 hidden sm:table-cell">x{order.quantity}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     {tName && (
                       <span className="inline-flex items-center gap-1 text-xs text-foreground">
-                        <Truck className="h-3 w-3 text-[#4EB4A5]" />
+                        <Truck className="h-3 w-3 text-[#0D9488]" />
                         {tName}
                       </span>
                     )}
@@ -484,22 +484,22 @@ export function OrdersPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
-                <h3 className="font-bold text-sm text-[#112b4a]">Cancelar pedido #{cancelModal.id}</h3>
+                <h3 className="font-bold text-sm text-[#172554]">Cancelar pedido #{cancelModal.id}</h3>
               </div>
               <button type="button" onClick={() => { setCancelModal(null); setCancelReason(""); }} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
             </div>
-            <p className="text-sm text-[#6B7280]">
+            <p className="text-sm text-[#64748B]">
               Ingresa el motivo de cancelacion para <strong>{cancelModal.customer}</strong> ({cancelModal.sku} x{cancelModal.quantity})
             </p>
             {cancelModal.stage === "en_preparacion" && (
-              <p className="text-xs text-[#E3AA75]">El stock se restaurará automáticamente</p>
+              <p className="text-xs text-[#D97706]">El stock se restaurará automáticamente</p>
             )}
             <textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
               placeholder="Motivo de cancelacion..."
               rows={3}
-              className="w-full rounded border border-input bg-[#F8FBFD] p-3 text-sm"
+              className="w-full rounded border border-input bg-[#F8FAFC] p-3 text-sm"
             />
             <div className="flex gap-2 justify-end">
               <Button variant="outline" size="sm" onClick={() => { setCancelModal(null); setCancelReason(""); }}>Volver</Button>
@@ -524,11 +524,11 @@ export function OrdersPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
-                <h3 className="font-bold text-sm text-[#112b4a]">Eliminar pedido #{deleteModal.id}</h3>
+                <h3 className="font-bold text-sm text-[#172554]">Eliminar pedido #{deleteModal.id}</h3>
               </div>
               <button type="button" onClick={() => setDeleteModal(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
             </div>
-            <p className="text-sm text-[#6B7280]">
+            <p className="text-sm text-[#64748B]">
               Esta accion es irreversible. Se eliminara permanentemente el pedido de <strong>{deleteModal.customer}</strong> ({deleteModal.sku} x{deleteModal.quantity}).
             </p>
             <div className="flex gap-2 justify-end">

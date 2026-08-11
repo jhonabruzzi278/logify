@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex min-h-screen items-center justify-center bg-background px-4">
           <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#1A3142]">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#172554]">
               <span className="text-xl font-bold text-white">!</span>
             </div>
             <h1 className="text-lg font-bold text-foreground">Error inesperado</h1>
@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 this.setState({ hasError: false, error: null });
                 window.location.reload();
               }}
-              className="mt-5 rounded bg-[#4B98CF] px-4 py-2 text-sm font-bold text-white hover:bg-[#346384]"
+              className="mt-5 rounded bg-[#2563EB] px-4 py-2 text-sm font-bold text-white hover:bg-[#1D4ED8]"
             >
               Recargar pagina
             </button>
