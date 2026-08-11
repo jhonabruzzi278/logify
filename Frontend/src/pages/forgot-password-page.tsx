@@ -80,16 +80,24 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-sm">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
+      <div
+        className="pointer-events-none absolute -right-40 -top-40 h-[420px] w-[420px] rounded-full opacity-60 blur-3xl"
+        style={{ background: "radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%)" }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -bottom-48 -left-32 h-[380px] w-[380px] rounded-full opacity-50 blur-3xl"
+        style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.15) 0%, transparent 70%)" }}
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10 w-full max-w-sm">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1A3142]">
-            <span className="text-lg font-bold text-white">S</span>
-          </div>
-          <span className="text-lg font-bold text-foreground">Logify</span>
+          <span className="text-xl font-bold tracking-tight text-foreground">Logify</span>
         </div>
 
-        <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
           {step === "username" ? (
             <>
               <h1 className="text-xl font-bold text-foreground">Recuperar contraseña</h1>
@@ -111,7 +119,7 @@ export function ForgotPasswordPage() {
                   />
                 </div>
                 {error ? <ErrorBanner message={error} /> : null}
-                <Button type="submit" className="h-11 w-full bg-[#4B98CF] font-bold hover:bg-[#346384]" disabled={busy || !username.trim()}>
+                <Button type="submit" className="h-11 w-full bg-primary font-bold hover:bg-primary/90" disabled={busy || !username.trim()}>
                   {busy ? "Buscando..." : "Continuar"}
                 </Button>
               </form>
@@ -125,7 +133,7 @@ export function ForgotPasswordPage() {
                 Responde para confirmar que eres tú.
               </p>
               <div className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
-                <ShieldQuestion className="mt-0.5 h-4 w-4 shrink-0 text-[#4B98CF]" />
+                <ShieldQuestion className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <p className="text-sm font-medium text-foreground">{question}</p>
               </div>
               <form onSubmit={handleAnswerSubmit} className="mt-4 space-y-4">
@@ -138,7 +146,7 @@ export function ForgotPasswordPage() {
                   disabled={busy}
                 />
                 {error ? <ErrorBanner message={error} /> : null}
-                <Button type="submit" className="h-11 w-full bg-[#4B98CF] font-bold hover:bg-[#346384]" disabled={busy || !secretAnswer.trim()}>
+                <Button type="submit" className="h-11 w-full bg-primary font-bold hover:bg-primary/90" disabled={busy || !secretAnswer.trim()}>
                   {busy ? "Verificando..." : "Verificar respuesta"}
                 </Button>
               </form>
@@ -190,7 +198,7 @@ export function ForgotPasswordPage() {
                 {error ? <ErrorBanner message={error} /> : null}
                 <Button
                   type="submit"
-                  className="h-11 w-full bg-[#4B98CF] font-bold hover:bg-[#346384]"
+                  className="h-11 w-full bg-primary font-bold hover:bg-primary/90"
                   disabled={busy || !newPassword || !confirmPassword}
                 >
                   {busy ? "Guardando..." : "Cambiar contraseña"}
@@ -201,7 +209,7 @@ export function ForgotPasswordPage() {
 
           {step === "done" ? (
             <div className="text-center">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-[#4B98CF]" />
+              <CheckCircle2 className="mx-auto h-10 w-10 text-primary" />
               <h1 className="mt-3 text-xl font-bold text-foreground">Contraseña actualizada</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 Ya puedes iniciar sesión con tu nueva contraseña.
@@ -209,7 +217,7 @@ export function ForgotPasswordPage() {
               <Button
                 type="button"
                 onClick={() => navigate("/login", { replace: true })}
-                className="mt-5 h-11 w-full bg-[#4B98CF] font-bold hover:bg-[#346384]"
+                className="mt-5 h-11 w-full bg-primary font-bold hover:bg-primary/90"
               >
                 <KeyRound className="mr-2 h-4 w-4" />
                 Ir a iniciar sesión
@@ -220,7 +228,7 @@ export function ForgotPasswordPage() {
 
         {step !== "done" ? (
           <p className="mt-5 text-center text-xs text-muted-foreground">
-            <Link to="/login" className="font-medium text-[#4B98CF] hover:underline">
+            <Link to="/login" className="font-medium text-primary hover:underline">
               Volver a iniciar sesión
             </Link>
           </p>

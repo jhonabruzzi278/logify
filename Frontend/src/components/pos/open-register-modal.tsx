@@ -47,7 +47,7 @@ export function OpenRegisterModal({ onOpened, onClose }: OpenRegisterModalProps)
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" size="sm" className="bg-[#4EB4A5] hover:bg-[#3a9184] text-white" disabled={saving}>{saving ? "Abriendo..." : "Abrir caja"}</Button>
+            <Button type="submit" size="sm" className="bg-[#0D9488] hover:bg-[#0D9488] text-white" disabled={saving}>{saving ? "Abriendo..." : "Abrir caja"}</Button>
           </div>
         </form>
       </div>

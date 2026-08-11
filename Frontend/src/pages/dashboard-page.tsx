@@ -19,11 +19,11 @@ import type { ApiCustomer, ApiInventory, ApiNotificationRecord, ApiOrder, ApiShi
 import type { AlertItem, Customer, Order, Product, Sale, Shipment } from "@/types/domain";
 
 const quickActions: { label: string; href: string; icon: LucideIcon; color: string; modes: BusinessMode[] }[] = [
-  { label: "Nuevo pedido", href: "/orders", icon: ShoppingBag, color: "bg-[#4B98CF]", modes: ["b2b"] },
-  { label: "Vender", href: "/pos", icon: ShoppingCart, color: "bg-[#4B98CF]", modes: ["b2c"] },
-  { label: "Ver inventario", href: "/inventory", icon: Boxes, color: "bg-[#4EB4A5]", modes: ["b2b", "b2c"] },
-  { label: "Gestionar envios", href: "/shipments", icon: Truck, color: "bg-[#E3AA75]", modes: ["b2b"] },
-  { label: "Clientes", href: "/customers", icon: Users, color: "bg-[#5163C5]", modes: ["b2c"] },
+  { label: "Nuevo pedido", href: "/orders", icon: ShoppingBag, color: "bg-[#2563EB]", modes: ["b2b"] },
+  { label: "Vender", href: "/pos", icon: ShoppingCart, color: "bg-[#2563EB]", modes: ["b2c"] },
+  { label: "Ver inventario", href: "/inventory", icon: Boxes, color: "bg-[#0D9488]", modes: ["b2b", "b2c"] },
+  { label: "Gestionar envios", href: "/shipments", icon: Truck, color: "bg-[#D97706]", modes: ["b2b"] },
+  { label: "Clientes", href: "/customers", icon: Users, color: "bg-[#8B5CF6]", modes: ["b2c"] },
   { label: "Notificaciones", href: "/notifications", icon: Bell, color: "bg-purple-500", modes: ["b2b", "b2c"] },
 ];
 
@@ -171,7 +171,7 @@ export function DashboardPage() {
           </h1>
         </div>
         {canInstall && (
-          <button type="button" onClick={promptInstall} className="flex items-center gap-1.5 rounded-lg bg-[#4B98CF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#346384]">
+          <button type="button" onClick={promptInstall} className="flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]">
             Instalar app
           </button>
         )}
@@ -181,16 +181,16 @@ export function DashboardPage() {
       <div ref={metricsRef} className="shrink-0 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {mode === "b2b" ? (
           <>
-            <MetricCard label="Ingresos por pedidos" value={orderEconomics.revenueDelivered} sub="Pedidos entregados" icon={Banknote} color="bg-[#4B98CF]/10" iconColor="text-[#4B98CF]" />
-            <MetricCard label="Ganancia estimada" value={orderEconomics.profitDelivered} sub="Margen sobre entregados" icon={TrendingUp} color="bg-[#4EB4A5]/10" iconColor="text-[#4EB4A5]" />
-            <MetricCard label="Valor en pipeline" value={orderEconomics.pipelineValue} sub={`${orderEconomics.pipelineCount} pedidos en curso`} icon={ShoppingBag} color="bg-[#E3AA75]/10" iconColor="text-[#E3AA75]" />
+            <MetricCard label="Ingresos por pedidos" value={orderEconomics.revenueDelivered} sub="Pedidos entregados" icon={Banknote} color="bg-[#2563EB]/10" iconColor="text-[#2563EB]" />
+            <MetricCard label="Ganancia estimada" value={orderEconomics.profitDelivered} sub="Margen sobre entregados" icon={TrendingUp} color="bg-[#0D9488]/10" iconColor="text-[#0D9488]" />
+            <MetricCard label="Valor en pipeline" value={orderEconomics.pipelineValue} sub={`${orderEconomics.pipelineCount} pedidos en curso`} icon={ShoppingBag} color="bg-[#D97706]/10" iconColor="text-[#D97706]" />
             <MetricCard label="Cuentas por cobrar" value={receivables} sub="Fiado a clientes empresa" icon={CreditCard} color="bg-purple-50" iconColor="text-purple-500" />
           </>
         ) : (
           <>
-            <MetricCard label="Ventas hoy" value={todaySales.total} sub={`${todaySales.count} transacciones`} icon={Banknote} color="bg-[#4B98CF]/10" iconColor="text-[#4B98CF]" />
-            <MetricCard label="Ganancia estimada hoy" value={todaySales.profit} sub="Margen sobre ventas" icon={TrendingUp} color="bg-[#4EB4A5]/10" iconColor="text-[#4EB4A5]" />
-            <MetricCard label="Ticket promedio" value={todaySales.avgTicket} sub="por venta hoy" icon={ShoppingBag} color="bg-[#E3AA75]/10" iconColor="text-[#E3AA75]" />
+            <MetricCard label="Ventas hoy" value={todaySales.total} sub={`${todaySales.count} transacciones`} icon={Banknote} color="bg-[#2563EB]/10" iconColor="text-[#2563EB]" />
+            <MetricCard label="Ganancia estimada hoy" value={todaySales.profit} sub="Margen sobre ventas" icon={TrendingUp} color="bg-[#0D9488]/10" iconColor="text-[#0D9488]" />
+            <MetricCard label="Ticket promedio" value={todaySales.avgTicket} sub="por venta hoy" icon={ShoppingBag} color="bg-[#D97706]/10" iconColor="text-[#D97706]" />
             <MetricCard label="Cuentas por cobrar" value={receivables} sub="Fiado a clientes" icon={CreditCard} color="bg-purple-50" iconColor="text-purple-500" />
           </>
         )}
@@ -202,7 +202,7 @@ export function DashboardPage() {
           <div className="flex min-h-0 flex-col rounded-xl border border-border bg-card p-5">
             <div className="shrink-0 flex items-center justify-between mb-4">
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-muted-foreground">Pedidos recientes</p>
-              <Link to="/orders" className="text-xs text-[#4B98CF] hover:underline flex items-center gap-1">Todos <ArrowRight className="h-3 w-3" /></Link>
+              <Link to="/orders" className="text-xs text-[#2563EB] hover:underline flex items-center gap-1">Todos <ArrowRight className="h-3 w-3" /></Link>
             </div>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {operationalOrders.slice(0, 5).map((order) => (
@@ -210,7 +210,7 @@ export function DashboardPage() {
                   key={order.id}
                   role="button"
                   tabIndex={0}
-                  className="flex items-center justify-between rounded bg-[#F8FAFB] px-3 py-2 cursor-pointer hover:bg-muted"
+                  className="flex items-center justify-between rounded bg-[#F8FAFC] px-3 py-2 cursor-pointer hover:bg-muted"
                   onClick={() => navigate(`/orders/${order.id}`)}
                   onKeyDown={onActivateKey(() => navigate(`/orders/${order.id}`))}
                 >
@@ -222,8 +222,8 @@ export function DashboardPage() {
                     order.stage === "entregado" ? "bg-green-50 text-green-600" :
                     order.stage === "cancelado" ? "bg-red-50 text-red-500" :
                     order.stage === "en_reparto" ? "bg-purple-50 text-purple-600" :
-                    order.stage === "en_preparacion" ? "bg-[#E3AA75]/10 text-[#E3AA75]" :
-                    "bg-[#4B98CF]/10 text-[#4B98CF]"
+                    order.stage === "en_preparacion" ? "bg-[#D97706]/10 text-[#D97706]" :
+                    "bg-[#2563EB]/10 text-[#2563EB]"
                   )}>
                     {order.stage === "created" ? "Pendiente" : order.stage === "en_preparacion" ? "Preparacion" : order.stage === "en_reparto" ? "En reparto" : order.stage === "entregado" ? "Entregado" : order.stage === "cancelado" ? "Cancelado" : order.stage}
                   </span>
@@ -237,16 +237,16 @@ export function DashboardPage() {
           <div className="flex min-h-0 flex-col rounded-xl border border-border bg-card p-5">
             <div className="shrink-0 flex items-center justify-between mb-4">
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-muted-foreground">Ventas recientes</p>
-              <Link to="/reports" className="text-xs text-[#4B98CF] hover:underline flex items-center gap-1">Todas <ArrowRight className="h-3 w-3" /></Link>
+              <Link to="/reports" className="text-xs text-[#2563EB] hover:underline flex items-center gap-1">Todas <ArrowRight className="h-3 w-3" /></Link>
             </div>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {recentSales.map((sale) => (
-                <div key={sale.id} className="flex items-center justify-between rounded bg-[#F8FAFB] px-3 py-2">
+                <div key={sale.id} className="flex items-center justify-between rounded bg-[#F8FAFC] px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">{sale.customerName ?? "Consumidor final"}</p>
                     <p className="text-xs text-muted-foreground truncate">{sale.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}</p>
                   </div>
-                  <span className="shrink-0 text-sm font-bold text-[#4B98CF]">{formatCurrency(sale.total)}</span>
+                  <span className="shrink-0 text-sm font-bold text-[#2563EB]">{formatCurrency(sale.total)}</span>
                 </div>
               ))}
               {recentSales.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Sin ventas registradas</p>}
@@ -258,12 +258,12 @@ export function DashboardPage() {
         <div className="flex min-h-0 flex-col rounded-xl border border-border bg-card p-5">
           <div className="shrink-0 flex items-center justify-between mb-4">
             <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-muted-foreground">Alertas</p>
-            <Link to="/alerts" className="text-xs text-[#4B98CF] hover:underline flex items-center gap-1">Todas <ArrowRight className="h-3 w-3" /></Link>
+            <Link to="/alerts" className="text-xs text-[#2563EB] hover:underline flex items-center gap-1">Todas <ArrowRight className="h-3 w-3" /></Link>
           </div>
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
             {alerts.slice(0, 5).map((alert) => (
-              <Link key={alert.id} to={alert.actionLabel === "Ver pedido" ? `/orders/${alert.id.replace("order-", "")}` : alert.actionLabel === "Revisar inventario" ? "/inventory" : "/alerts"} className="flex items-start gap-2 rounded bg-[#F8FAFB] px-3 py-2 hover:bg-muted">
-                <AlertTriangle className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", alert.severity === "critical" ? "text-red-500" : alert.severity === "high" ? "text-[#E3AA75]" : "text-[#4B98CF]")} />
+              <Link key={alert.id} to={alert.actionLabel === "Ver pedido" ? `/orders/${alert.id.replace("order-", "")}` : alert.actionLabel === "Revisar inventario" ? "/inventory" : "/alerts"} className="flex items-start gap-2 rounded bg-[#F8FAFC] px-3 py-2 hover:bg-muted">
+                <AlertTriangle className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", alert.severity === "critical" ? "text-red-500" : alert.severity === "high" ? "text-[#D97706]" : "text-[#2563EB]")} />
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-foreground">{alert.title}</p>
                   <p className="text-[11px] text-muted-foreground">{alert.description}</p>

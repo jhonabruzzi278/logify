@@ -109,7 +109,7 @@ export function NotificationsPage() {
         id: `ord-${o.id}`,
         type: "order",
         icon: Package,
-        iconBg: "bg-[#4B98CF]",
+        iconBg: "bg-[#2563EB]",
         title: `Pedido #${o.id} creado`,
         detail: `SKU ${o.sku} - ${o.quantity} unids - Estado: ${o.stage}`,
         link: `/orders/${o.id}`,
@@ -123,7 +123,7 @@ export function NotificationsPage() {
         id: `shp-${s.id}`,
         type: "shipment",
         icon: Truck,
-        iconBg: "bg-[#4EB4A5]",
+        iconBg: "bg-[#0D9488]",
         title: `Envío ${s.tracking}`,
         detail: `Pedido #${s.orderId} - SKU ${s.sku} - ${s.stage}`,
         link: "/shipments",
@@ -155,7 +155,7 @@ export function NotificationsPage() {
         id: `asgn-${order.id}`,
         type: "order",
         icon: Truck,
-        iconBg: "bg-[#4EB4A5]",
+        iconBg: "bg-[#0D9488]",
         title: `Pedido #${order.id} asignado`,
         detail: `Transportista ${t?.name ?? order.assignedTo} asignado al pedido.`,
         link: `/orders/${order.id}`,
@@ -227,8 +227,8 @@ export function NotificationsPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[#112b4a]">Notificaciones</h1>
-          <p className="mt-0.5 text-sm text-[#6B7280]">
+          <h1 className="text-xl font-bold text-[#172554]">Notificaciones</h1>
+          <p className="mt-0.5 text-sm text-[#64748B]">
             {unreadCount} sin leer de {filtered.length} notificaciones
           </p>
         </div>
@@ -239,20 +239,20 @@ export function NotificationsPage() {
               <button type="button"
                 onClick={checkWeatherAlert}
                 disabled={weatherLoading}
-                className="rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10 flex items-center gap-1 disabled:opacity-50"
+                className="rounded border border-[#2563EB]/30 bg-[#2563EB]/5 px-3 py-1.5 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10 flex items-center gap-1 disabled:opacity-50"
               >
                 <Cloud className="h-3 w-3" /> {weatherLoading ? "Consultando..." : "Verificar clima"}
               </button>
               <button type="button"
                 onClick={handleDownloadPdf}
                 disabled={pdfLoading}
-                className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] flex items-center gap-1 disabled:opacity-50"
+                className="rounded border border-[#E2E8F0] px-3 py-1.5 text-xs font-semibold text-[#64748B] hover:text-[#172554] flex items-center gap-1 disabled:opacity-50"
               >
                 <Download className="h-3 w-3" /> {pdfLoading ? "Generando..." : "PDF"}
               </button>
               <Dialog open={qrDialogOpen} onOpenChange={(open) => { setQrDialogOpen(open); if (!open) { setQrText(""); setQrGenerated(null); } }}>
                 <DialogTrigger render={
-                  <button type="button" className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#112b4a] flex items-center gap-1">
+                  <button type="button" className="rounded border border-[#E2E8F0] px-3 py-1.5 text-xs font-semibold text-[#64748B] hover:text-[#172554] flex items-center gap-1">
                     <QrCode className="h-3 w-3" /> Generar QR
                   </button>
                 } />
@@ -262,19 +262,19 @@ export function NotificationsPage() {
                   </DialogHeader>
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <label htmlFor="notifications-page-f265" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Texto a codificar</label>
+                      <label htmlFor="notifications-page-f265" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Texto a codificar</label>
                       <Input id="notifications-page-f265" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="LOGIFY-TRACK123" className="h-9 text-sm" />
                     </div>
                     {qrGenerated && (
                       <div className="flex flex-col items-center gap-2 py-2">
-                        {qrImage.loading && <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />}
+                        {qrImage.loading && <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#2563EB] border-t-transparent" />}
                         {qrImage.error && <p className="text-xs text-red-500">{qrImage.error}</p>}
-                        {qrImage.url && <img src={qrImage.url} alt={`QR de ${qrGenerated}`} className="h-40 w-40 rounded border border-[#DCE0E2]" />}
+                        {qrImage.url && <img src={qrImage.url} alt={`QR de ${qrGenerated}`} className="h-40 w-40 rounded border border-[#E2E8F0]" />}
                       </div>
                     )}
                     <div className="flex justify-end gap-2 pt-1">
                       <Button type="button" variant="outline" size="sm" onClick={() => setQrDialogOpen(false)}>Cerrar</Button>
-                      <Button type="button" size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" disabled={!qrText.trim()} onClick={() => setQrGenerated(qrText.trim())}>Generar</Button>
+                      <Button type="button" size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={!qrText.trim()} onClick={() => setQrGenerated(qrText.trim())}>Generar</Button>
                     </div>
                   </div>
                 </DialogContent>
@@ -291,13 +291,13 @@ export function NotificationsPage() {
           )}
           <button type="button"
             onClick={markAllRead}
-            className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#F5F7F9]"
+            className="rounded border border-[#E2E8F0] px-3 py-1.5 text-xs font-semibold text-[#2563EB] hover:bg-[#F8FAFC]"
           >
             Marcar todas leídas
           </button>
           <button type="button"
             onClick={clearAll}
-            className="rounded border border-[#DCE0E2] px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50"
+            className="rounded border border-[#E2E8F0] px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50"
           >
             Limpiar todas
           </button>
@@ -307,21 +307,21 @@ export function NotificationsPage() {
       {weatherAlert && (
         <div className={cn(
           "flex items-start gap-3 rounded border px-4 py-3",
-          weatherAlert.alert ? "border-red-200 bg-red-50" : "border-[#4EB4A5]/30 bg-[#4EB4A5]/5"
+          weatherAlert.alert ? "border-red-200 bg-red-50" : "border-[#0D9488]/30 bg-[#0D9488]/5"
         )}>
           {weatherAlert.alert
             ? <CloudRain className="h-5 w-5 text-red-500 shrink-0" />
-            : <Cloud className="h-5 w-5 text-[#4EB4A5] shrink-0" />}
+            : <Cloud className="h-5 w-5 text-[#0D9488] shrink-0" />}
           <div className="min-w-0 flex-1">
-            <p className={cn("text-sm font-bold", weatherAlert.alert ? "text-red-600" : "text-[#4EB4A5]")}>
+            <p className={cn("text-sm font-bold", weatherAlert.alert ? "text-red-600" : "text-[#0D9488]")}>
               {weatherAlert.alert ? "Alerta climática activa" : "Sin alertas climáticas"}
             </p>
-            <p className="text-xs text-[#6B7280] mt-0.5">{weatherAlert.message}</p>
-            <p className="text-[10px] text-[#6B7280]/70 mt-1">
+            <p className="text-xs text-[#64748B] mt-0.5">{weatherAlert.message}</p>
+            <p className="text-[10px] text-[#64748B]/70 mt-1">
               {weatherAlert.weather.temperature}°C · viento {weatherAlert.weather.windSpeed} km/h · precipitación {weatherAlert.weather.precipitation} mm
             </p>
           </div>
-          <button type="button" onClick={() => setWeatherAlert(null)} className="shrink-0 rounded p-1 text-[#6B7280] hover:bg-black/5">
+          <button type="button" onClick={() => setWeatherAlert(null)} className="shrink-0 rounded p-1 text-[#64748B] hover:bg-black/5">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -330,7 +330,7 @@ export function NotificationsPage() {
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-0.5 overflow-x-auto scroll-x">
+          <div className="flex gap-1 rounded border border-[#E2E8F0] bg-white p-0.5 overflow-x-auto scroll-x">
             {typeFilters.map((f) => (
               <button type="button"
                 key={f.value}
@@ -338,8 +338,8 @@ export function NotificationsPage() {
                 className={cn(
                   "rounded px-3 py-1.5 text-xs font-semibold transition-colors",
                   filter === f.value
-                    ? "bg-[#4B98CF] text-white"
-                    : "text-[#6B7280] hover:text-[#112b4a]"
+                    ? "bg-[#2563EB] text-white"
+                    : "text-[#64748B] hover:text-[#172554]"
                 )}
               >
                 {f.label}
@@ -353,7 +353,7 @@ export function NotificationsPage() {
               "rounded border px-3 py-1.5 text-xs font-semibold transition-colors",
               criticalOnly
                 ? "border-red-300 bg-red-50 text-red-600"
-                : "border-[#DCE0E2] bg-white text-[#6B7280] hover:text-red-500"
+                : "border-[#E2E8F0] bg-white text-[#64748B] hover:text-red-500"
             )}
           >
             Solo criticas
@@ -361,12 +361,12 @@ export function NotificationsPage() {
         </div>
 
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar notificaciones..."
-            className="h-9 border-[#DDE0E2] bg-[#F8FBFD] pl-9 text-sm"
+            className="h-9 border-[#E2E8F0] bg-[#F8FAFC] pl-9 text-sm"
           />
         </div>
       </div>
@@ -380,8 +380,8 @@ export function NotificationsPage() {
               to={n.link}
               onClick={() => markAsRead(n.id)}
               className={cn(
-                "flex items-start gap-3 rounded border border-[#DCE0E2] bg-white px-4 py-3 transition hover:bg-[#F5F7F9]",
-                !readIds.has(n.id) && !n.read ? "border-l-2 border-l-[#4B98CF]" : ""
+                "flex items-start gap-3 rounded border border-[#E2E8F0] bg-white px-4 py-3 transition hover:bg-[#F8FAFC]",
+                !readIds.has(n.id) && !n.read ? "border-l-2 border-l-[#2563EB]" : ""
               )}
             >
               <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", n.iconBg)}>
@@ -390,27 +390,27 @@ export function NotificationsPage() {
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
-                  <p className={cn("text-sm", !readIds.has(n.id) && !n.read ? "font-bold text-[#112b4a]" : "text-[#112b4a]")}>
+                  <p className={cn("text-sm", !readIds.has(n.id) && !n.read ? "font-bold text-[#172554]" : "text-[#172554]")}>
                     {n.title}
                   </p>
-                  <span className="shrink-0 text-xs text-[#6B7280]">{formatTime(n.time)}</span>
+                  <span className="shrink-0 text-xs text-[#64748B]">{formatTime(n.time)}</span>
                 </div>
-                <p className="mt-0.5 text-xs text-[#6B7280]">{n.detail}</p>
+                <p className="mt-0.5 text-xs text-[#64748B]">{n.detail}</p>
               </div>
 
               <button type="button"
                 onClick={(e) => { e.preventDefault(); clearOne(n.id); }}
-                className="shrink-0 self-center rounded p-1 text-[#6B7280] hover:bg-[#ECEEF0] hover:text-red-500"
+                className="shrink-0 self-center rounded p-1 text-[#64748B] hover:bg-[#E2E8F0] hover:text-red-500"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             </Link>
           ))
         ) : (
-          <div className="flex flex-col items-center justify-center rounded border border-[#DCE0E2] bg-white py-16">
-            <Inbox className="h-10 w-10 text-[#DCE0E2]" />
-            <p className="mt-3 text-sm font-medium text-[#6B7280]">Sin notificaciones</p>
-            <p className="mt-1 text-xs text-[#6B7280]/70">No hay notificaciones que coincidan con el filtro actual.</p>
+          <div className="flex flex-col items-center justify-center rounded border border-[#E2E8F0] bg-white py-16">
+            <Inbox className="h-10 w-10 text-[#E2E8F0]" />
+            <p className="mt-3 text-sm font-medium text-[#64748B]">Sin notificaciones</p>
+            <p className="mt-1 text-xs text-[#64748B]/70">No hay notificaciones que coincidan con el filtro actual.</p>
           </div>
         )}
       </div>

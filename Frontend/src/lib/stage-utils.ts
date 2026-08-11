@@ -1,8 +1,8 @@
 import type { OrderStage, ShipmentStage } from "@/types/domain";
 
 export function badgeColor(stage: string): string {
-  if (stage === "created") return "bg-[#4B98CF]/10 text-[#4B98CF]";
-  if (stage === "en_preparacion") return "bg-[#E3AA75]/10 text-[#E3AA75]";
+  if (stage === "created") return "bg-[#2563EB]/10 text-[#2563EB]";
+  if (stage === "en_preparacion") return "bg-[#D97706]/10 text-[#D97706]";
   if (stage === "en_reparto") return "bg-purple-50 text-purple-600";
   if (stage === "entregado") return "bg-green-50 text-green-600";
   if (stage === "cancelado") return "bg-red-50 text-red-500";
@@ -36,13 +36,13 @@ export function orderStageIndex(stage: OrderStage): number {
 }
 
 export function stageColorDot(index: number, currentIndex: number): string {
-  if (index < currentIndex) return "bg-[#4EB4A5]";
-  if (index === currentIndex) return "bg-[#4B98CF]";
-  return "bg-[#ECEEF0]";
+  if (index < currentIndex) return "bg-[#0D9488]";
+  if (index === currentIndex) return "bg-[#2563EB]";
+  return "bg-[#E2E8F0]";
 }
 
 export function stageConnectorColor(index: number, currentIndex: number): string {
-  return index < currentIndex ? "bg-[#4EB4A5]" : "bg-[#ECEEF0]";
+  return index < currentIndex ? "bg-[#0D9488]" : "bg-[#E2E8F0]";
 }
 
 export function formatRelativeTime(iso: string): string {

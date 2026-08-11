@@ -31,8 +31,8 @@ function Toggle({ checked, disabled, label, onChange }: { checked: boolean; disa
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-7 w-12 shrink-0 rounded-full border-2 border-transparent shadow-inner transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4B98CF] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60",
-        checked ? "bg-[#4B98CF]" : "bg-[#DCE0E2]"
+        "relative h-7 w-12 shrink-0 rounded-full border-2 border-transparent shadow-inner transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60",
+        checked ? "bg-[#2563EB]" : "bg-[#E2E8F0]"
       )}
     >
       <span className={cn(
@@ -109,49 +109,49 @@ export function SettingsPage() {
   return (
     <div className="space-y-4 max-w-sm w-full mx-auto sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
       <div>
-        <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Sistema</p>
-        <h1 className="text-xl font-bold text-[#112b4a]">Configuración</h1>
+        <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Sistema</p>
+        <h1 className="text-xl font-bold text-[#172554]">Configuración</h1>
       </div>
 
-      <div className="rounded border border-[#DCE0E2] bg-white p-5">
+      <div className="rounded border border-[#E2E8F0] bg-white p-5">
         <div className="mb-4 flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-[#4B98CF]" />
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Datos del negocio</p>
+          <Building2 className="h-4 w-4 text-[#2563EB]" />
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Datos del negocio</p>
         </div>
         {businessLoading && !business ? (
-          <p className="text-sm text-[#6B7280]">Cargando...</p>
+          <p className="text-sm text-[#64748B]">Cargando...</p>
         ) : (
           <form onSubmit={handleSaveBusiness} className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <label htmlFor="settings-page-f125" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre del negocio *</label>
+                <label htmlFor="settings-page-f125" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nombre del negocio *</label>
                 <Input id="settings-page-f125" value={businessForm.name} onChange={(e) => setBusinessForm({ ...businessForm, name: e.target.value })} className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label htmlFor="settings-page-f129" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email de contacto</label>
+                <label htmlFor="settings-page-f129" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Email de contacto</label>
                 <Input id="settings-page-f129" type="email" value={businessForm.contactEmail} onChange={(e) => setBusinessForm({ ...businessForm, contactEmail: e.target.value })} className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label htmlFor="settings-page-f133" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT / CUIT</label>
+                <label htmlFor="settings-page-f133" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">RUT / CUIT</label>
                 <Input id="settings-page-f133" value={businessForm.businessRut} onChange={(e) => setBusinessForm({ ...businessForm, businessRut: e.target.value })} placeholder="76.123.456-7" className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label htmlFor="settings-page-f137" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
+                <label htmlFor="settings-page-f137" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Teléfono</label>
                 <Input id="settings-page-f137" value={businessForm.businessPhone} onChange={(e) => setBusinessForm({ ...businessForm, businessPhone: e.target.value })} placeholder="+56912345678" className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label htmlFor="settings-page-f141" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">País</label>
+                <label htmlFor="settings-page-f141" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">País</label>
                 <Input id="settings-page-f141" value={businessForm.businessCountry} onChange={(e) => setBusinessForm({ ...businessForm, businessCountry: e.target.value })} placeholder="Chile" className="h-9 text-sm" />
               </div>
               <div className="space-y-1">
-                <label htmlFor="settings-page-f145" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Rubro</label>
+                <label htmlFor="settings-page-f145" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Rubro</label>
                 <Input id="settings-page-f145" value={businessForm.businessIndustry} onChange={(e) => setBusinessForm({ ...businessForm, businessIndustry: e.target.value })} placeholder="Kiosco, retail, distribución..." className="h-9 text-sm" />
               </div>
             </div>
             {businessError && <p className="text-xs text-red-500">{businessError}</p>}
-            {businessSaved && <p className="text-xs font-semibold text-[#4EB4A5]">Datos guardados correctamente</p>}
+            {businessSaved && <p className="text-xs font-semibold text-[#0D9488]">Datos guardados correctamente</p>}
             <div className="flex justify-end pt-1">
-              <Button type="submit" size="sm" className="flex items-center gap-1.5 bg-[#4B98CF] hover:bg-[#346384] text-white" disabled={businessSaving}>
+              <Button type="submit" size="sm" className="flex items-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={businessSaving}>
                 <Save className="h-3.5 w-3.5" /> {businessSaving ? "Guardando..." : "Guardar cambios"}
               </Button>
             </div>
@@ -159,17 +159,17 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="rounded border border-[#DCE0E2] bg-white p-5">
+      <div className="rounded border border-[#E2E8F0] bg-white p-5">
         <div className="mb-4 flex items-center gap-2">
-          <SlidersHorizontal className="h-4 w-4 text-[#4B98CF]" />
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Opciones del sistema</p>
+          <SlidersHorizontal className="h-4 w-4 text-[#2563EB]" />
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Opciones del sistema</p>
         </div>
-        <div className="divide-y divide-[#F5F7F9]">
+        <div className="divide-y divide-[#F8FAFC]">
           {SYSTEM_TOGGLES.map((toggle) => (
             <div key={toggle.key} className="flex items-center justify-between gap-4 py-4">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#112b4a]">{toggle.label}</p>
-                <p className="mt-0.5 text-xs text-[#6B7280]">{toggle.description}</p>
+                <p className="text-sm font-semibold text-[#172554]">{toggle.label}</p>
+                <p className="mt-0.5 text-xs text-[#64748B]">{toggle.description}</p>
               </div>
               <Toggle
                 checked={Boolean(toggles[toggle.key])}
@@ -180,7 +180,7 @@ export function SettingsPage() {
             </div>
           ))}
         </div>
-        {toggleSaving && <p className="mt-2 text-[10px] text-[#6B7280]">Guardando...</p>}
+        {toggleSaving && <p className="mt-2 text-[10px] text-[#64748B]">Guardando...</p>}
       </div>
     </div>
   );

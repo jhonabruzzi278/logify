@@ -163,8 +163,8 @@ export function UsersPage() {
 
   const roleBadgeColors: Record<Role, string> = {
     owner: "bg-purple-50 text-purple-600",
-    ops: "bg-[#4B98CF]/10 text-[#4B98CF]",
-    warehouse: "bg-[#E3AA75]/10 text-[#E3AA75]",
+    ops: "bg-[#2563EB]/10 text-[#2563EB]",
+    warehouse: "bg-[#D97706]/10 text-[#D97706]",
     support: "bg-blue-50 text-blue-600",
     customer: "bg-slate-50 text-slate-500",
     shipper: "bg-green-50 text-green-600",
@@ -173,8 +173,8 @@ export function UsersPage() {
 
   const roleInitialColors: Record<Role, string> = {
     owner: "bg-purple-500",
-    ops: "bg-[#4B98CF]",
-    warehouse: "bg-[#E3AA75]",
+    ops: "bg-[#2563EB]",
+    warehouse: "bg-[#D97706]",
     support: "bg-blue-500",
     customer: "bg-slate-500",
     shipper: "bg-green-500",
@@ -184,7 +184,7 @@ export function UsersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-[#6B7280]">Cargando usuarios...</p>
+        <p className="text-sm text-[#64748B]">Cargando usuarios...</p>
       </div>
     );
   }
@@ -193,20 +193,20 @@ export function UsersPage() {
     <div className="space-y-4 max-w-md mx-auto sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Administración</p>
-          <h1 className="text-xl font-bold text-[#112b4a]">Usuarios y roles</h1>
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Administración</p>
+          <h1 className="text-xl font-bold text-[#172554]">Usuarios y roles</h1>
         </div>
         <div className="flex gap-2">
           <button type="button"
             onClick={() => { setShowInvite(!showInvite); setShowAdd(false); }}
-            className="flex items-center gap-1.5 rounded border border-[#4B98CF] px-3 py-1.5 text-xs font-bold text-[#4B98CF] hover:bg-[#4B98CF]/5"
+            className="flex items-center gap-1.5 rounded border border-[#2563EB] px-3 py-1.5 text-xs font-bold text-[#2563EB] hover:bg-[#2563EB]/5"
           >
             <Mail className="h-3.5 w-3.5" />
             Invitar
           </button>
           <button type="button"
             onClick={() => { setShowAdd(!showAdd); setShowInvite(false); }}
-            className="flex items-center gap-1.5 rounded bg-[#4B98CF] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#346384]"
+            className="flex items-center gap-1.5 rounded bg-[#2563EB] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1D4ED8]"
           >
             <UserPlus className="h-3.5 w-3.5" />
             Agregar usuario
@@ -215,50 +215,50 @@ export function UsersPage() {
       </div>
 
       {showInvite && (
-        <div className="rounded border border-[#DCE0E2] bg-white p-4">
+        <div className="rounded border border-[#E2E8F0] bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label htmlFor="users-page-f213" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Email</label>
-              <input id="users-page-f213" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="empleado@empresa.com" />
+              <label htmlFor="users-page-f213" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Email</label>
+              <input id="users-page-f213" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="empleado@empresa.com" />
             </div>
             <div>
-              <label htmlFor="users-page-f217" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Rol</label>
-              <select id="users-page-f217" value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as Role })} className="h-9 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-sm">
+              <label htmlFor="users-page-f217" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Rol</label>
+              <select id="users-page-f217" value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as Role })} className="h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 text-sm">
                 {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
               </select>
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={handleInvite} disabled={inviting} className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384] disabled:opacity-50">{inviting ? "Enviando..." : "Enviar invitación"}</button>
-              <button type="button" onClick={() => setShowInvite(false)} className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]">Cancelar</button>
+              <button type="button" onClick={handleInvite} disabled={inviting} className="h-9 rounded bg-[#2563EB] px-4 text-xs font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-50">{inviting ? "Enviando..." : "Enviar invitación"}</button>
+              <button type="button" onClick={() => setShowInvite(false)} className="h-9 rounded border border-[#E2E8F0] px-3 text-xs font-semibold text-[#64748B] hover:bg-[#F8FAFC]">Cancelar</button>
             </div>
           </div>
         </div>
       )}
 
       {showAdd && (
-        <div className="rounded border border-[#DCE0E2] bg-white p-4">
+        <div className="rounded border border-[#E2E8F0] bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label htmlFor="users-page-f234" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Nombre</label>
-              <input id="users-page-f234" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="Nombre completo" />
+              <label htmlFor="users-page-f234" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Nombre</label>
+              <input id="users-page-f234" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="Nombre completo" />
             </div>
             <div className="flex-1">
-              <label htmlFor="users-page-f238" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Usuario</label>
-              <input id="users-page-f238" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="usuario" />
+              <label htmlFor="users-page-f238" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Usuario</label>
+              <input id="users-page-f238" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="usuario" />
             </div>
             <div className="flex-1">
-              <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Contraseña</label>
-              <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm" placeholder="••••••" />
+              <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Contraseña</label>
+              <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="••••••" />
             </div>
             <div>
-              <label htmlFor="users-page-f246" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-1">Rol</label>
-              <select id="users-page-f246" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })} className="h-9 rounded border border-[#DDE0E2] bg-[#F8FBFD] px-2 text-sm">
+              <label htmlFor="users-page-f246" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Rol</label>
+              <select id="users-page-f246" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })} className="h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 text-sm">
                 {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
               </select>
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={handleAddUser} className="h-9 rounded bg-[#4B98CF] px-4 text-xs font-bold text-white hover:bg-[#346384]">Crear</button>
-              <button type="button" onClick={() => setShowAdd(false)} className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]">Cancelar</button>
+              <button type="button" onClick={handleAddUser} className="h-9 rounded bg-[#2563EB] px-4 text-xs font-bold text-white hover:bg-[#1D4ED8]">Crear</button>
+              <button type="button" onClick={() => setShowAdd(false)} className="h-9 rounded border border-[#E2E8F0] px-3 text-xs font-semibold text-[#64748B] hover:bg-[#F8FAFC]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -266,29 +266,29 @@ export function UsersPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar usuario..." className="h-9 w-full rounded border border-[#DDE0E2] bg-white pl-9 pr-3 text-sm outline-none placeholder:text-[#6B7280]" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar usuario..." className="h-9 w-full rounded border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm outline-none placeholder:text-[#64748B]" />
         </div>
-        <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-0.5 overflow-x-auto">
-          <button type="button" onClick={() => setRoleFilter("all")} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", roleFilter === "all" ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>Todos</button>
+        <div className="flex gap-1 rounded border border-[#E2E8F0] bg-white p-0.5 overflow-x-auto">
+          <button type="button" onClick={() => setRoleFilter("all")} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", roleFilter === "all" ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:text-[#172554]")}>Todos</button>
           {ROLES.map((r) => (
-            <button type="button" key={r} onClick={() => setRoleFilter(r)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", roleFilter === r ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>{getRoleProfile(r).label}</button>
+            <button type="button" key={r} onClick={() => setRoleFilter(r)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", roleFilter === r ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:text-[#172554]")}>{getRoleProfile(r).label}</button>
           ))}
         </div>
       </div>
 
       {feedback && (
-        <div className="rounded border border-[#4EB4A5]/30 bg-[#4EB4A5]/5 px-4 py-2 text-xs font-medium text-[#4EB4A5]">{feedback}</div>
+        <div className="rounded border border-[#0D9488]/30 bg-[#0D9488]/5 px-4 py-2 text-xs font-medium text-[#0D9488]">{feedback}</div>
       )}
 
-      <div className="rounded border border-[#DCE0E2] bg-white">
+      <div className="rounded border border-[#E2E8F0] bg-white">
         <div className="block sm:hidden">
           {filtered.length === 0 && (
-            <div className="px-4 py-12 text-center text-xs text-[#6B7280]">Sin usuarios que coincidan</div>
+            <div className="px-4 py-12 text-center text-xs text-[#64748B]">Sin usuarios que coincidan</div>
           )}
           <div className="flex flex-col gap-3 p-3">
             {filtered.map((user) => (
-              <div key={user.id} className="rounded border border-[#ECEEF0] bg-[#F8FBFD] p-4 flex flex-col gap-2">
+              <div key={user.id} className="rounded border border-[#E2E8F0] bg-[#F8FAFC] p-4 flex flex-col gap-2">
                 <div className="flex items-center gap-3">
                   <div className={cn("flex h-10 w-10 items-center justify-center rounded-full text-base font-bold text-white", roleInitialColors[user.role])}>
                     {initials(user.name)}
@@ -300,30 +300,30 @@ export function UsersPage() {
                         value={editDraft?.name ?? ""}
                         onChange={(e) => setEditDraft((draft) => draft ? { ...draft, name: e.target.value } : draft)}
                         onKeyDown={(e) => { if (e.key === "Escape") cancelEditing(); }}
-                        className="h-9 w-full rounded border border-[#4B98CF] bg-white px-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#4B98CF]/20"
+                        className="h-9 w-full rounded border border-[#2563EB] bg-white px-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#2563EB]/20"
                         autoFocus
                       />
                     ) : (
-                      <p className="font-semibold text-[#112b4a]">{user.name}</p>
+                      <p className="font-semibold text-[#172554]">{user.name}</p>
                     )}
-                    <p className="text-xs text-[#6B7280]">{user.username}</p>
+                    <p className="text-xs text-[#64748B]">{user.username}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleDelete(user)}
                     disabled={user.username === session?.username}
                     title={user.username === session?.username ? "No puedes eliminar tu propia cuenta" : "Eliminar usuario"}
-                    className="rounded p-1 text-[#6B7280] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[#6B7280]"
+                    className="rounded p-1 text-[#64748B] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[#64748B]"
                   ><Trash2 className="h-4 w-4" /></button>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs text-[#6B7280]">
-                  <span className="font-semibold text-[#4B98CF]">{getRoleProfile(user.role).label}</span>
+                <div className="flex flex-wrap gap-2 text-xs text-[#64748B]">
+                  <span className="font-semibold text-[#2563EB]">{getRoleProfile(user.role).label}</span>
                   <span>Último acceso: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString("es-CL") : "Nunca"}</span>
                 </div>
                 <div className="flex gap-2 mt-2">
                   <button type="button"
                     onClick={() => startEditing(user)}
-                    className={cn("inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-bold group border border-[#4B98CF] text-[#4B98CF]", editingUser === user.id && "bg-[#4B98CF]/10")}
+                    className={cn("inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-bold group border border-[#2563EB] text-[#2563EB]", editingUser === user.id && "bg-[#2563EB]/10")}
                   >
                     Editar
                   </button>
@@ -334,12 +334,12 @@ export function UsersPage() {
                       aria-label={`Rol de ${user.username}`}
                       value={editDraft?.role ?? user.role}
                       onChange={(e) => setEditDraft((draft) => draft ? { ...draft, role: e.target.value as Role } : draft)}
-                      className="h-9 flex-1 rounded border border-[#4B98CF] bg-white px-2 text-xs"
+                      className="h-9 flex-1 rounded border border-[#2563EB] bg-white px-2 text-xs"
                     >
                       {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
                     </select>
-                    <button type="button" onClick={() => handleSaveUser(user)} disabled={editSaving} className="inline-flex h-9 items-center gap-1 rounded bg-[#4B98CF] px-3 text-xs font-bold text-white disabled:opacity-50"><Check className="h-3.5 w-3.5" /> Guardar</button>
-                    <button type="button" aria-label="Cancelar edición" onClick={cancelEditing} className="h-9 rounded border border-[#DCE0E2] px-2 text-[#6B7280] hover:text-[#112b4a]"><X className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => handleSaveUser(user)} disabled={editSaving} className="inline-flex h-9 items-center gap-1 rounded bg-[#2563EB] px-3 text-xs font-bold text-white disabled:opacity-50"><Check className="h-3.5 w-3.5" /> Guardar</button>
+                    <button type="button" aria-label="Cancelar edición" onClick={cancelEditing} className="h-9 rounded border border-[#E2E8F0] px-2 text-[#64748B] hover:text-[#172554]"><X className="h-3.5 w-3.5" /></button>
                   </div>
                 )}
               </div>
@@ -349,7 +349,7 @@ export function UsersPage() {
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-[#ECEEF0] text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">
+              <tr className="border-b border-[#E2E8F0] text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">
                 <th className="px-4 py-3 w-10"></th>
                 <th className="px-4 py-3">Usuario</th>
                 <th className="px-4 py-3">Rol</th>
@@ -360,7 +360,7 @@ export function UsersPage() {
             </thead>
             <tbody>
               {filtered.map((user) => (
-                <tr key={user.id} className="border-b border-[#F5F7F9] hover:bg-[#F5F7F9]">
+                <tr key={user.id} className="border-b border-[#F8FAFC] hover:bg-[#F8FAFC]">
                   <td className="px-4 py-3">
                     <div className={cn("flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white", roleInitialColors[user.role])}>
                       {initials(user.name)}
@@ -373,7 +373,7 @@ export function UsersPage() {
                         value={editDraft?.name ?? ""}
                         onChange={(e) => setEditDraft((draft) => draft ? { ...draft, name: e.target.value } : draft)}
                         onKeyDown={(e) => { if (e.key === "Enter") handleSaveUser(user); if (e.key === "Escape") cancelEditing(); }}
-                        className="h-9 w-full rounded border border-[#4B98CF] bg-white px-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#4B98CF]/20"
+                        className="h-9 w-full rounded border border-[#2563EB] bg-white px-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#2563EB]/20"
                         autoFocus
                       />
                     ) : (
@@ -381,11 +381,11 @@ export function UsersPage() {
                         <p
                           role="button"
                           tabIndex={0}
-                          className="font-semibold text-[#112b4a] cursor-pointer hover:text-[#4B98CF]"
+                          className="font-semibold text-[#172554] cursor-pointer hover:text-[#2563EB]"
                           onClick={() => startEditing(user)}
                           onKeyDown={onActivateKey(() => startEditing(user))}
                         >{user.name}</p>
-                        <p className="text-xs text-[#6B7280]">{user.username}</p>
+                        <p className="text-xs text-[#64748B]">{user.username}</p>
                       </>
                     )}
                   </td>
@@ -396,12 +396,12 @@ export function UsersPage() {
                           aria-label={`Rol de ${user.username}`}
                           value={editDraft?.role ?? user.role}
                           onChange={(e) => setEditDraft((draft) => draft ? { ...draft, role: e.target.value as Role } : draft)}
-                          className="h-9 min-w-32 rounded border border-[#4B98CF] bg-white px-2 text-xs"
+                          className="h-9 min-w-32 rounded border border-[#2563EB] bg-white px-2 text-xs"
                         >
                           {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
                         </select>
-                        <button type="button" aria-label="Guardar usuario" onClick={() => handleSaveUser(user)} disabled={editSaving} className="inline-flex h-9 w-9 items-center justify-center rounded bg-[#4B98CF] text-white disabled:opacity-50"><Check className="h-4 w-4" /></button>
-                        <button type="button" aria-label="Cancelar edición" onClick={cancelEditing} className="inline-flex h-9 w-9 items-center justify-center rounded border border-[#DCE0E2] text-[#6B7280] hover:text-[#112b4a]"><X className="h-4 w-4" /></button>
+                        <button type="button" aria-label="Guardar usuario" onClick={() => handleSaveUser(user)} disabled={editSaving} className="inline-flex h-9 w-9 items-center justify-center rounded bg-[#2563EB] text-white disabled:opacity-50"><Check className="h-4 w-4" /></button>
+                        <button type="button" aria-label="Cancelar edición" onClick={cancelEditing} className="inline-flex h-9 w-9 items-center justify-center rounded border border-[#E2E8F0] text-[#64748B] hover:text-[#172554]"><X className="h-4 w-4" /></button>
                       </div>
                     ) : (
                       <button type="button"
@@ -413,10 +413,10 @@ export function UsersPage() {
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[#6B7280] hidden md:table-cell">
+                  <td className="px-4 py-3 text-xs text-[#64748B] hidden md:table-cell">
                     {user.created_at ? new Date(user.created_at).toLocaleDateString("es-CL") : "-"}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[#6B7280] hidden md:table-cell">
+                  <td className="px-4 py-3 text-xs text-[#64748B] hidden md:table-cell">
                     {user.last_login_at ? new Date(user.last_login_at).toLocaleString("es-CL") : "Nunca"}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -425,32 +425,32 @@ export function UsersPage() {
                     onClick={() => handleDelete(user)}
                     disabled={user.username === session?.username}
                     title={user.username === session?.username ? "No puedes eliminar tu propia cuenta" : "Eliminar usuario"}
-                    className="rounded p-1 text-[#6B7280] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[#6B7280]"
+                    className="rounded p-1 text-[#64748B] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[#64748B]"
                   ><Trash2 className="h-4 w-4" /></button>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-xs text-[#6B7280]">Sin usuarios que coincidan</td></tr>
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-xs text-[#64748B]">Sin usuarios que coincidan</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      <div className="rounded border border-[#DCE0E2] bg-white">
+      <div className="rounded border border-[#E2E8F0] bg-white">
         <button type="button" onClick={() => setShowMatrix(!showMatrix)} className="flex w-full items-center justify-between px-4 py-3 text-left">
-          <h2 className="text-sm font-bold text-[#112b4a]">Matriz de permisos por rol</h2>
-          <ChevronDown className={cn("h-4 w-4 text-[#6B7280] transition-transform", showMatrix && "rotate-180")} />
+          <h2 className="text-sm font-bold text-[#172554]">Matriz de permisos por rol</h2>
+          <ChevronDown className={cn("h-4 w-4 text-[#64748B] transition-transform", showMatrix && "rotate-180")} />
         </button>
         {showMatrix && (
-          <div className="overflow-x-auto border-t border-[#ECEEF0] p-4">
+          <div className="overflow-x-auto border-t border-[#E2E8F0] p-4">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-[#ECEEF0]">
-                  <th className="py-2 pr-4 font-bold text-[#112b4a] text-left">Permiso</th>
+                <tr className="border-b border-[#E2E8F0]">
+                  <th className="py-2 pr-4 font-bold text-[#172554] text-left">Permiso</th>
                   {ROLES.map((r) => (
-                    <th key={r} className="py-2 px-3 text-center font-bold text-[#112b4a]">
+                    <th key={r} className="py-2 px-3 text-center font-bold text-[#172554]">
                       {getRoleProfile(r).label}
                     </th>
                   ))}
@@ -480,16 +480,16 @@ export function UsersPage() {
                   { perm: "Configuracion del negocio", key: "settings.manage" },
                   { perm: "Vaciar notificaciones", key: "notifications.manage" },
                 ].map(({ perm, key }) => (
-                  <tr key={key} className="border-b border-[#F5F7F9]">
-                    <td className="py-2 pr-4 font-medium text-[#112b4a]">{perm}</td>
+                  <tr key={key} className="border-b border-[#F8FAFC]">
+                    <td className="py-2 pr-4 font-medium text-[#172554]">{perm}</td>
                     {ROLES.map((r) => {
                       const has = getRoleProfile(r).permissions.includes(key as any);
                       return (
                         <td key={r} className="py-2 px-3 text-center">
                           {has ? (
-                            <Check className="mx-auto h-4 w-4 text-[#4EB4A5]" />
+                            <Check className="mx-auto h-4 w-4 text-[#0D9488]" />
                           ) : (
-                            <span className="text-[#DCE0E2]">-</span>
+                            <span className="text-[#E2E8F0]">-</span>
                           )}
                         </td>
                       );
@@ -504,20 +504,20 @@ export function UsersPage() {
 
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-lg border border-[#DCE0E2] bg-white p-5 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg border border-[#E2E8F0] bg-white p-5 shadow-xl">
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
                 <AlertTriangle className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-[#112b4a]">Eliminar usuario</h3>
-                <p className="mt-1 text-xs text-[#6B7280]">
-                  Vas a eliminar a <strong className="text-[#112b4a]">{deleteTarget.name}</strong> ({deleteTarget.username}).
+                <h3 className="text-sm font-bold text-[#172554]">Eliminar usuario</h3>
+                <p className="mt-1 text-xs text-[#64748B]">
+                  Vas a eliminar a <strong className="text-[#172554]">{deleteTarget.name}</strong> ({deleteTarget.username}).
                   Esta acción es irreversible y no se puede deshacer.
                 </p>
               </div>
             </div>
-            <label className="mt-4 block text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">
+            <label className="mt-4 block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">
               Escribe <span className="font-mono normal-case text-red-500">{deleteTarget.username}</span> para confirmar
             </label>
             <input
@@ -525,14 +525,14 @@ export function UsersPage() {
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && deleteConfirmText.trim() === deleteTarget.username) confirmDelete(); }}
-              className="mt-1.5 h-9 w-full rounded border border-[#DDE0E2] bg-[#F8FBFD] px-3 text-sm outline-none focus:border-red-400"
+              className="mt-1.5 h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm outline-none focus:border-red-400"
               placeholder={deleteTarget.username}
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="h-9 rounded border border-[#DCE0E2] px-3 text-xs font-semibold text-[#6B7280] hover:bg-[#F5F7F9]"
+                className="h-9 rounded border border-[#E2E8F0] px-3 text-xs font-semibold text-[#64748B] hover:bg-[#F8FAFC]"
               >
                 Cancelar
               </button>

@@ -27,16 +27,16 @@ function MobileNavItem({ path, label, icon: Icon }: { path: string; label: strin
       to={path}
       className={cn(
         "flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-semibold transition-colors flex-1",
-        isActive ? "text-[#4B98CF]" : "text-muted-foreground"
+        isActive ? "text-[#2563EB]" : "text-muted-foreground"
       )}
     >
       <div
         className={cn(
           "flex h-[26px] w-[26px] items-center justify-center rounded-md transition-colors",
-          isActive ? "bg-[#4B98CF]/10" : ""
+          isActive ? "bg-[#2563EB]/10" : ""
         )}
       >
-        <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-[#4B98CF]" : "")} />
+        <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-[#2563EB]" : "")} />
       </div>
       <span className="text-center leading-tight">{label}</span>
     </NavLink>

@@ -106,19 +106,19 @@ export function PurchasesPage() {
     <div className="space-y-4 max-w-sm w-full mx-auto sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Compras</p>
-          <h1 className="text-xl font-bold text-[#112b4a]">Compras a proveedor</h1>
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Compras</p>
+          <h1 className="text-xl font-bold text-[#172554]">Compras a proveedor</h1>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={dialogOpen} onOpenChange={closeDialog}>
-            <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><Plus className="h-3.5 w-3.5" />Nueva compra</Button>} />
+            <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white"><Plus className="h-3.5 w-3.5" />Nueva compra</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
                 <DialogTitle>Registrar compra</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="relative space-y-1" ref={productDropdownRef}>
-                  <label htmlFor="purchases-page-f121" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Producto *</label>
+                  <label htmlFor="purchases-page-f121" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Producto *</label>
                   <div className="relative">
                     <Package className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input id="purchases-page-f121"
@@ -130,19 +130,19 @@ export function PurchasesPage() {
                     />
                   </div>
                   {showProductDropdown && !selectedProduct && (
-                    <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded border border-[#DCE0E2] bg-white shadow-lg">
-                      {filteredProducts.length === 0 && <p className="px-3 py-2 text-xs text-[#6B7280]">Sin resultados</p>}
+                    <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded border border-[#E2E8F0] bg-white shadow-lg">
+                      {filteredProducts.length === 0 && <p className="px-3 py-2 text-xs text-[#64748B]">Sin resultados</p>}
                       {filteredProducts.map((p) => (
                         <button
                           key={p.sku}
                           type="button"
                           onClick={() => { setSelectedProduct(p); setForm({ ...form, productSearch: p.name }); setShowProductDropdown(false); }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[#F5F7F9]"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[#F8FAFC]"
                         >
-                          <Package className="h-3.5 w-3.5 shrink-0 text-[#4B98CF]" />
+                          <Package className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
                           <div className="min-w-0">
                             <p className="truncate font-medium">{p.name}</p>
-                            <p className="text-[10px] text-[#6B7280]">{p.sku} · stock {p.stock}</p>
+                            <p className="text-[10px] text-[#64748B]">{p.sku} · stock {p.stock}</p>
                           </div>
                         </button>
                       ))}
@@ -151,7 +151,7 @@ export function PurchasesPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="purchases-page-f154" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
+                  <label htmlFor="purchases-page-f154" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Proveedor</label>
                   <Select value={form.supplierId || "none"} onValueChange={(v) => setForm({ ...form, supplierId: v === "none" ? "" : v })}>
                     <SelectTrigger id="purchases-page-f154" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -163,41 +163,41 @@ export function PurchasesPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label htmlFor="purchases-page-f166" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Costo unitario *</label>
+                    <label htmlFor="purchases-page-f166" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Costo unitario *</label>
                     <Input id="purchases-page-f166" type="number" min="0" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} placeholder="1500" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label htmlFor="purchases-page-f170" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Cantidad *</label>
+                    <label htmlFor="purchases-page-f170" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Cantidad *</label>
                     <Input id="purchases-page-f170" type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="10" className="h-9 text-sm" />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="purchases-page-f176" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Fecha</label>
+                  <label htmlFor="purchases-page-f176" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Fecha</label>
                   <Input id="purchases-page-f176" type="date" value={form.purchasedAt} onChange={(e) => setForm({ ...form, purchasedAt: e.target.value })} className="h-9 text-sm" />
                 </div>
 
-                <label className="flex items-center gap-2 rounded border border-[#DCE0E2] bg-[#F8FBFD] px-3 py-2.5">
+                <label className="flex items-center gap-2 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5">
                   <input type="checkbox" checked={form.updatePrices} onChange={(e) => setForm({ ...form, updatePrices: e.target.checked })} className="h-4 w-4" />
-                  <span className="text-xs text-[#112b4a]">
+                  <span className="text-xs text-[#172554]">
                     <span className="font-semibold">Actualizar precios de venta</span> — usa el costo de esta compra como nuevo costo del producto.
                   </span>
                 </label>
 
-                <div className="flex items-center justify-between rounded bg-[#4B98CF]/10 px-3 py-2.5">
-                  <span className="text-sm font-bold text-[#112b4a]">Subtotal</span>
-                  <span className="text-lg font-bold text-[#4B98CF]">{formatCurrency(subtotal)}</span>
+                <div className="flex items-center justify-between rounded bg-[#2563EB]/10 px-3 py-2.5">
+                  <span className="text-sm font-bold text-[#172554]">Subtotal</span>
+                  <span className="text-lg font-bold text-[#2563EB]">{formatCurrency(subtotal)}</span>
                 </div>
 
                 {formError && <p className="text-xs text-red-500">{formError}</p>}
                 <div className="flex justify-end gap-2 pt-1">
                   <Button type="button" variant="outline" size="sm" onClick={() => closeDialog(false)}>Cancelar</Button>
-                  <Button type="submit" size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" disabled={saving}>{saving ? "Registrando..." : "Registrar compra"}</Button>
+                  <Button type="submit" size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={saving}>{saving ? "Registrando..." : "Registrar compra"}</Button>
                 </div>
               </form>
             </DialogContent>
           </Dialog>
-          <span className="text-xs text-[#6B7280]">{purchases?.length ?? 0} compras</span>
+          <span className="text-xs text-[#64748B]">{purchases?.length ?? 0} compras</span>
         </div>
       </div>
 
@@ -211,11 +211,11 @@ export function PurchasesPage() {
         />
       </div>
 
-      <div className="overflow-hidden rounded border border-[#DCE0E2] bg-white">
+      <div className="overflow-hidden rounded border border-[#E2E8F0] bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-[#ECEEF0] text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">
+              <tr className="border-b border-[#E2E8F0] text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">
                 <th className="px-4 py-2.5">Producto</th>
                 <th className="px-4 py-2.5 hidden sm:table-cell">Fecha</th>
                 <th className="px-4 py-2.5 hidden sm:table-cell">Unidad</th>
@@ -227,25 +227,25 @@ export function PurchasesPage() {
             </thead>
             <tbody>
               {(purchases ?? []).map((p) => (
-                <tr key={p.id} className="border-b border-[#F5F7F9] hover:bg-[#F5F7F9]">
+                <tr key={p.id} className="border-b border-[#F8FAFC] hover:bg-[#F8FAFC]">
                   <td className="px-4 py-2.5">
-                    <p className="font-bold text-[#112b4a]">{p.productName}</p>
-                    <p className="text-[10px] text-[#6B7280]">{p.sku} · {p.supplierName || "Sin proveedor asignado"}</p>
+                    <p className="font-bold text-[#172554]">{p.productName}</p>
+                    <p className="text-[10px] text-[#64748B]">{p.sku} · {p.supplierName || "Sin proveedor asignado"}</p>
                   </td>
-                  <td className="hidden px-4 py-2.5 text-xs text-[#6B7280] sm:table-cell">{new Date(p.purchasedAt).toLocaleDateString("es-CL")}</td>
-                  <td className="hidden px-4 py-2.5 text-xs text-[#6B7280] sm:table-cell">{p.unitOfMeasure}</td>
+                  <td className="hidden px-4 py-2.5 text-xs text-[#64748B] sm:table-cell">{new Date(p.purchasedAt).toLocaleDateString("es-CL")}</td>
+                  <td className="hidden px-4 py-2.5 text-xs text-[#64748B] sm:table-cell">{p.unitOfMeasure}</td>
                   <td className="px-4 py-2.5">{formatCurrency(p.unitCost)}</td>
                   <td className="px-4 py-2.5">{p.quantity}</td>
                   <td className="px-4 py-2.5 font-bold">{formatCurrency(p.subtotal)}</td>
-                  <td className="hidden px-4 py-2.5 text-xs text-[#6B7280] sm:table-cell">{p.createdBy ?? "-"}</td>
+                  <td className="hidden px-4 py-2.5 text-xs text-[#64748B] sm:table-cell">{p.createdBy ?? "-"}</td>
                 </tr>
               ))}
               {(purchases ?? []).length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-16 text-center">
-                    <ShoppingBag className="mx-auto h-10 w-10 text-[#DCE0E2]" />
-                    <p className="mt-3 text-sm font-medium text-[#6B7280]">Sin compras registradas</p>
-                    <p className="mt-1 text-xs text-[#6B7280]/70">Registra tu primera compra para reponer stock.</p>
+                    <ShoppingBag className="mx-auto h-10 w-10 text-[#E2E8F0]" />
+                    <p className="mt-3 text-sm font-medium text-[#64748B]">Sin compras registradas</p>
+                    <p className="mt-1 text-xs text-[#64748B]/70">Registra tu primera compra para reponer stock.</p>
                   </td>
                 </tr>
               )}

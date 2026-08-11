@@ -11,13 +11,10 @@ export function Sidebar({ role }: { role: Role }) {
   const homePath = getDefaultPathForRole(role);
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col overflow-hidden bg-[#1A3142] text-white lg:flex">
+    <aside className="hidden w-64 shrink-0 flex-col overflow-hidden bg-[#172554] text-white lg:flex">
       <div className="shrink-0 px-5 py-6">
         <Link to={homePath} className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-white/10">
-            <span className="text-base font-bold text-white">S</span>
-          </div>
-          <p className="text-base font-bold text-white">Logify</p>
+          <p className="text-lg font-bold tracking-tight text-white">Logify</p>
         </Link>
       </div>
 
@@ -30,7 +27,7 @@ export function Sidebar({ role }: { role: Role }) {
               cn(
                 "flex items-center gap-3 rounded px-3 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
                 isActive
-                  ? "bg-[#4B98CF] text-white"
+                  ? "bg-[#2563EB] text-white"
                   : "text-white/70 hover:bg-white/10 hover:text-white"
               )
             }

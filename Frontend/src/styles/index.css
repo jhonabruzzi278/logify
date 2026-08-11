@@ -7,41 +7,41 @@
 @tailwind utilities;
 
 :root {
-  --background: 208 44% 97%;
-  --foreground: 212 64% 18%;
+  --background: 210 40% 98%;
+  --foreground: 222.2 84% 4.9%;
   --card: 0 0% 100%;
-  --card-foreground: 212 64% 18%;
+  --card-foreground: 222.2 84% 4.9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 212 64% 18%;
-  --primary: 205 55% 55%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 221.2 83.2% 53.3%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 208 50% 21%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 210 14% 90%;
-  --muted-foreground: 212 17% 55%;
-  --accent: 205 55% 90%;
-  --accent-foreground: 205 55% 25%;
-  --destructive: 0 72% 51%;
+  --secondary: 226.2 57% 21%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 254.9 91.7% 95.5%;
+  --accent-foreground: 263 70% 40%;
+  --destructive: 0 72.2% 50.6%;
   --destructive-foreground: 0 0% 100%;
-  --border: 210 14% 86%;
-  --input: 208 50% 97%;
-  --ring: 205 55% 55%;
-  --warning: 30 65% 68%;
-  --success: 168 43% 51%;
-  --info: 205 55% 55%;
-  --danger: 0 72% 51%;
-  --success-ink: 168 60% 24%;
-  --warning-ink: 30 70% 25%;
-  --info-ink: 205 55% 30%;
-  --danger-ink: 0 70% 30%;
-  --sidebar: 212 64% 18%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-primary: 205 55% 55%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --warning: 32.1 94.6% 43.7%;
+  --success: 160.1 84.1% 39.4%;
+  --info: 221.2 83.2% 53.3%;
+  --danger: 0 72.2% 50.6%;
+  --success-ink: 158 64% 24%;
+  --warning-ink: 26 76% 27%;
+  --info-ink: 224.3 76.3% 33%;
+  --danger-ink: 0 65% 33%;
+  --sidebar: 226.2 57% 21%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 217.2 91.2% 59.8%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 208 55% 25%;
+  --sidebar-accent: 224.3 76.3% 33%;
   --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-border: 208 55% 25%;
-  --sidebar-ring: 205 55% 55%;
+  --sidebar-border: 226 45% 28%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
   --radius: 0.375rem;
   --radius-sm: calc(var(--radius) - 0.125rem);
   --radius-md: var(--radius);
@@ -89,7 +89,7 @@ body {
 }
 
 ::selection {
-  background: rgba(75, 152, 207, 0.18);
+  background: hsl(var(--primary) / 0.18);
 }
 
 @layer base {
@@ -136,7 +136,7 @@ body {
   }
 
   .btn-touch-primary {
-    @apply btn-touch bg-[#4B98CF] text-white hover:bg-[#346384] active:scale-[0.98];
+    @apply btn-touch bg-primary text-primary-foreground hover:bg-[#1D4ED8] active:scale-[0.98];
   }
 
   .btn-touch-outline {

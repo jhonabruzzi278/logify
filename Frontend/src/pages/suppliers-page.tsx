@@ -76,48 +76,48 @@ export function SuppliersPage() {
     <div className="space-y-4 max-w-sm w-full mx-auto sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Proveedores</p>
-          <h1 className="text-xl font-bold text-[#112b4a]">Gestión de proveedores</h1>
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Proveedores</p>
+          <h1 className="text-xl font-bold text-[#172554]">Gestión de proveedores</h1>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={dialogOpen} onOpenChange={closeDialog}>
-            <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#4B98CF] hover:bg-[#346384] text-white"><Plus className="h-3.5 w-3.5" />Nuevo proveedor</Button>} />
+            <DialogTrigger render={<Button className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white"><Plus className="h-3.5 w-3.5" />Nuevo proveedor</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
                 <DialogTitle>{editSupplier ? "Editar proveedor" : "Nuevo proveedor"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="space-y-1">
-                  <label htmlFor="suppliers-page-f91" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre *</label>
+                  <label htmlFor="suppliers-page-f91" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nombre *</label>
                   <Input id="suppliers-page-f91" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Distribuidora Andes" className="h-9 text-sm" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label htmlFor="suppliers-page-f96" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">RUT</label>
+                    <label htmlFor="suppliers-page-f96" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">RUT</label>
                     <Input id="suppliers-page-f96" value={form.rut} onChange={(e) => setForm({ ...form, rut: e.target.value })} placeholder="76.123.456-7" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
-                    <label htmlFor="suppliers-page-f100" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Teléfono</label>
+                    <label htmlFor="suppliers-page-f100" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Teléfono</label>
                     <Input id="suppliers-page-f100" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+56912345678" className="h-9 text-sm" />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label htmlFor="suppliers-page-f105" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Email</label>
+                  <label htmlFor="suppliers-page-f105" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Email</label>
                   <Input id="suppliers-page-f105" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ventas@proveedor.cl" className="h-9 text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <label htmlFor="suppliers-page-f109" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Dirección</label>
+                  <label htmlFor="suppliers-page-f109" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Dirección</label>
                   <Input id="suppliers-page-f109" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Ruta 5 Km 10" className="h-9 text-sm" />
                 </div>
                 {formError && <p className="text-xs text-red-500">{formError}</p>}
                 <div className="flex justify-end gap-2 pt-1">
                   <Button type="button" variant="outline" size="sm" onClick={() => closeDialog(false)}>Cancelar</Button>
-                  <Button type="submit" size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+                  <Button type="submit" size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
                 </div>
               </form>
             </DialogContent>
           </Dialog>
-          <span className="text-xs text-[#6B7280]">{filtered.length} proveedores</span>
+          <span className="text-xs text-[#64748B]">{filtered.length} proveedores</span>
         </div>
       </div>
 
@@ -133,22 +133,22 @@ export function SuppliersPage() {
 
       <div className="space-y-2">
         {filtered.map((supplier) => (
-          <div key={supplier.id} className="rounded border border-[#DCE0E2] bg-white p-4">
+          <div key={supplier.id} className="rounded border border-[#E2E8F0] bg-white p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4B98CF]/10">
-                <Building2 className="h-5 w-5 text-[#4B98CF]" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10">
+                <Building2 className="h-5 w-5 text-[#2563EB]" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-[#112b4a]">{supplier.name}</p>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#6B7280] mt-0.5">
-                  {supplier.rut && <span className="font-mono font-semibold text-[#112b4a]">RUT {supplier.rut}</span>}
+                <p className="text-sm font-bold text-[#172554]">{supplier.name}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#64748B] mt-0.5">
+                  {supplier.rut && <span className="font-mono font-semibold text-[#172554]">RUT {supplier.rut}</span>}
                   {supplier.phone && <span>{supplier.phone}</span>}
                   {supplier.email && <span>{supplier.email}</span>}
                   {supplier.address && <span className="truncate">{supplier.address}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <button type="button" onClick={() => openEdit(supplier)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-[#4B98CF] hover:bg-[#4B98CF]/5 active:scale-[0.95] transition-colors" title="Editar">
+                <button type="button" onClick={() => openEdit(supplier)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-[#2563EB] hover:bg-[#2563EB]/5 active:scale-[0.95] transition-colors" title="Editar">
                   <Pencil className="h-4 w-4" />
                 </button>
                 <button type="button" onClick={() => handleDelete(supplier.id)} className="inline-flex items-center justify-center rounded-lg border border-border min-h-[36px] min-w-[36px] text-red-400 hover:bg-red-50 hover:text-red-600 active:scale-[0.95] transition-colors" title="Eliminar">
@@ -159,10 +159,10 @@ export function SuppliersPage() {
           </div>
         ))}
         {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded border border-[#DCE0E2] bg-white py-16">
-            <Building2 className="h-10 w-10 text-[#DCE0E2]" />
-            <p className="mt-3 text-sm font-medium text-[#6B7280]">Sin proveedores</p>
-            <p className="mt-1 text-xs text-[#6B7280]/70">Agrega tu primer proveedor para comenzar.</p>
+          <div className="flex flex-col items-center justify-center rounded border border-[#E2E8F0] bg-white py-16">
+            <Building2 className="h-10 w-10 text-[#E2E8F0]" />
+            <p className="mt-3 text-sm font-medium text-[#64748B]">Sin proveedores</p>
+            <p className="mt-1 text-xs text-[#64748B]/70">Agrega tu primer proveedor para comenzar.</p>
           </div>
         )}
       </div>

@@ -52,7 +52,7 @@ export function AppShell() {
           onKeyDown={onEscapeKey(() => setOpen(false))}
         >
           <div className="absolute inset-0 bg-black/50" />
-          <div role="dialog" aria-modal="true" aria-label="Navegación" className="absolute left-0 top-0 h-full w-64 overflow-y-auto bg-[#1A3142] p-4 pt-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label="Navegación" className="absolute left-0 top-0 h-full w-64 overflow-y-auto bg-[#172554] p-4 pt-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-6 flex items-center justify-between">
               <p className="text-sm font-bold text-white">Navegacion</p>
               <button type="button" onClick={() => setOpen(false)} className="text-white/60 hover:text-white">
@@ -69,7 +69,7 @@ export function AppShell() {
                   onClick={() => setOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded px-3 py-2.5 text-sm font-semibold transition-colors ${
-                      isActive ? "bg-[#4B98CF] text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                      isActive ? "bg-[#2563EB] text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
                     }`
                   }
                 >
