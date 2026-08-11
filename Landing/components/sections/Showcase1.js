@@ -30,11 +30,11 @@ export default function Showcase1() {
 
                     <div className="lg:col-span-2 flex flex-col gap-5">
                         <div className="rounded-2xl bg-canvas-3 border border-canvas-border overflow-hidden hover:border-tint/20 transition-colors flex-1">
-                            <div className="aspect-[3/2]">
+                            <div className="aspect-[3/4]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                     src="/assets/imgs/mockups/phone-dashboard.jpg"
-                                    alt="Panel de Logify abierto en celular, mostrando indicadores de ventas"
+                                    alt="Dashboard de Logify en celular, con ventas del día, ganancia estimada y ventas recientes"
                                     className="w-full h-full object-cover"
                                     loading="lazy"
                                 />
