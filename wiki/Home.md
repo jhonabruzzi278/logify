@@ -18,6 +18,7 @@ Plataforma de gestión logística basada en microservicios.
 | [[Frontend]] | Páginas, hooks, PWA |
 | [[Pruebas]] | Tests unitarios y cobertura |
 | [[Multi-Tenant]] | Arquitectura SaaS, portal central y aislamiento por tenant |
+| [[Versionado]] | SemVer, Conventional Commits, releases automáticas y licencia |
 
 ---
 
@@ -52,3 +53,7 @@ comerciales" del [README](../README.md).
 - **Producción:** `logify.cl` (Landing), `app.logify.cl` (portal central),
   `<empresa>.logify.cl` (aplicación), `api.logify.cl` (API) y
   `status.logify.cl` (monitoreo)
+- **Versión:** ver [CHANGELOG.md](../CHANGELOG.md) y [[Versionado]]
+  (SemVer + Conventional Commits, releases automáticas con release-please)
+- **Licencia:** software propietario — ver [LICENSE](../LICENSE). Todos los
+  derechos reservados.
