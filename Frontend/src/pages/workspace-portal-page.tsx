@@ -3,6 +3,8 @@ import { ArrowRight, Building2, KeyRound, LifeBuoy, ShieldCheck } from "lucide-r
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildTenantUrl, normalizeTenantSlug } from "@/lib/tenant-navigation";
+import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
+import { Logo } from "@/components/common/logo";
 
 interface WorkspacePortalPageProps {
   destination?: "/login" | "/forgot-password";
@@ -39,8 +41,8 @@ export function WorkspacePortalPage({ destination = "/login" }: WorkspacePortalP
           />
 
           <div className="relative z-10">
-            <span className="text-xl font-bold tracking-tight">Logify</span>
-            <p className="mt-0.5 text-xs text-[#64748B]">Portal central de acceso</p>
+            <Logo variant="light" />
+            <p className="mt-1.5 text-xs text-[#94A3B8]">Portal central de acceso</p>
 
             <span className="mt-8 inline-flex items-center rounded-full border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-3 py-1 text-xs font-semibold tracking-wide text-[#C4B5FD]">
               Identificación de empresa
@@ -114,6 +116,7 @@ export function WorkspacePortalPage({ destination = "/login" }: WorkspacePortalP
           </div>
         </section>
       </div>
+      <SupportWhatsappButton variant="mono" />
     </main>
   );
 }

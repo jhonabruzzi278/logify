@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { buildTenantUrl } from "@/lib/tenant-navigation";
+import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
+import { Logo } from "@/components/common/logo";
 
 export function InvitePage() {
   useDocumentMeta({ title: "Aceptar invitación" });
@@ -50,7 +52,7 @@ export function InvitePage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center gap-3">
-          <span className="text-xl font-bold tracking-tight text-foreground">Logify</span>
+          <Logo variant="brand" />
         </div>
 
         <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
@@ -153,6 +155,7 @@ export function InvitePage() {
           </p>
         ) : null}
       </div>
+      <SupportWhatsappButton variant="mono" />
     </div>
   );
 }
