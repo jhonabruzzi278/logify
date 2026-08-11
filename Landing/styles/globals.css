@@ -1,23 +1,24 @@
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  /* Cold Winter palette: https://colorhunt.co/palette/efece38fabd44a70a9000000
-     + a soft periwinkle purple used sparingly for border/edge accents. */
-  --color-brand-1: #8FABD4;
+  /* Palette aligned with the Logify app (Frontend/src/styles/index.css):
+     primary blue-600, blue-950 secondary, violet accent, emerald/amber/red status colors. */
+  --color-brand-1: #2563EB;
   --color-brand-2: #000000;
-  --color-brand-3: #4A70A9;
-  --color-brand-4: #8FABD4;
-  --color-brand-5: #4A70A9;
-  --color-purple: #8B7FD6;
+  --color-brand-3: #1D4ED8;
+  --color-brand-4: #2563EB;
+  --color-brand-5: #1D4ED8;
+  --color-purple: #7C3AED;
   --color-grey-100: #f8f9fa;
   --color-grey-200: #e9ecef;
   --color-grey-300: #dee2e6;
   --color-grey-500: #6B7280;
   --color-grey-700: #4B5563;
   --color-grey-900: #111827;
-  --color-success: #4A70A9;
-  --color-warning: #F69D30;
-  --color-danger: #FF3E3E;
+  --color-success: #10B981;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
 
   /* ink is a fixed dark tone (not theme-swapped) — used for text/icons that sit on
      always-bright surfaces (brand-1 buttons, white mockup cards) in both themes. */
@@ -40,7 +41,51 @@
   --animate-slide-left: slide-left 0.5s ease-out;
   --animate-marquee: marquee 28s linear infinite;
 
-  --font-sans: Inter, system-ui, -apple-system, sans-serif;
+  --font-sans: "Lato", system-ui, -apple-system, sans-serif;
+  --font-display: "Govandi Adhiwan", "Lato", system-ui, sans-serif;
+  --font-accent: "Retail", "Lato", system-ui, sans-serif;
+}
+
+@font-face {
+  font-family: "Govandi Adhiwan";
+  src: url("/assets/fonts/govandi-adhiwan/GovandiAdhiwan-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Govandi Adhiwan";
+  src: url("/assets/fonts/govandi-adhiwan/GovandiAdhiwan-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Govandi Adhiwan";
+  src: url("/assets/fonts/govandi-adhiwan/GovandiAdhiwan-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Govandi Adhiwan";
+  src: url("/assets/fonts/govandi-adhiwan/GovandiAdhiwan-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Retail";
+  src:
+    url("/assets/fonts/retail/RETAIL.woff2") format("woff2"),
+    url("/assets/fonts/retail/RETAIL.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 :root[data-theme="light"] {
@@ -103,4 +148,15 @@ body {
 .bg-noise {
   background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--color-tint) 8%, transparent) 1px, transparent 0);
   background-size: 22px 22px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+.font-accent {
+  font-family: var(--font-accent);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
