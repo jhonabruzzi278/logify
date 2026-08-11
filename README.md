@@ -388,6 +388,22 @@ puede mergear hasta que los 6 checks de CI (`.github/workflows/ci.yml`)
 estén en verde — aplica también a administradores del repo. Detalle
 completo del flujo en [wiki/Flujo-Git.md](wiki/Flujo-Git.md).
 
+El título del PR debe seguir [Conventional Commits](https://www.conventionalcommits.org/es/)
+(`feat: ...`, `fix: ...`, etc.) porque el merge es `--squash` y ese mensaje
+alimenta el versionado automático — ver [wiki/Versionado.md](wiki/Versionado.md).
+
+## Versionado y licencia
+
+El proyecto usa [Versionado Semántico](https://semver.org/lang/es/)
+(`MAJOR.MINOR.PATCH`) con releases automatizadas por
+[release-please](https://github.com/googleapis/release-please) a partir de
+Conventional Commits. Versión actual e historial en
+[CHANGELOG.md](CHANGELOG.md); detalle del flujo en
+[wiki/Versionado.md](wiki/Versionado.md).
+
+Software propietario — todos los derechos reservados. Ver
+[LICENSE](LICENSE).
+
 ## Arquitectura multi-tenant
 
 El sistema opera como SaaS multi-tenant con una empresa por subdominio

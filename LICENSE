@@ -1,0 +1,52 @@
+Copyright (c) 2026 Logify. Todos los derechos reservados.
+All rights reserved.
+
+LICENCIA DE SOFTWARE PROPIETARIO — USO RESTRINGIDO
+PROPRIETARY SOFTWARE LICENSE — ALL RIGHTS RESERVED
+
+Este software, incluyendo pero no limitado a su código fuente, documentación,
+diseño, assets, arquitectura, esquemas de base de datos y cualquier material
+asociado (en adelante, el "Software"), es propiedad exclusiva de Logify y
+está protegido por las leyes de propiedad intelectual y los tratados
+internacionales aplicables.
+
+QUEDA EXPRESAMENTE PROHIBIDO, salvo autorización previa y por escrito del
+titular de los derechos:
+
+1. Usar, ejecutar, copiar, instalar o desplegar el Software, total o
+   parcialmente, en cualquier entorno.
+2. Modificar, adaptar, traducir o crear obras derivadas a partir del
+   Software.
+3. Distribuir, publicar, sublicenciar, vender, arrendar, prestar o poner a
+   disposición de terceros el Software o cualquier copia del mismo, de
+   forma gratuita u onerosa.
+4. Realizar ingeniería inversa, descompilar o desensamblar el Software,
+   excepto en la medida en que dicha restricción esté expresamente
+   prohibida por la ley aplicable.
+5. Eliminar, ocultar o alterar los avisos de copyright, marcas o atribución
+   presentes en el Software.
+6. Utilizar el nombre "Logify", su marca o sus signos distintivos sin
+   autorización previa y por escrito.
+
+No se otorga, de forma expresa, implícita, por impedimento legal (estoppel)
+o de cualquier otra forma, ninguna licencia ni derecho sobre patentes,
+marcas, derechos de autor u otro derecho de propiedad intelectual de
+Logify, salvo lo indicado explícitamente en un acuerdo escrito y firmado
+por el titular de los derechos.
+
+EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA
+O IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A LAS GARANTÍAS DE COMERCIABILIDAD,
+IDONEIDAD PARA UN PROPÓSITO PARTICULAR Y NO INFRACCIÓN. EN NINGÚN CASO EL
+TITULAR DE LOS DERECHOS SERÁ RESPONSABLE POR RECLAMACIÓN, DAÑO U OTRA
+RESPONSABILIDAD ALGUNA, YA SEA EN UNA ACCIÓN CONTRACTUAL, EXTRACONTRACTUAL O
+CUALQUIER OTRA, DERIVADA DE, FUERA DE, O EN CONEXIÓN CON EL SOFTWARE O EL
+USO U OTRO TIPO DE ACCIONES EN EL SOFTWARE.
+
+El acceso al código fuente de este repositorio (público o privado según
+corresponda) no constituye, bajo ninguna circunstancia, una licencia de uso,
+copia, modificación o distribución. Todos los derechos no otorgados
+expresamente están reservados por el titular.
+
+Para solicitar una licencia de uso, colaboración o cualquier otra
+autorización sobre este Software, contactar al titular de los derechos a
+través del repositorio: https://github.com/jhonabruzzi278/logify

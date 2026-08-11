@@ -59,6 +59,16 @@ Si estás trabajando solo, no hace falta esperar aprobación de nadie — el
 PR existe para que el CI corra y quede un registro claro de qué cambió y
 por qué, no como trámite burocrático.
 
+## Título del PR = mensaje de commit = versión
+
+Como el merge es `--squash`, el **título del PR** termina siendo el
+mensaje de commit en `main`, y ese mensaje es lo que
+[[Versionado]] usa para calcular automáticamente la próxima versión
+(`fix:` → patch, `feat:` → minor, `feat!:`/`BREAKING CHANGE:` → major).
+Por eso el título del PR debe seguir
+[Conventional Commits](https://www.conventionalcommits.org/es/) — ver
+detalle completo en [[Versionado]].
+
 ## Reconfigurar la regla
 
 Si en algún momento hay que ajustar esto (agregar aprobaciones requeridas,
