@@ -55,22 +55,34 @@ function safeCode(code) {
 function layout(content) {
   return `<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background-color:#F0F4F8;font-family:Arial,Helvetica,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#F0F4F8;padding:32px 0">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700;800&display=swap');</style>
+</head>
+<body style="margin:0;padding:0;background-color:#EEF2F9;font-family:'Lato',Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#EEF2F9;padding:32px 0">
   <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;box-shadow:0 18px 50px -22px rgba(15,23,42,0.35)">
 
       <!-- HEADER -->
       <tr>
-        <td style="background:#0D1B2A;padding:24px 40px;border-radius:12px 12px 0 0" align="center">
+        <td style="background:#172554;padding:24px 40px;border-radius:12px 12px 0 0" align="center">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td>
-                <span style="font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.5px">Smart</span><span style="font-size:22px;font-weight:800;color:#4B98CF;letter-spacing:-0.5px">Logix</span>
+                <table cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="background:#2563EB;width:32px;height:32px;border-radius:8px;text-align:center;vertical-align:middle" align="center" valign="middle">
+                      <span style="font-size:16px;font-weight:900;color:#FFFFFF;font-family:Arial,Helvetica,sans-serif;line-height:32px">S</span>
+                    </td>
+                    <td style="padding-left:10px">
+                      <span style="font-size:20px;font-weight:800;color:#FFFFFF;letter-spacing:-0.3px">Logify</span>
+                    </td>
+                  </tr>
+                </table>
               </td>
               <td align="right">
-                <span style="font-size:11px;color:#8BA3BB;text-transform:uppercase;letter-spacing:1px">Gestion Logistica</span>
+                <span style="font-size:11px;color:#93A5C9;text-transform:uppercase;letter-spacing:1px">POS &amp; Inventario</span>
               </td>
             </tr>
           </table>
@@ -87,8 +99,9 @@ function layout(content) {
       <!-- FOOTER -->
       <tr>
         <td style="padding:24px 40px" align="center">
+          <p style="margin:0 0 4px;font-size:12px;font-weight:800;color:#334155;letter-spacing:-0.2px">Logify</p>
           <p style="margin:0;font-size:12px;color:#94A3B8;line-height:1.6">
-            Este correo fue enviado por Logify de forma automatica.<br>
+            Este correo fue enviado de forma automatica.<br>
             Si tienes dudas, contacta a nuestro equipo de soporte.
           </p>
         </td>
@@ -102,13 +115,13 @@ function layout(content) {
 }
 
 // ── Code block component ───────────────────────────────────────────────────────
-function codeBlock({ label, code, description, color = '#4B98CF', bgColor = '#EBF4FF' }) {
+function codeBlock({ label, code, description, color = '#2563EB', bgColor = '#EFF6FF' }) {
   return `
   <table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0">
     <tr>
       <td style="background:${bgColor};border:2px solid ${color};border-radius:10px;padding:20px 24px" align="center">
         <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:1.5px">${escapeHtml(label)}</p>
-        <p style="margin:0 0 8px;font-size:32px;font-weight:800;color:#0D1B2A;letter-spacing:4px;font-family:'Courier New',monospace">${escapeHtml(code)}</p>
+        <p style="margin:0 0 8px;font-size:32px;font-weight:800;color:#0F172A;letter-spacing:4px;font-family:'Courier New',monospace">${escapeHtml(code)}</p>
         ${description ? `<p style="margin:0;font-size:12px;color:#64748B;line-height:1.5">${description}</p>` : ''}
       </td>
     </tr>
@@ -121,7 +134,7 @@ function ctaButton(url, text) {
   <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0">
     <tr>
       <td align="center">
-        <a href="${escapeHtml(url)}" style="display:inline-block;background:#4B98CF;color:#FFFFFF;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:8px;letter-spacing:0.3px">${escapeHtml(text)}</a>
+        <a href="${escapeHtml(url)}" style="display:inline-block;background:#2563EB;color:#FFFFFF;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:10px;letter-spacing:0.3px">${escapeHtml(text)}</a>
       </td>
     </tr>
   </table>`;
@@ -133,18 +146,18 @@ function infoRow(label, value) {
   <tr>
     <td style="padding:10px 0;border-bottom:1px solid #F1F5F9">
       <span style="font-size:13px;color:#94A3B8;display:block;margin-bottom:2px">${escapeHtml(label)}</span>
-      <span style="font-size:14px;font-weight:700;color:#0D1B2A">${escapeHtml(value)}</span>
+      <span style="font-size:14px;font-weight:700;color:#0F172A">${escapeHtml(value)}</span>
     </td>
   </tr>`;
 }
 
 // ── Alert box component ────────────────────────────────────────────────────────
-function alertBox(text, color = '#F59E0B', bgColor = '#FFFBEB') {
+function alertBox(text, color = '#D97706', bgColor = '#FFFBEB') {
   return `
   <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0">
     <tr>
       <td style="background:${bgColor};border-left:4px solid ${color};border-radius:0 8px 8px 0;padding:14px 18px">
-        <p style="margin:0;font-size:13px;color:#0D1B2A;line-height:1.6">${text}</p>
+        <p style="margin:0;font-size:13px;color:#0F172A;line-height:1.6">${text}</p>
       </td>
     </tr>
   </table>`;
@@ -161,8 +174,8 @@ function buildOrderConfirmationEmail({ customerName, orderId, sku, quantity, cus
     <!-- Status banner -->
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="background:#E8F5E9;padding:16px 40px" align="center">
-          <span style="font-size:13px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:1px">✓ Pedido Registrado</span>
+        <td style="background:#ECFDF5;padding:16px 40px" align="center">
+          <span style="font-size:13px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:1px">✓ Pedido Registrado</span>
         </td>
       </tr>
     </table>
@@ -171,9 +184,9 @@ function buildOrderConfirmationEmail({ customerName, orderId, sku, quantity, cus
     <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 40px">
       <tr>
         <td>
-          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0D1B2A">Hola, ${firstName}</h1>
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0F172A">Hola, ${firstName}</h1>
           <p style="margin:0 0 24px;font-size:15px;color:#64748B;line-height:1.6">
-            Tu pedido <strong style="color:#0D1B2A">#${escapeHtml(orderId)}</strong> fue registrado con exito y esta siendo preparado.
+            Tu pedido <strong style="color:#0F172A">#${escapeHtml(orderId)}</strong> fue registrado con exito y esta siendo preparado.
           </p>
 
           <!-- Codigo de cliente -->
@@ -181,8 +194,8 @@ function buildOrderConfirmationEmail({ customerName, orderId, sku, quantity, cus
             label: 'Tu codigo de seguimiento y retiro',
             code: code,
             description: 'Guarda este codigo. Lo necesitas para rastrear tu pedido<br>y deberas mostrarlo al transportista cuando recibas tu entrega.',
-            color: '#4B98CF',
-            bgColor: '#EBF4FF'
+            color: '#2563EB',
+            bgColor: '#EFF6FF'
           })}
 
           ${alertBox('&#128274; <strong>Importante:</strong> Este codigo es personal e intransferible. El transportista lo solicitara junto con tu RUT para confirmar la entrega. No lo compartas con terceros.')}
@@ -218,8 +231,8 @@ function buildShipmentInTransitEmail({ customerName, orderId, clientCode, tracki
     <!-- Status banner -->
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="background:#FFF8E1;padding:16px 40px" align="center">
-          <span style="font-size:13px;font-weight:700;color:#E65100;text-transform:uppercase;letter-spacing:1px">&#128666; Tu pedido esta en camino</span>
+        <td style="background:#FFFBEB;padding:16px 40px" align="center">
+          <span style="font-size:13px;font-weight:700;color:#D97706;text-transform:uppercase;letter-spacing:1px">&#128666; Tu pedido esta en camino</span>
         </td>
       </tr>
     </table>
@@ -228,20 +241,20 @@ function buildShipmentInTransitEmail({ customerName, orderId, clientCode, tracki
     <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 40px">
       <tr>
         <td>
-          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0D1B2A">&#128666; En reparto, ${firstName}</h1>
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0F172A">&#128666; En reparto, ${firstName}</h1>
           <p style="margin:0 0 24px;font-size:15px;color:#64748B;line-height:1.6">
-            Tu pedido <strong style="color:#0D1B2A">#${escapeHtml(orderId)}</strong> esta en camino. Un transportista lo llevara a tu direccion hoy.
+            Tu pedido <strong style="color:#0F172A">#${escapeHtml(orderId)}</strong> esta en camino. Un transportista lo llevara a tu direccion hoy.
           </p>
 
-          ${alertBox('&#128072; <strong>Ten este codigo listo:</strong> El transportista te lo pedira en el momento de la entrega para verificar tu identidad.', '#E65100', '#FFF8E1')}
+          ${alertBox('&#128072; <strong>Ten este codigo listo:</strong> El transportista te lo pedira en el momento de la entrega para verificar tu identidad.', '#D97706', '#FFFBEB')}
 
           <!-- Codigo de retiro -->
           ${codeBlock({
             label: 'Codigo de retiro — mostrar al transportista',
             code: code,
             description: 'El transportista verificara este codigo junto con tu RUT.<br>Sin este codigo no se podra confirmar la entrega.',
-            color: '#E65100',
-            bgColor: '#FFF8E1'
+            color: '#D97706',
+            bgColor: '#FFFBEB'
           })}
 
           <!-- Numero de envio — referencia interna -->
@@ -285,8 +298,8 @@ function buildShipmentDeliveredEmail({ customerName, orderId, clientCode, tracki
     <!-- Status banner -->
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="background:#E8F5E9;padding:16px 40px" align="center">
-          <span style="font-size:13px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:1px">&#10003; Entrega confirmada</span>
+        <td style="background:#ECFDF5;padding:16px 40px" align="center">
+          <span style="font-size:13px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:1px">&#10003; Entrega confirmada</span>
         </td>
       </tr>
     </table>
@@ -295,18 +308,18 @@ function buildShipmentDeliveredEmail({ customerName, orderId, clientCode, tracki
     <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 40px">
       <tr>
         <td>
-          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0D1B2A">&#127881; Entregado, ${firstName}</h1>
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0F172A">&#127881; Entregado, ${firstName}</h1>
           <p style="margin:0 0 24px;font-size:15px;color:#64748B;line-height:1.6">
-            Tu pedido <strong style="color:#0D1B2A">#${escapeHtml(orderId)}</strong> fue entregado correctamente. La entrega quedo registrada en nuestro sistema.
+            Tu pedido <strong style="color:#0F172A">#${escapeHtml(orderId)}</strong> fue entregado correctamente. La entrega quedo registrada en nuestro sistema.
           </p>
 
           <!-- Confirmacion visual -->
           <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px">
             <tr>
-              <td style="background:#E8F5E9;border:2px solid #4CAF50;border-radius:10px;padding:24px" align="center">
+              <td style="background:#ECFDF5;border:2px solid #10B981;border-radius:10px;padding:24px" align="center">
                 <p style="margin:0 0 6px;font-size:40px">&#10003;</p>
-                <p style="margin:0 0 4px;font-size:16px;font-weight:800;color:#1B5E20">Entrega exitosa</p>
-                <p style="margin:0;font-size:13px;color:#2E7D32">Identidad verificada con codigo y RUT</p>
+                <p style="margin:0 0 4px;font-size:16px;font-weight:800;color:#065F46">Entrega exitosa</p>
+                <p style="margin:0;font-size:13px;color:#047857">Identidad verificada con codigo y RUT</p>
               </td>
             </tr>
           </table>
@@ -323,7 +336,7 @@ function buildShipmentDeliveredEmail({ customerName, orderId, clientCode, tracki
 
           <p style="margin:16px 0 0;font-size:14px;color:#64748B;text-align:center;line-height:1.6">
             Gracias por confiar en Logify.<br>
-            <strong style="color:#0D1B2A">Buena recepcion.</strong>
+            <strong style="color:#0F172A">Buena recepcion.</strong>
           </p>
         </td>
       </tr>
@@ -346,8 +359,8 @@ function buildWelcomeEmail({ ownerName, companyName, slug, ownerUsername, trialE
     <!-- Status banner -->
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="background:#E8F5E9;padding:16px 40px" align="center">
-          <span style="font-size:13px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:1px">&#127881; Cuenta creada</span>
+        <td style="background:#ECFDF5;padding:16px 40px" align="center">
+          <span style="font-size:13px;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:1px">&#127881; Cuenta creada</span>
         </td>
       </tr>
     </table>
@@ -356,9 +369,9 @@ function buildWelcomeEmail({ ownerName, companyName, slug, ownerUsername, trialE
     <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 40px">
       <tr>
         <td>
-          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0D1B2A">Bienvenido, ${firstName}</h1>
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0F172A">Bienvenido, ${firstName}</h1>
           <p style="margin:0 0 24px;font-size:15px;color:#64748B;line-height:1.6">
-            La cuenta de <strong style="color:#0D1B2A">${escapeHtml(companyName)}</strong> en Logify ya está lista para usarse.
+            La cuenta de <strong style="color:#0F172A">${escapeHtml(companyName)}</strong> en Logify ya está lista para usarse.
           </p>
 
           <!-- Nombre del negocio / subdominio -->
@@ -366,8 +379,8 @@ function buildWelcomeEmail({ ownerName, companyName, slug, ownerUsername, trialE
             label: 'El nombre de tu negocio en Logify es',
             code: slug,
             description: 'Guarda este dato: es el que usas para entrar a tu panel<br>(<strong>' + escapeHtml(slug) + '.logify.cl</strong>) cada vez que inicies sesión.',
-            color: '#4B98CF',
-            bgColor: '#EBF4FF'
+            color: '#2563EB',
+            bgColor: '#EFF6FF'
           })}
 
           <table width="100%" cellpadding="0" cellspacing="0">
@@ -378,10 +391,10 @@ function buildWelcomeEmail({ ownerName, companyName, slug, ownerUsername, trialE
 
           ${ctaButton(loginUrl, 'Ingresar a mi panel →')}
 
-          ${alertBox('&#128161; <strong>Tip:</strong> si alguna vez olvidas el nombre de tu negocio, entra a <a href="https://logify.cl/acceso" style="color:#0D1B2A">logify.cl/acceso</a> y te llevamos directo a tu panel.')}
+          ${alertBox('&#128161; <strong>Tip:</strong> si alguna vez olvidas el nombre de tu negocio, entra a <a href="https://logify.cl/acceso" style="color:#0F172A">logify.cl/acceso</a> y te llevamos directo a tu panel.')}
 
           ${supportWhatsappUrl ? `<p style="margin:24px 0 0;font-size:14px;color:#64748B;text-align:center;line-height:1.6">
-            ¿Dudas para arrancar? <a href="${escapeHtml(supportWhatsappUrl)}" style="color:#4B98CF;font-weight:700;text-decoration:none">Escríbenos por WhatsApp</a>
+            ¿Dudas para arrancar? <a href="${escapeHtml(supportWhatsappUrl)}" style="color:#2563EB;font-weight:700;text-decoration:none">Escríbenos por WhatsApp</a>
           </p>` : ''}
         </td>
       </tr>
