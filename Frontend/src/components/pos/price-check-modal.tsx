@@ -48,7 +48,7 @@ export function PriceCheckModal({ products, onClose }: PriceCheckModalProps) {
                 <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
                 <p className="text-[10px] text-muted-foreground">{p.sku} · {p.stock} unid.</p>
               </div>
-              <span className="shrink-0 text-base font-bold text-[#4B98CF]">{formatCurrency(p.price)}</span>
+              <span className="shrink-0 text-base font-bold text-[#2563EB]">{formatCurrency(p.price)}</span>
             </div>
           ))}
         </div>

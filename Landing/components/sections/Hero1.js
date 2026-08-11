@@ -10,7 +10,7 @@ export default function Hero1() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                 <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-16 items-center">
                     <div>
-                        <div className="inline-flex items-center gap-2 bg-tint/[0.04] border border-tint/10 px-4 py-1.5 rounded-full mb-6 text-fg/70 text-xs font-semibold uppercase tracking-wider">
+                        <div className="font-accent inline-flex items-center gap-2 bg-tint/[0.04] border border-tint/10 px-4 py-1.5 rounded-full mb-6 text-fg/70 text-xs">
                             <span className="w-1.5 h-1.5 rounded-full bg-brand-3 animate-pulse-dot" />
                             Soporte real, todos los días
                         </div>

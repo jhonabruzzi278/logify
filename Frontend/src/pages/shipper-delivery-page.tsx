@@ -179,20 +179,20 @@ export function ShipperDeliveryPage() {
     <div className="space-y-4 max-w-sm w-full mx-auto sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Envíos</p>
-          <h1 className="text-xl font-bold text-[#112b4a]">
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Envíos</p>
+          <h1 className="text-xl font-bold text-[#172554]">
             {isShipper ? `Hola, ${session?.name?.split(" ")[0] ?? "Transportista"}` : "Gestion de envios"}
           </h1>
         </div>
-        <div className="flex items-center gap-3 text-xs text-[#6B7280]">
+        <div className="flex items-center gap-3 text-xs text-[#64748B]">
           <span>{counts.total} total</span>
-          <span className="text-[#4B98CF] font-bold">{counts.active} activos</span>
-          <span className="text-[#4EB4A5] font-bold">{counts.delivered} entregados</span>
+          <span className="text-[#2563EB] font-bold">{counts.active} activos</span>
+          <span className="text-[#0D9488] font-bold">{counts.delivered} entregados</span>
         </div>
       </div>
 
       {toastMessage && (
-        <div className="flex items-center gap-2 rounded-lg bg-[#4B98CF] text-white px-4 py-3 text-sm animate-pulse">
+        <div className="flex items-center gap-2 rounded-lg bg-[#2563EB] text-white px-4 py-3 text-sm animate-pulse">
           <Truck className="h-4 w-4" />
           <span className="flex-1 font-medium">{toastMessage}</span>
           <button type="button" onClick={() => setToastMessage(null)} className="text-white/70 hover:text-white">
@@ -203,13 +203,13 @@ export function ShipperDeliveryPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar tracking, pedido, producto..." className="h-9 w-full rounded border border-[#DDE0E2] bg-white pl-9 pr-3 text-sm outline-none placeholder:text-[#6B7280]" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar tracking, pedido, producto..." className="h-9 w-full rounded border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm outline-none placeholder:text-[#64748B]" />
         </div>
         {!isShipper && (
-          <div className="flex gap-1 rounded border border-[#DCE0E2] bg-white p-0.5">
+          <div className="flex gap-1 rounded border border-[#E2E8F0] bg-white p-0.5">
             {(["all", "pending", "delivered"] as const).map((f) => (
-              <button type="button" key={f} onClick={() => setFilter(f)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", filter === f ? "bg-[#4B98CF] text-white" : "text-[#6B7280] hover:text-[#112b4a]")}>
+              <button type="button" key={f} onClick={() => setFilter(f)} className={cn("rounded px-3 py-1 text-[11px] font-semibold transition-colors", filter === f ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:text-[#172554]")}>
                 {f === "all" ? "Todos" : f === "pending" ? "Pendientes" : "Entregados"}
               </button>
             ))}
@@ -221,38 +221,38 @@ export function ShipperDeliveryPage() {
         {filtered.map((shipment) => {
           const customerName = customerNames.get(shipment.orderId) ?? "Cliente";
           return (
-            <Link key={shipment.id} to={`/deliveries/${shipment.id}`} className="block rounded border border-[#DCE0E2] bg-white p-4 hover:border-[#4B98CF]/40 transition-colors">
+            <Link key={shipment.id} to={`/deliveries/${shipment.id}`} className="block rounded border border-[#E2E8F0] bg-white p-4 hover:border-[#2563EB]/40 transition-colors">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={cn(
                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                    shipment.stage === "entregado" ? "bg-[#4EB4A5]/10" :
+                    shipment.stage === "entregado" ? "bg-[#0D9488]/10" :
                     shipment.stage === "cancelado" ? "bg-red-50" :
                     shipment.stage === "en_reparto" ? "bg-purple-50" :
-                    "bg-[#4B98CF]/10"
+                    "bg-[#2563EB]/10"
                   )}>
                     <Truck className={cn(
                       "h-4 w-4",
-                      shipment.stage === "entregado" ? "text-[#4EB4A5]" :
+                      shipment.stage === "entregado" ? "text-[#0D9488]" :
                       shipment.stage === "cancelado" ? "text-red-500" :
                       shipment.stage === "en_reparto" ? "text-purple-500" :
-                      "text-[#4B98CF]"
+                      "text-[#2563EB]"
                     )} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-[#4B98CF] font-mono">{shipment.tracking}</p>
-                    <p className="text-xs text-[#6B7280]">{customerName} · SKU {shipment.sku} · {shipment.quantity} unids</p>
+                    <p className="text-sm font-bold text-[#2563EB] font-mono">{shipment.tracking}</p>
+                    <p className="text-xs text-[#64748B]">{customerName} · SKU {shipment.sku} · {shipment.quantity} unids</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
                   <span className={cn(
                     "rounded px-2 py-0.5 text-[10px] font-bold",
-                    shipment.stage === "en_preparacion" ? "bg-[#E3AA75]/10 text-[#E3AA75]" :
+                    shipment.stage === "en_preparacion" ? "bg-[#D97706]/10 text-[#D97706]" :
                     shipment.stage === "en_reparto" ? "bg-purple-50 text-purple-600" :
                     shipment.stage === "entregado" ? "bg-green-50 text-green-600" :
                     shipment.stage === "cancelado" ? "bg-red-50 text-red-500" :
-                    "bg-[#4B98CF]/10 text-[#4B98CF]"
+                    "bg-[#2563EB]/10 text-[#2563EB]"
                   )}>
                     {shipment.stage === "en_preparacion" ? "Preparación" :
                      shipment.stage === "en_reparto" ? "En reparto" :
@@ -264,14 +264,14 @@ export function ShipperDeliveryPage() {
                     <div className="flex items-center gap-1">
                       {shipment.stage === "en_preparacion" && (
                         <>
-                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleQrScan(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/5 flex items-center gap-1">
+                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleQrScan(shipment); }} className="rounded border border-[#E2E8F0] px-2.5 py-1 text-[10px] font-semibold text-[#2563EB] hover:bg-[#2563EB]/5 flex items-center gap-1">
                             <QrCode className="h-3 w-3" /> QR
                           </button>
-                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePickup(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#E3AA75] hover:bg-amber-50/5">Retirar</button>
+                          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePickup(shipment); }} className="rounded border border-[#E2E8F0] px-2.5 py-1 text-[10px] font-semibold text-[#D97706] hover:bg-amber-50/5">Retirar</button>
                         </>
                       )}
                       {shipment.stage === "en_reparto" && (
-                        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelivery(shipment); }} className="rounded border border-[#DCE0E2] px-2.5 py-1 text-[10px] font-semibold text-[#4EB4A5] hover:bg-[#4EB4A5]/5">Entregar</button>
+                        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelivery(shipment); }} className="rounded border border-[#E2E8F0] px-2.5 py-1 text-[10px] font-semibold text-[#0D9488] hover:bg-[#0D9488]/5">Entregar</button>
                       )}
                     </div>
                   )}
@@ -294,10 +294,10 @@ export function ShipperDeliveryPage() {
           );
         })}
         {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded border border-[#DCE0E2] bg-white py-16">
-            <Package className="h-10 w-10 text-[#DCE0E2]" />
-            <p className="mt-3 text-sm font-medium text-[#6B7280]">Sin envíos pendientes</p>
-            <p className="mt-1 text-xs text-[#6B7280]/70">Los pedidos confirmados aparecerán aquí.</p>
+          <div className="flex flex-col items-center justify-center rounded border border-[#E2E8F0] bg-white py-16">
+            <Package className="h-10 w-10 text-[#E2E8F0]" />
+            <p className="mt-3 text-sm font-medium text-[#64748B]">Sin envíos pendientes</p>
+            <p className="mt-1 text-xs text-[#64748B]/70">Los pedidos confirmados aparecerán aquí.</p>
           </div>
         )}
       </div>
@@ -313,13 +313,13 @@ export function ShipperDeliveryPage() {
         >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-sm text-[#112b4a]">QR de retiro</h3>
+              <h3 className="font-bold text-sm text-[#172554]">QR de retiro</h3>
               <button type="button" onClick={() => setShowQrModal(null)} className="p-1 rounded hover:bg-gray-100"><X className="h-4 w-4" /></button>
             </div>
-            <div className="bg-white border-2 border-dashed border-[#4B98CF] rounded-xl p-4 mx-auto w-fit">
-              <div className="w-40 h-40 bg-[#F8FBFD] flex items-center justify-center">
+            <div className="bg-white border-2 border-dashed border-[#2563EB] rounded-xl p-4 mx-auto w-fit">
+              <div className="w-40 h-40 bg-[#F8FAFC] flex items-center justify-center">
                 {qrModalImage.loading && (
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#2563EB] border-t-transparent" />
                 )}
                 {qrModalImage.error && (
                   <p className="text-xs text-red-500 px-2 text-center">{qrModalImage.error}</p>
@@ -329,9 +329,9 @@ export function ShipperDeliveryPage() {
                 )}
               </div>
             </div>
-            <p className="text-xs text-[#6B7280]">Escanea este código para confirmar el retiro de la tienda</p>
-            <p className="text-xs font-mono text-[#4B98CF]">{showQrModal.tracking}</p>
-            <Button size="sm" className="w-full bg-[#4B98CF] hover:bg-[#346384] text-white" onClick={() => { setShowQrModal(null); handlePickup(showQrModal); }}>
+            <p className="text-xs text-[#64748B]">Escanea este código para confirmar el retiro de la tienda</p>
+            <p className="text-xs font-mono text-[#2563EB]">{showQrModal.tracking}</p>
+            <Button size="sm" className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white" onClick={() => { setShowQrModal(null); handlePickup(showQrModal); }}>
               Confirmar retiro
             </Button>
           </div>
@@ -342,16 +342,16 @@ export function ShipperDeliveryPage() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
           <div className="w-full max-w-sm rounded-t-2xl bg-white p-5 sm:rounded-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-[#112b4a]">Confirmar retiro</h2>
+              <h2 className="text-base font-bold text-[#172554]">Confirmar retiro</h2>
               <button type="button" onClick={() => { setStageShipment(null); setStageAction(null); }} className="rounded p-1 hover:bg-muted">
-                <X className="h-4 w-4 text-[#6B7280]" />
+                <X className="h-4 w-4 text-[#64748B]" />
               </button>
             </div>
-            <div className="rounded bg-[#F8FBFD] p-3 mb-4">
-              <p className="text-xs font-bold text-[#4B98CF]">{stageShipment.tracking}</p>
-              <p className="text-xs text-[#6B7280]">Pedido #{stageShipment.orderId} · SKU {stageShipment.sku} · {stageShipment.quantity} unids</p>
+            <div className="rounded bg-[#F8FAFC] p-3 mb-4">
+              <p className="text-xs font-bold text-[#2563EB]">{stageShipment.tracking}</p>
+              <p className="text-xs text-[#64748B]">Pedido #{stageShipment.orderId} · SKU {stageShipment.sku} · {stageShipment.quantity} unids</p>
             </div>
-            <p className="text-sm text-[#6B7280] mb-4">Confirma que retiraste el pedido de la tienda para iniciar el reparto.</p>
+            <p className="text-sm text-[#64748B] mb-4">Confirma que retiraste el pedido de la tienda para iniciar el reparto.</p>
             {feedback && (
               <div className={cn("rounded px-3 py-2 text-xs font-medium mb-3", feedback.type === "error" ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600")}>
                 {feedback.msg}
@@ -359,7 +359,7 @@ export function ShipperDeliveryPage() {
             )}
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="flex-1" onClick={() => { setStageShipment(null); setStageAction(null); }}>Volver</Button>
-              <Button size="sm" className="flex-1 bg-[#E3AA75] hover:bg-[#d49a5c] text-white" onClick={confirmPickup} disabled={submitting}>
+              <Button size="sm" className="flex-1 bg-[#D97706] hover:bg-[#D97706] text-white" onClick={confirmPickup} disabled={submitting}>
                 {submitting ? "..." : "Confirmar retiro"}
               </Button>
             </div>
@@ -371,15 +371,15 @@ export function ShipperDeliveryPage() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
           <div className="w-full max-w-sm rounded-t-2xl bg-white p-5 sm:rounded-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-[#112b4a]">Confirmar entrega</h2>
+              <h2 className="text-base font-bold text-[#172554]">Confirmar entrega</h2>
               <button type="button" onClick={() => { setStageShipment(null); setStageAction(null); }} className="rounded p-1 hover:bg-muted">
-                <X className="h-4 w-4 text-[#6B7280]" />
+                <X className="h-4 w-4 text-[#64748B]" />
               </button>
             </div>
 
-            <div className="rounded bg-[#F8FBFD] p-3 mb-4">
-              <p className="text-xs font-bold text-[#4B98CF]">{stageShipment.tracking}</p>
-              <p className="text-xs text-[#6B7280]">Pedido #{stageShipment.orderId} · SKU {stageShipment.sku} · {stageShipment.quantity} unids</p>
+            <div className="rounded bg-[#F8FAFC] p-3 mb-4">
+              <p className="text-xs font-bold text-[#2563EB]">{stageShipment.tracking}</p>
+              <p className="text-xs text-[#64748B]">Pedido #{stageShipment.orderId} · SKU {stageShipment.sku} · {stageShipment.quantity} unids</p>
             </div>
 
             <div className="space-y-4">
@@ -410,7 +410,7 @@ export function ShipperDeliveryPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 flex items-center justify-center gap-2 h-10 rounded border border-input bg-white text-sm font-medium text-[#6B7280] hover:text-[#112b4a]"
+                    className="flex-1 flex items-center justify-center gap-2 h-10 rounded border border-input bg-white text-sm font-medium text-[#64748B] hover:text-[#172554]"
                   >
                     <Camera className="h-4 w-4" />
                     {proofImage ? "Cambiar foto" : "Tomar / Subir foto"}
@@ -444,7 +444,7 @@ export function ShipperDeliveryPage() {
               <button type="button"
                 onClick={confirmDelivery}
                 disabled={submitting}
-                className="w-full h-10 rounded bg-[#4B98CF] text-white text-sm font-bold hover:bg-[#3d85be] disabled:opacity-50"
+                className="w-full h-10 rounded bg-[#2563EB] text-white text-sm font-bold hover:bg-[#2563EB] disabled:opacity-50"
               >
                 {submitting ? "Registrando..." : "Confirmar entrega"}
               </button>

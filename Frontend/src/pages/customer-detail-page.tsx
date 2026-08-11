@@ -70,8 +70,8 @@ export function CustomerDetailPage() {
 
   const badgeClass = (stage: string) =>
     stage === "entregado" ? "bg-green-50 text-green-600" :
-    stage === "created" ? "bg-[#4B98CF]/10 text-[#4B98CF]" :
-    stage === "en_preparacion" ? "bg-[#E3AA75]/10 text-[#E3AA75]" :
+    stage === "created" ? "bg-[#2563EB]/10 text-[#2563EB]" :
+    stage === "en_preparacion" ? "bg-[#D97706]/10 text-[#D97706]" :
     stage === "en_reparto" ? "bg-purple-50 text-purple-600" :
     stage === "cancelado" ? "bg-red-50 text-red-500" : "bg-muted text-muted-foreground";
 
@@ -85,50 +85,50 @@ export function CustomerDetailPage() {
   if (!customer) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <User className="h-12 w-12 text-[#DCE0E2]" />
-        <p className="mt-4 font-medium text-[#6B7280]">Cliente no encontrado</p>
-        <Link to="/customers" className="mt-2 text-sm text-[#4B98CF] hover:underline">Volver a clientes</Link>
+        <User className="h-12 w-12 text-[#E2E8F0]" />
+        <p className="mt-4 font-medium text-[#64748B]">Cliente no encontrado</p>
+        <Link to="/customers" className="mt-2 text-sm text-[#2563EB] hover:underline">Volver a clientes</Link>
       </div>
     );
   }
 
   return (
     <div className="space-y-5 max-w-sm w-full mx-auto sm:max-w-3xl md:max-w-5xl lg:max-w-7xl xl:max-w-screen-xl px-2">
-      <Link to="/customers" className="inline-flex items-center gap-1 text-xs text-[#6B7280] hover:text-[#112b4a]">
+      <Link to="/customers" className="inline-flex items-center gap-1 text-xs text-[#64748B] hover:text-[#172554]">
         <ArrowLeft className="h-3.5 w-3.5" /> Clientes
       </Link>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#4B98CF]/10">
-            <User className="h-6 w-6 text-[#4B98CF]" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2563EB]/10">
+            <User className="h-6 w-6 text-[#2563EB]" />
           </div>
           <div>
-            <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Cliente</p>
-            <h1 className="text-xl font-bold text-[#112b4a]">{customer.name}</h1>
+            <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Cliente</p>
+            <h1 className="text-xl font-bold text-[#172554]">{customer.name}</h1>
           </div>
         </div>
-        <span className="text-xs text-[#6B7280]">ID #{customer.id}</span>
+        <span className="text-xs text-[#64748B]">ID #{customer.id}</span>
       </div>
 
       {customer.phone || customer.email || customer.address ? (
-        <div className="rounded border border-[#DCE0E2] bg-white p-4">
+        <div className="rounded border border-[#E2E8F0] bg-white p-4">
           <div className="space-y-2">
             {customer.phone && (
-              <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-                <Phone className="h-4 w-4 text-[#4B98CF]" />
+              <div className="flex items-center gap-2 text-sm text-[#64748B]">
+                <Phone className="h-4 w-4 text-[#2563EB]" />
                 <span>{customer.phone}</span>
               </div>
             )}
             {customer.email && (
-              <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-                <Mail className="h-4 w-4 text-[#4B98CF]" />
+              <div className="flex items-center gap-2 text-sm text-[#64748B]">
+                <Mail className="h-4 w-4 text-[#2563EB]" />
                 <span>{customer.email}</span>
               </div>
             )}
             {customer.address && (
-              <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-                <MapPin className="h-4 w-4 text-[#4B98CF]" />
+              <div className="flex items-center gap-2 text-sm text-[#64748B]">
+                <MapPin className="h-4 w-4 text-[#2563EB]" />
                 <span>{customer.address}{customer.province ? `, ${customer.province}` : ""}</span>
               </div>
             )}
@@ -137,51 +137,51 @@ export function CustomerDetailPage() {
       ) : null}
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded border border-[#DCE0E2] bg-white p-4 text-center">
-          <p className="text-2xl font-bold text-[#112b4a]">{stats.total}</p>
-          <p className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-[0.92px]">Total</p>
+        <div className="rounded border border-[#E2E8F0] bg-white p-4 text-center">
+          <p className="text-2xl font-bold text-[#172554]">{stats.total}</p>
+          <p className="text-[10px] font-semibold text-[#64748B] uppercase tracking-[0.92px]">Total</p>
         </div>
-        <div className="rounded border border-[#DCE0E2] bg-white p-4 text-center">
-          <p className="text-2xl font-bold text-[#4EB4A5]">{stats.entregados}</p>
-          <p className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-[0.92px]">Entregados</p>
+        <div className="rounded border border-[#E2E8F0] bg-white p-4 text-center">
+          <p className="text-2xl font-bold text-[#0D9488]">{stats.entregados}</p>
+          <p className="text-[10px] font-semibold text-[#64748B] uppercase tracking-[0.92px]">Entregados</p>
         </div>
-        <div className="rounded border border-[#DCE0E2] bg-white p-4 text-center">
-          <p className="text-2xl font-bold text-[#4B98CF]">{stats.activos}</p>
-          <p className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-[0.92px]">Activos</p>
+        <div className="rounded border border-[#E2E8F0] bg-white p-4 text-center">
+          <p className="text-2xl font-bold text-[#2563EB]">{stats.activos}</p>
+          <p className="text-[10px] font-semibold text-[#64748B] uppercase tracking-[0.92px]">Activos</p>
         </div>
       </div>
 
-      <div className="rounded border border-[#DCE0E2] bg-white p-4">
+      <div className="rounded border border-[#E2E8F0] bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50">
               <CreditCard className="h-5 w-5 text-amber-500" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Cuenta corriente (fiado)</p>
-              <p className={cn("text-lg font-bold", (credit?.creditBalance ?? 0) > 0 ? "text-amber-600" : "text-[#112b4a]")}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Cuenta corriente (fiado)</p>
+              <p className={cn("text-lg font-bold", (credit?.creditBalance ?? 0) > 0 ? "text-amber-600" : "text-[#172554]")}>
                 ${(credit?.creditBalance ?? 0).toLocaleString("es-CL")}
                 {credit?.creditLimit != null && (
-                  <span className="ml-1 text-xs font-medium text-[#6B7280]">/ ${credit.creditLimit.toLocaleString("es-CL")} límite</span>
+                  <span className="ml-1 text-xs font-medium text-[#64748B]">/ ${credit.creditLimit.toLocaleString("es-CL")} límite</span>
                 )}
               </p>
             </div>
           </div>
           <Dialog open={paymentOpen} onOpenChange={(open) => { setPaymentOpen(open); if (!open) { setPaymentAmount(""); setPaymentError(""); } }}>
-            <DialogTrigger render={<Button size="sm" className="bg-[#4EB4A5] hover:bg-[#3a9184] text-white">Registrar abono</Button>} />
+            <DialogTrigger render={<Button size="sm" className="bg-[#0D9488] hover:bg-[#0D9488] text-white">Registrar abono</Button>} />
             <DialogContent showCloseButton={false}>
               <DialogHeader>
                 <DialogTitle>Registrar abono</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleRegisterPayment} className="space-y-3">
                 <div className="space-y-1">
-                  <label htmlFor="customer-detail-page-f178" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Monto</label>
+                  <label htmlFor="customer-detail-page-f178" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Monto</label>
                   <Input id="customer-detail-page-f178" type="number" min="1" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder="10000" className="h-9 text-sm" autoFocus />
                 </div>
                 {paymentError && <p className="text-xs text-red-500">{paymentError}</p>}
                 <div className="flex justify-end gap-2 pt-1">
                   <Button type="button" variant="outline" size="sm" onClick={() => setPaymentOpen(false)}>Cancelar</Button>
-                  <Button type="submit" size="sm" className="bg-[#4EB4A5] hover:bg-[#3a9184] text-white" disabled={payingBack}>{payingBack ? "Guardando..." : "Guardar"}</Button>
+                  <Button type="submit" size="sm" className="bg-[#0D9488] hover:bg-[#0D9488] text-white" disabled={payingBack}>{payingBack ? "Guardando..." : "Guardar"}</Button>
                 </div>
               </form>
             </DialogContent>
@@ -189,17 +189,17 @@ export function CustomerDetailPage() {
         </div>
 
         {credit && credit.movements.length > 0 && (
-          <div className="mt-3 space-y-1.5 border-t border-[#F5F7F9] pt-3">
+          <div className="mt-3 space-y-1.5 border-t border-[#F8FAFC] pt-3">
             {credit.movements.map((m) => (
               <div key={m.id} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   {m.type === "charge"
                     ? <ArrowUpCircle className="h-3.5 w-3.5 text-amber-500" />
-                    : <ArrowDownCircle className="h-3.5 w-3.5 text-[#4EB4A5]" />}
-                  <span className="text-[#6B7280]">{m.type === "charge" ? "Fiado" : "Abono"}</span>
-                  <span className="text-[10px] text-[#6B7280]/70">{new Date(m.createdAt).toLocaleDateString("es-CL")}</span>
+                    : <ArrowDownCircle className="h-3.5 w-3.5 text-[#0D9488]" />}
+                  <span className="text-[#64748B]">{m.type === "charge" ? "Fiado" : "Abono"}</span>
+                  <span className="text-[10px] text-[#64748B]/70">{new Date(m.createdAt).toLocaleDateString("es-CL")}</span>
                 </div>
-                <span className={cn("font-semibold", m.type === "charge" ? "text-amber-600" : "text-[#4EB4A5]")}>
+                <span className={cn("font-semibold", m.type === "charge" ? "text-amber-600" : "text-[#0D9488]")}>
                   {m.type === "charge" ? "+" : "-"}${m.amount.toLocaleString("es-CL")}
                 </span>
               </div>
@@ -209,11 +209,11 @@ export function CustomerDetailPage() {
       </div>
 
       <div>
-        <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280] mb-3">Historial de pedidos</p>
+        <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-3">Historial de pedidos</p>
         {customerOrders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded border border-[#DCE0E2] bg-white py-12">
-            <Package className="h-8 w-8 text-[#DCE0E2]" />
-            <p className="mt-2 text-sm text-[#6B7280]">Sin pedidos registrados</p>
+          <div className="flex flex-col items-center justify-center rounded border border-[#E2E8F0] bg-white py-12">
+            <Package className="h-8 w-8 text-[#E2E8F0]" />
+            <p className="mt-2 text-sm text-[#64748B]">Sin pedidos registrados</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -222,7 +222,7 @@ export function CustomerDetailPage() {
                 key={order.id}
                 role="button"
                 tabIndex={0}
-                className="rounded border border-[#DCE0E2] bg-white p-4 hover:border-[#4B98CF]/40 transition-colors cursor-pointer"
+                className="rounded border border-[#E2E8F0] bg-white p-4 hover:border-[#2563EB]/40 transition-colors cursor-pointer"
                 onClick={() => navigate(`/orders/${order.id}`)}
                 onKeyDown={onActivateKey(() => navigate(`/orders/${order.id}`))}
               >
@@ -233,26 +233,26 @@ export function CustomerDetailPage() {
                       order.stage === "entregado" ? "bg-green-50" :
                       order.stage === "cancelado" ? "bg-red-50" :
                       order.stage === "en_reparto" ? "bg-purple-50" :
-                      "bg-[#4B98CF]/10"
+                      "bg-[#2563EB]/10"
                     )}>
                       <ShoppingBag className={cn(
                         "h-4 w-4",
-                        order.stage === "entregado" ? "text-[#4EB4A5]" :
+                        order.stage === "entregado" ? "text-[#0D9488]" :
                         order.stage === "cancelado" ? "text-red-500" :
                         order.stage === "en_reparto" ? "text-purple-500" :
-                        "text-[#4B98CF]"
+                        "text-[#2563EB]"
                       )} />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-[#4B98CF]">#{order.id}</p>
-                      <p className="text-xs text-[#6B7280]">{order.sku} x{order.quantity}</p>
+                      <p className="text-sm font-bold text-[#2563EB]">#{order.id}</p>
+                      <p className="text-xs text-[#64748B]">{order.sku} x{order.quantity}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <span className={cn("rounded px-2 py-0.5 text-[10px] font-bold", badgeClass(order.stage))}>
                       {badgeLabel(order.stage)}
                     </span>
-                    <p className="mt-0.5 text-[10px] text-[#6B7280]">
+                    <p className="mt-0.5 text-[10px] text-[#64748B]">
                       {new Date(order.createdAt).toLocaleDateString("es-CL")}
                     </p>
                   </div>

@@ -222,7 +222,7 @@ export function PosPage() {
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-bold text-foreground">Carrito</h3>
           {itemCount > 0 && (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4B98CF] text-[10px] font-bold text-white">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2563EB] text-[10px] font-bold text-white">
               {itemCount}
             </span>
           )}
@@ -334,7 +334,7 @@ export function PosPage() {
                       className={cn(
                         "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold transition-colors",
                         paymentMethod === pm
-                          ? "bg-[#4B98CF] text-white"
+                          ? "bg-[#2563EB] text-white"
                           : "bg-muted text-muted-foreground hover:text-foreground"
                       )}
                     >
@@ -356,7 +356,7 @@ export function PosPage() {
                     onChange={(e) => { setCustomerSearch(e.target.value); setSelectedCustomer(null); }}
                     onFocus={() => setShowCustomerDropdown(true)}
                     placeholder="Buscar cliente..."
-                    className="h-9 w-full rounded border border-input bg-[#F8FBFD] pl-8 pr-3 text-sm"
+                    className="h-9 w-full rounded border border-input bg-[#F8FAFC] pl-8 pr-3 text-sm"
                   />
                 </div>
                 {showCustomerDropdown && !selectedCustomer && (
@@ -371,7 +371,7 @@ export function PosPage() {
                         onClick={() => { setSelectedCustomer(c); setCustomerSearch(c.name); setShowCustomerDropdown(false); }}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
                       >
-                        <User className="h-3.5 w-3.5 text-[#4B98CF] shrink-0" />
+                        <User className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
                         <div className="min-w-0">
                           <p className="font-medium truncate">{c.name}</p>
                           {c.creditBalance ? <p className="text-[10px] text-amber-600">Debe {formatCurrency(c.creditBalance)}</p> : null}
@@ -391,7 +391,7 @@ export function PosPage() {
 
             <button type="button"
               onClick={handleCheckout}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#4EB4A5] py-3 text-sm font-bold text-white transition-colors hover:bg-[#3d9e91] active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D9488] py-3 text-sm font-bold text-white transition-colors hover:bg-[#0D9488] active:scale-[0.98]"
             >
               <Check className="h-5 w-5" />
               Cobrar {formatCurrency(total)}
@@ -405,8 +405,8 @@ export function PosPage() {
   if (successSale) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#4EB4A5]/10">
-          <Check className="h-10 w-10 text-[#4EB4A5]" />
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#0D9488]/10">
+          <Check className="h-10 w-10 text-[#0D9488]" />
         </div>
         <h2 className="mt-5 text-xl font-bold text-foreground">Venta registrada</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -453,7 +453,7 @@ export function PosPage() {
           {!activeCashSession && (
             <button type="button"
               onClick={() => setOpenRegisterOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-[#4EB4A5]/30 bg-[#4EB4A5]/10 px-2.5 py-2 text-sm font-semibold text-[#3a9184] hover:bg-[#4EB4A5]/20 sm:px-3"
+              className="flex items-center gap-1.5 rounded-lg border border-[#0D9488]/30 bg-[#0D9488]/10 px-2.5 py-2 text-sm font-semibold text-[#0D9488] hover:bg-[#0D9488]/20 sm:px-3"
               title="Abrir caja"
             >
               <PiggyBank className="h-4 w-4" />
@@ -474,7 +474,7 @@ export function PosPage() {
           >
             <ShoppingCart className="h-5 w-5" />
             {itemCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#4B98CF] text-[10px] font-bold text-white">
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#2563EB] text-[10px] font-bold text-white">
                 {itemCount}
               </span>
             )}
@@ -483,7 +483,7 @@ export function PosPage() {
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-semibold text-foreground">{itemCount} items</span>
             {itemCount > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4B98CF] text-[10px] font-bold text-white">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2563EB] text-[10px] font-bold text-white">
                 {itemCount}
               </span>
             )}
@@ -501,7 +501,7 @@ export function PosPage() {
                 onClick={() => setCategory("all")}
                 className={cn(
                   "rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors",
-                  category === "all" ? "bg-[#4B98CF] text-white" : "text-muted-foreground hover:text-foreground"
+                  category === "all" ? "bg-[#2563EB] text-white" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Todos
@@ -512,7 +512,7 @@ export function PosPage() {
                   onClick={() => setCategory(cat)}
                   className={cn(
                     "rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors",
-                    category === cat ? "bg-[#4B98CF] text-white" : "text-muted-foreground hover:text-foreground"
+                    category === cat ? "bg-[#2563EB] text-white" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {CATEGORY_LABELS[cat]}
@@ -563,7 +563,7 @@ export function PosPage() {
                   onClick={() => handleQuickAdd(product)}
                   disabled={product.stock <= 0 || atLimit}
                   className={cn(
-                    "flex flex-col rounded-lg border border-border bg-card p-3 text-left transition-all active:scale-[0.97] hover:border-[#4B98CF] hover:shadow-sm",
+                    "flex flex-col rounded-lg border border-border bg-card p-3 text-left transition-all active:scale-[0.97] hover:border-[#2563EB] hover:shadow-sm",
                     (product.stock <= 0 || atLimit) && "opacity-40 pointer-events-none"
                   )}
                 >
@@ -574,7 +574,7 @@ export function PosPage() {
                     {CATEGORY_LABELS[product.category]}
                   </span>
                   <span className="mt-0.5 text-sm font-semibold text-foreground leading-tight">{product.name}</span>
-                  <span className="mt-1.5 text-base font-bold text-[#4B98CF]">{formatCurrency(product.price)}</span>
+                  <span className="mt-1.5 text-base font-bold text-[#2563EB]">{formatCurrency(product.price)}</span>
 
                   <div className="mt-2 flex items-center justify-between">
                     <span className={cn(
@@ -583,7 +583,7 @@ export function PosPage() {
                     )}>
                       {product.stock <= 0 ? "Agotado" : atLimit ? `Max alcanzado (${cartQty})` : `${product.stock} unid.`}
                     </span>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4B98CF] text-white">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-white">
                       <Plus className="h-4 w-4" />
                     </div>
                   </div>
@@ -620,11 +620,11 @@ export function PosPage() {
           <div className="absolute bottom-0 left-0 right-0 flex max-h-[80vh] flex-col rounded-t-2xl border border-border bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setCartOpen(false)} className="text-sm font-semibold text-[#4B98CF]">
+                <button type="button" onClick={() => setCartOpen(false)} className="text-sm font-semibold text-[#2563EB]">
                   ← Seguir comprando
                 </button>
                 {itemCount > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4B98CF] text-[10px] font-bold text-white">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2563EB] text-[10px] font-bold text-white">
                     {itemCount}
                   </span>
                 )}

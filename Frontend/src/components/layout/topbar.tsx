@@ -92,7 +92,7 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
   }
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between bg-[#1A3142] px-4 text-white sm:px-6">
+    <header className="flex h-16 shrink-0 items-center justify-between bg-[#172554] px-4 text-white sm:px-6">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -112,8 +112,8 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
           title={mode === "b2b" ? "Cambiar a modo B2C (venta al público)" : "Cambiar a modo B2B (pedidos empresariales)"}
           className="mr-0.5 flex items-center gap-0.5 rounded-full bg-white/10 p-0.5 text-[10px] font-bold sm:mr-1 sm:text-[11px]"
         >
-          <span className={cn("rounded-full px-1.5 py-1 transition-colors sm:px-2.5", mode === "b2b" ? "bg-[#4B98CF] text-white" : "text-white/60")}>B2B</span>
-          <span className={cn("rounded-full px-1.5 py-1 transition-colors sm:px-2.5", mode === "b2c" ? "bg-[#4EB4A5] text-white" : "text-white/60")}>B2C</span>
+          <span className={cn("rounded-full px-1.5 py-1 transition-colors sm:px-2.5", mode === "b2b" ? "bg-[#2563EB] text-white" : "text-white/60")}>B2B</span>
+          <span className={cn("rounded-full px-1.5 py-1 transition-colors sm:px-2.5", mode === "b2c" ? "bg-[#0D9488] text-white" : "text-white/60")}>B2C</span>
         </button>
 
         {/* Notifications */}
@@ -124,29 +124,29 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
             className="relative inline-flex h-10 w-10 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
           >
             <Bell className="h-6 w-6" />
-            {hasUnread && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#CF4B4B]" />}
+            {hasUnread && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#DC2626]" />}
           </button>
 
           {notifyOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded border border-[#DCE0E2] bg-white shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded border border-[#E2E8F0] bg-white shadow-lg">
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm font-bold text-[#112b4a]">Notificaciones</span>
+                <span className="text-sm font-bold text-[#172554]">Notificaciones</span>
               </div>
 
               <div className="max-h-[280px] overflow-y-auto">
                 {(notifications ?? []).length === 0 ? (
-                  <p className="px-4 py-6 text-center text-xs text-[#6B7280]">Sin notificaciones nuevas</p>
+                  <p className="px-4 py-6 text-center text-xs text-[#64748B]">Sin notificaciones nuevas</p>
                 ) : (
                   (notifications ?? []).map((n) => {
                     const isStockAlert = n.stage === "STOCK_ALERT";
                     return (
-                      <div key={n.id} className="flex gap-3 border-b border-[#ECEEF0] px-4 py-3 last:border-0">
-                        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white", isStockAlert ? "bg-red-500" : "bg-[#4B98CF]")}>
+                      <div key={n.id} className="flex gap-3 border-b border-[#E2E8F0] px-4 py-3 last:border-0">
+                        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white", isStockAlert ? "bg-red-500" : "bg-[#2563EB]")}>
                           {isStockAlert ? <Package className="h-4 w-4" /> : <Truck className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-[#112b4a]">{n.message}</p>
-                          <p className="mt-0.5 text-[11px] text-[#6B7280]">{formatRelativeTime(n.occurredAt)}</p>
+                          <p className="text-xs text-[#172554]">{n.message}</p>
+                          <p className="mt-0.5 text-[11px] text-[#64748B]">{formatRelativeTime(n.occurredAt)}</p>
                         </div>
                       </div>
                     );
@@ -154,8 +154,8 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
                 )}
               </div>
 
-              <div className="border-t border-[#ECEEF0] px-4 py-2.5 text-center">
-                <Link to="/notifications" onClick={() => setNotifyOpen(false)} className="text-xs font-semibold text-[#4B98CF] hover:text-[#346384]">Ver todas</Link>
+              <div className="border-t border-[#E2E8F0] px-4 py-2.5 text-center">
+                <Link to="/notifications" onClick={() => setNotifyOpen(false)} className="text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8]">Ver todas</Link>
               </div>
             </div>
           )}
@@ -168,54 +168,54 @@ export function Topbar({ title, onMenu, onLogout, role, sessionName, sessionUser
             onClick={() => { setProfileOpen(!profileOpen); setNotifyOpen(false); }}
             className="flex items-center gap-2 rounded px-2 py-1.5 text-white/70 hover:bg-white/10 hover:text-white"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E3AA75] text-xs font-bold text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#D97706] text-xs font-bold text-white">
               {roleInitial[role]}
             </div>
             <span className="hidden text-sm font-medium sm:inline">{sessionName.split(" ")[0]}</span>
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded border border-[#DCE0E2] bg-white shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded border border-[#E2E8F0] bg-white shadow-lg">
               <div className="px-4 py-3">
-                <p className="text-sm font-bold text-[#112b4a]">{sessionName}</p>
-                <p className="text-xs text-[#6B7280]">{sessionUsername}</p>
+                <p className="text-sm font-bold text-[#172554]">{sessionName}</p>
+                <p className="text-xs text-[#64748B]">{sessionUsername}</p>
               </div>
 
-              <div className="border-t border-[#ECEEF0]" />
+              <div className="border-t border-[#E2E8F0]" />
 
               <Link
                 to={getDefaultPathForRole(role)}
                 onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#112b4a] hover:bg-[#F5F7F9]"
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#172554] hover:bg-[#F8FAFC]"
               >
-                <User className="h-4 w-4 text-[#6B7280]" />
+                <User className="h-4 w-4 text-[#64748B]" />
                 Dashboard
               </Link>
 
               <Link
                 to="/profile"
                 onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#112b4a] hover:bg-[#F5F7F9]"
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#172554] hover:bg-[#F8FAFC]"
               >
-                <User className="h-4 w-4 text-[#6B7280]" />
+                <User className="h-4 w-4 text-[#64748B]" />
                 Mi perfil
               </Link>
 
               <Link
                 to="/billing"
                 onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#112b4a] hover:bg-[#F5F7F9]"
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#172554] hover:bg-[#F8FAFC]"
               >
-                <CreditCard className="h-4 w-4 text-[#6B7280]" />
+                <CreditCard className="h-4 w-4 text-[#64748B]" />
                 Plan y facturación
               </Link>
 
-              <div className="border-t border-[#ECEEF0]" />
+              <div className="border-t border-[#E2E8F0]" />
 
               <button
                 type="button"
                 onClick={() => { setProfileOpen(false); onLogout(); }}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-[#F5F7F9]"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-[#F8FAFC]"
               >
                 <LogOut className="h-4 w-4" />
                 Cerrar sesión

@@ -34,6 +34,17 @@ export default function Pricing1() {
     return (
         <section className="py-24 sm:py-28" id="planes">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="relative flex justify-center mb-2">
+                    <div className="absolute inset-x-0 top-10 h-64 bg-brand-1/10 blur-[100px] pointer-events-none" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src="/assets/imgs/mockups/plan-basico-monitor.webp"
+                        alt="Panel de Logify abierto en un computador de escritorio junto a una impresora de tickets"
+                        className="relative w-full max-w-xl h-auto"
+                        loading="lazy"
+                    />
+                </div>
+
                 <div className="text-center max-w-2xl mx-auto mb-10">
                     <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.9rem, 3.4vw, 2.75rem)' }}>Elige tu plan.</h2>
                     <p className="text-fg/55 text-lg">Prueba gratuita de 30 días. Después pagas el precio normal, sin compromiso y cancela cuando quieras.</p>

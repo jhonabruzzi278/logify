@@ -87,9 +87,9 @@ export function CloseRegisterModal({ onClose, onClosed }: Readonly<CloseRegister
                 ))}
               </div>
             )}
-            <div className="flex items-center justify-between rounded bg-[#4B98CF]/10 px-3 py-2.5">
+            <div className="flex items-center justify-between rounded bg-[#2563EB]/10 px-3 py-2.5">
               <span className="text-sm font-bold text-foreground">Total del día (todos los medios de pago)</span>
-              <span className="text-lg font-bold text-[#4B98CF]">{formatCurrency(data.grandTotal)}</span>
+              <span className="text-lg font-bold text-[#2563EB]">{formatCurrency(data.grandTotal)}</span>
             </div>
             <p className="text-[10px] text-muted-foreground">
               Este total incluye todas las ventas de hoy. El efectivo esperado para tu caja (abajo, al cerrar) solo cuenta ventas en efectivo desde que la abriste.
@@ -107,9 +107,9 @@ export function CloseRegisterModal({ onClose, onClosed }: Readonly<CloseRegister
               <span className="text-muted-foreground">Contado</span>
               <span className="font-semibold text-foreground">{formatCurrency(closedResult.countedAmount ?? 0)}</span>
             </div>
-            <div className={`flex items-center justify-between rounded px-3 py-2.5 ${(closedResult.difference ?? 0) === 0 ? "bg-[#4EB4A5]/10" : "bg-amber-50"}`}>
+            <div className={`flex items-center justify-between rounded px-3 py-2.5 ${(closedResult.difference ?? 0) === 0 ? "bg-[#0D9488]/10" : "bg-amber-50"}`}>
               <span className="text-sm font-bold text-foreground">Diferencia</span>
-              <span className={`text-lg font-bold ${(closedResult.difference ?? 0) === 0 ? "text-[#4EB4A5]" : "text-amber-600"}`}>
+              <span className={`text-lg font-bold ${(closedResult.difference ?? 0) === 0 ? "text-[#0D9488]" : "text-amber-600"}`}>
                 {(closedResult.difference ?? 0) > 0 ? "+" : ""}{formatCurrency(closedResult.difference ?? 0)}
               </span>
             </div>

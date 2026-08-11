@@ -27,16 +27,16 @@ const icons: Record<ToastType, typeof CheckCircle> = {
 };
 
 const colors: Record<ToastType, string> = {
-  success: "border-[#4EB4A5] bg-[#4EB4A5]/10",
+  success: "border-[#0D9488] bg-[#0D9488]/10",
   error: "border-red-400 bg-red-50",
-  info: "border-[#4B98CF] bg-[#4B98CF]/10",
+  info: "border-[#2563EB] bg-[#2563EB]/10",
   shipment: "border-purple-400 bg-purple-50",
 };
 
 const iconColors: Record<ToastType, string> = {
-  success: "text-[#4EB4A5]",
+  success: "text-[#0D9488]",
   error: "text-red-500",
-  info: "text-[#4B98CF]",
+  info: "text-[#2563EB]",
   shipment: "text-purple-500",
 };
 
@@ -70,7 +70,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
               <Icon className={cn("h-4 w-4 shrink-0 mt-0.5", iconColors[toast.type])} />
               <p className="flex-1 text-xs text-foreground">{toast.message}</p>
               {toast.action && (
-                <a href={toast.action.href} className="text-xs font-semibold text-[#4B98CF] hover:underline shrink-0">
+                <a href={toast.action.href} className="text-xs font-semibold text-[#2563EB] hover:underline shrink-0">
                   {toast.action.label}
                 </a>
               )}

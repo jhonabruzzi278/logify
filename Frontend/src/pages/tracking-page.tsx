@@ -184,10 +184,10 @@ export function TrackingPage() {
   }, [stageIdx]);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "linear-gradient(160deg,#0d2137 0%,#1a3a5c 40%,#112b4a 100%)" }}>
+    <div className="min-h-screen flex flex-col" style={{ background: "linear-gradient(160deg,#172554 0%,#172554 40%,#172554 100%)" }}>
       <header className="flex items-center justify-between px-6 py-5 max-w-3xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-[#4B98CF] flex items-center justify-center">
+          <div className="h-8 w-8 rounded-lg bg-[#2563EB] flex items-center justify-center">
             <Truck className="h-4 w-4 text-white" />
           </div>
           <span className="text-white font-bold text-lg tracking-tight">Logify</span>
@@ -239,13 +239,13 @@ export function TrackingPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Código de cliente (ej: SL-AB12CD)"
-                className="h-12 w-full rounded-xl bg-white/10 border border-white/20 pl-10 pr-4 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#4B98CF] focus:bg-white/15 transition-all"
+                className="h-12 w-full rounded-xl bg-white/10 border border-white/20 pl-10 pr-4 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#2563EB] focus:bg-white/15 transition-all"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="h-12 rounded-xl bg-[#4B98CF] hover:bg-[#3d85be] disabled:opacity-60 px-6 text-sm font-bold text-white transition-colors shrink-0"
+              className="h-12 rounded-xl bg-[#2563EB] hover:bg-[#2563EB] disabled:opacity-60 px-6 text-sm font-bold text-white transition-colors shrink-0"
             >
               {loading ? "..." : "Rastrear"}
             </button>
@@ -264,7 +264,7 @@ export function TrackingPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     {result.order.client_code && (
-                      <p className="text-xs font-bold text-[#4B98CF] font-mono tracking-wide mb-1">
+                      <p className="text-xs font-bold text-[#2563EB] font-mono tracking-wide mb-1">
                         {result.order.client_code}
                       </p>
                     )}
@@ -286,7 +286,7 @@ export function TrackingPage() {
                     isCancelled ? "bg-red-500/20 text-red-300" :
                     stage === "entregado" ? "bg-green-500/20 text-green-300" :
                     stage === "en_reparto" ? "bg-purple-400/20 text-purple-300" :
-                    "bg-[#4B98CF]/20 text-[#4B98CF]"
+                    "bg-[#2563EB]/20 text-[#2563EB]"
                   )}>
                     {stageLabel(stage ?? "created")}
                   </span>
@@ -308,10 +308,10 @@ export function TrackingPage() {
                             <div className={cn(
                               "relative h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-all",
                               done && "step-icon-done bg-green-500",
-                              active && "step-icon-active bg-[#4B98CF]",
+                              active && "step-icon-active bg-[#2563EB]",
                               !done && !active && "bg-white/10"
                             )}>
-                              {active && <span className="step-active-ring pointer-events-none absolute inset-0 rounded-full bg-[#4B98CF]" />}
+                              {active && <span className="step-active-ring pointer-events-none absolute inset-0 rounded-full bg-[#2563EB]" />}
                               <Icon className={cn("relative h-4 w-4", done || active ? "text-white" : "text-white/30")} />
                             </div>
                             {i < STEP_CONFIG.length - 1 && (
@@ -383,7 +383,7 @@ export function TrackingPage() {
                         const src = String(r.source_service ?? r.sourceService ?? n.sourceService ?? "");
                         return (
                           <div key={idx} className="flex gap-3 text-sm">
-                            <div className="h-1.5 w-1.5 rounded-full bg-[#4B98CF]/70 mt-1.5 shrink-0" />
+                            <div className="h-1.5 w-1.5 rounded-full bg-[#2563EB]/70 mt-1.5 shrink-0" />
                             <div>
                               <p className="text-white/80">{msg}</p>
                               <p className="text-white/30 text-xs mt-0.5">

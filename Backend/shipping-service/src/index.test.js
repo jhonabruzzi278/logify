@@ -5,6 +5,7 @@ jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
 jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
+jest.mock('qrcode', () => ({ toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-png')) }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt'),
   verifyToken: jest.fn().mockReturnValue({ sub: 'admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
@@ -17,6 +18,7 @@ jest.mock('../shared/auth', () => ({
 
 const request = require('supertest');
 const { createPool } = require('../shared/db');
+const QRCode = require('qrcode');
 
 const mockQuery = jest.fn();
 const mockClientRelease = jest.fn();
@@ -413,12 +415,25 @@ describe('shipping-service', () => {
   // ─── GET /api/shipments/:id/qr-image ────────────────────────────────────────
 
   describe('GET /api/shipments/:id/qr-image', () => {
-    it('retorna imagen png cuando el envío existe', async () => {
+    it('retorna imagen png generada localmente cuando el envío existe', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
       const res = await request(app).get('/api/shipments/1/qr-image');
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toBe('image/png');
+      expect(QRCode.toBuffer).toHaveBeenCalledWith(
+        `LOGIFY-${mockShipment.tracking_number}`,
+        expect.objectContaining({ type: 'png', width: 250 })
+      );
+    });
+
+    it('acepta ?size=NNN y lo clampea entre 100 y 1000', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
+      const res = await request(app).get('/api/shipments/1/qr-image?size=5000');
+      expect(res.status).toBe(200);
+      expect(QRCode.toBuffer).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ width: 1000 })
+      );
     });
 
     it('retorna 404 si el envío no existe', async () => {
@@ -427,9 +442,9 @@ describe('shipping-service', () => {
       expect(res.status).toBe(404);
     });
 
-    it('retorna 500 si el servicio de QR falla', async () => {
+    it('retorna 500 si la generacion local del QR falla', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [mockShipment] });
-      global.fetch = jest.fn().mockResolvedValue({ ok: false });
+      QRCode.toBuffer.mockRejectedValueOnce(new Error('boom'));
       const res = await request(app).get('/api/shipments/1/qr-image');
       expect(res.status).toBe(500);
     });

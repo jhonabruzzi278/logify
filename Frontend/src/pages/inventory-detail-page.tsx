@@ -138,15 +138,15 @@ export function InventoryDetailPage() {
   if (!resolvedProduct) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <Box className="h-12 w-12 text-[#DCE0E2]" />
-        <p className="mt-4 font-medium text-[#6B7280]">Producto no encontrado</p>
-        <Link to="/inventory" className="mt-2 text-sm text-[#4B98CF] hover:underline">Volver a inventario</Link>
+        <Box className="h-12 w-12 text-[#E2E8F0]" />
+        <p className="mt-4 font-medium text-[#64748B]">Producto no encontrado</p>
+        <Link to="/inventory" className="mt-2 text-sm text-[#2563EB] hover:underline">Volver a inventario</Link>
       </div>
     );
   }
 
   const stockPct = Math.min(Math.round((resolvedProduct.stock / 100) * 100), 100);
-  const healthColor = resolvedProduct.status === "healthy" ? "#4EB4A5" : resolvedProduct.status === "warning" ? "#E3AA75" : "#CF4B4B";
+  const healthColor = resolvedProduct.status === "healthy" ? "#0D9488" : resolvedProduct.status === "warning" ? "#D97706" : "#DC2626";
   const opProduct = resolvedProduct as OperationalProduct;
   const delta = opProduct.stockDelta ?? 0;
   const reason = opProduct.lastAdjustmentReason ?? null;
@@ -154,7 +154,7 @@ export function InventoryDetailPage() {
 
   return (
     <div className="space-y-5">
-      <Link to="/inventory" className="inline-flex items-center gap-1 text-xs text-[#6B7280] hover:text-[#112b4a]">
+      <Link to="/inventory" className="inline-flex items-center gap-1 text-xs text-[#64748B] hover:text-[#172554]">
         <ArrowLeft className="h-3.5 w-3.5" /> Inventario
       </Link>
 
@@ -162,23 +162,23 @@ export function InventoryDetailPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           {resolvedProduct.imageUrl ? (
-            <img src={resolvedProduct.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover border border-[#DCE0E2]" />
+            <img src={resolvedProduct.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover border border-[#E2E8F0]" />
           ) : (
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-[#DCE0E2] bg-[#F8FAFB]">
-              <ImageOff className="h-5 w-5 text-[#DCE0E2]" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-[#E2E8F0] bg-[#F8FAFC]">
+              <ImageOff className="h-5 w-5 text-[#E2E8F0]" />
             </div>
           )}
           <div>
-            <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Producto</p>
-            <h1 className="text-xl font-bold text-[#112b4a]">SKU {resolvedProduct.sku}</h1>
-            <p className="text-sm text-[#6B7280]">{resolvedProduct.name}</p>
+            <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Producto</p>
+            <h1 className="text-xl font-bold text-[#172554]">SKU {resolvedProduct.sku}</h1>
+            <p className="text-sm text-[#64748B]">{resolvedProduct.name}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span className={cn(
             "self-start rounded-full px-3 py-1 text-xs font-bold",
-            resolvedProduct.status === "healthy" && "bg-[#4EB4A5]/10 text-[#4EB4A5]",
-            resolvedProduct.status === "warning" && "bg-[#E3AA75]/10 text-[#E3AA75]",
+            resolvedProduct.status === "healthy" && "bg-[#0D9488]/10 text-[#0D9488]",
+            resolvedProduct.status === "warning" && "bg-[#D97706]/10 text-[#D97706]",
             resolvedProduct.status === "critical" && "bg-red-50 text-red-500",
           )}>
             {resolvedProduct.status === "healthy" ? "Estable" : resolvedProduct.status === "warning" ? "Bajo" : "Crítico"}
@@ -186,7 +186,7 @@ export function InventoryDetailPage() {
           {can("inventory.adjust") && (
             <button type="button"
               onClick={() => (editOpen ? setEditOpen(false) : openEdit())}
-              className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
+              className="flex items-center gap-1.5 rounded border border-[#2563EB]/30 bg-[#2563EB]/5 px-3 py-1.5 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10"
             >
               <Edit2 className="h-3.5 w-3.5" /> Editar
             </button>
@@ -195,15 +195,15 @@ export function InventoryDetailPage() {
       </div>
 
       {editOpen && (
-        <form onSubmit={handleSaveEdit} className="rounded border border-[#DCE0E2] bg-white p-5 space-y-3">
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Editar producto</p>
+        <form onSubmit={handleSaveEdit} className="rounded border border-[#E2E8F0] bg-white p-5 space-y-3">
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Editar producto</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <label htmlFor="inventory-detail-page-f201" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nombre</label>
+              <label htmlFor="inventory-detail-page-f201" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nombre</label>
               <Input id="inventory-detail-page-f201" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <label htmlFor="inventory-detail-page-f205" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Categoría</label>
+              <label htmlFor="inventory-detail-page-f205" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Categoría</label>
               <Select value={editForm.category} onValueChange={(v) => setEditForm({ ...editForm, category: v })}>
                 <SelectTrigger id="inventory-detail-page-f205" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -215,15 +215,15 @@ export function InventoryDetailPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label htmlFor="inventory-detail-page-f217" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio venta $</label>
+              <label htmlFor="inventory-detail-page-f217" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Precio venta $</label>
               <Input id="inventory-detail-page-f217" type="number" min={0} value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <label htmlFor="inventory-detail-page-f221" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Precio compra $</label>
+              <label htmlFor="inventory-detail-page-f221" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Precio compra $</label>
               <Input id="inventory-detail-page-f221" type="number" min={0} value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <label htmlFor="inventory-detail-page-f225" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Proveedor</label>
+              <label htmlFor="inventory-detail-page-f225" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Proveedor</label>
               <Select value={editForm.supplierId || "none"} onValueChange={(v) => setEditForm({ ...editForm, supplierId: v === "none" ? "" : v })}>
                 <SelectTrigger id="inventory-detail-page-f225" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -233,7 +233,7 @@ export function InventoryDetailPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label htmlFor="inventory-detail-page-f235" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Unidad de medida</label>
+              <label htmlFor="inventory-detail-page-f235" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Unidad de medida</label>
               <Select value={editForm.unitOfMeasure} onValueChange={(v) => setEditForm({ ...editForm, unitOfMeasure: v })}>
                 <SelectTrigger id="inventory-detail-page-f235" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -246,32 +246,32 @@ export function InventoryDetailPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label htmlFor="inventory-detail-page-f248" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">IVA %</label>
+              <label htmlFor="inventory-detail-page-f248" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">IVA %</label>
               <Input id="inventory-detail-page-f248" type="number" min={0} max={100} value={editForm.taxRate} onChange={(e) => setEditForm({ ...editForm, taxRate: parseFloat(e.target.value) || 0 })} className="h-9 text-sm" />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-xs font-medium text-[#112b4a]">
-            <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} className="h-4 w-4 rounded border-[#DCE0E2]" />
+          <label className="flex items-center gap-2 text-xs font-medium text-[#172554]">
+            <input type="checkbox" checked={editForm.active} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} className="h-4 w-4 rounded border-[#E2E8F0]" />
             Producto activo
           </label>
           {editError && <p className="text-xs text-red-500">{editError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(false)}>Cancelar</Button>
-            <Button type="submit" size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" disabled={editSaving}>{editSaving ? "Guardando..." : "Guardar"}</Button>
+            <Button type="submit" size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={editSaving}>{editSaving ? "Guardando..." : "Guardar"}</Button>
           </div>
         </form>
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Stock gauge */}
-        <div className="rounded border border-[#DCE0E2] bg-white p-5">
-          <p className="mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Nivel de stock</p>
+        <div className="rounded border border-[#E2E8F0] bg-white p-5">
+          <p className="mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nivel de stock</p>
 
           <div className="flex items-end gap-2 mb-2">
-            <span className="text-4xl font-bold text-[#112b4a]">{resolvedProduct.stock}</span>
-            <span className="text-sm text-[#6B7280] pb-1">unidades</span>
+            <span className="text-4xl font-bold text-[#172554]">{resolvedProduct.stock}</span>
+            <span className="text-sm text-[#64748B] pb-1">unidades</span>
             {delta !== 0 && (
-              <span className={cn("flex items-center gap-0.5 text-xs font-bold pb-1", delta > 0 ? "text-[#4EB4A5]" : "text-red-500")}>
+              <span className={cn("flex items-center gap-0.5 text-xs font-bold pb-1", delta > 0 ? "text-[#0D9488]" : "text-red-500")}>
                 {delta > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                 {delta > 0 ? "+" : ""}{delta}
               </span>
@@ -279,38 +279,38 @@ export function InventoryDetailPage() {
           </div>
 
           {/* Gauge bar */}
-          <div className="h-4 rounded-full bg-[#F5F7F9] overflow-hidden">
+          <div className="h-4 rounded-full bg-[#F8FAFC] overflow-hidden">
             <div
               className="h-4 rounded-full transition-all duration-700"
               style={{ width: `${stockPct}%`, backgroundColor: healthColor }}
             />
           </div>
 
-          <div className="flex justify-between mt-2 text-[10px] text-[#6B7280]">
+          <div className="flex justify-between mt-2 text-[10px] text-[#64748B]">
             <span>0</span>
             <span>50</span>
             <span>100</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mt-5">
-            <div className="rounded bg-[#F8FAFB] px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Actualizado</p>
-              <p className="text-sm font-bold text-[#112b4a]">{new Date(resolvedProduct.updatedAt).toLocaleDateString("es-CL")}</p>
+            <div className="rounded bg-[#F8FAFC] px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Actualizado</p>
+              <p className="text-sm font-bold text-[#172554]">{new Date(resolvedProduct.updatedAt).toLocaleDateString("es-CL")}</p>
             </div>
           </div>
 
           {reason && (
-            <div className="mt-3 rounded border border-[#4B98CF]/20 bg-[#4B98CF]/5 px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#4B98CF]">Último ajuste</p>
-              <p className="mt-1 text-sm text-[#112b4a]">{reason}</p>
-              {adjustedAt && <p className="mt-0.5 text-[10px] text-[#6B7280]">{new Date(adjustedAt).toLocaleString("es-CL")}</p>}
+            <div className="mt-3 rounded border border-[#2563EB]/20 bg-[#2563EB]/5 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#2563EB]">Último ajuste</p>
+              <p className="mt-1 text-sm text-[#172554]">{reason}</p>
+              {adjustedAt && <p className="mt-0.5 text-[10px] text-[#64748B]">{new Date(adjustedAt).toLocaleString("es-CL")}</p>}
             </div>
           )}
         </div>
 
         {/* Related orders */}
-        <div className="rounded border border-[#DCE0E2] bg-white p-5">
-          <p className="mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Pedidos con este SKU ({relatedOrders.length})</p>
+        <div className="rounded border border-[#E2E8F0] bg-white p-5">
+          <p className="mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Pedidos con este SKU ({relatedOrders.length})</p>
 
           {relatedOrders.length > 0 ? (
             <div className="space-y-2">
@@ -318,51 +318,51 @@ export function InventoryDetailPage() {
                 <Link
                   key={order.id}
                   to={`/orders/${order.id}`}
-                  className="flex items-center justify-between rounded bg-[#F8FAFB] px-4 py-3 hover:bg-[#ECEEF0] transition-colors"
+                  className="flex items-center justify-between rounded bg-[#F8FAFC] px-4 py-3 hover:bg-[#E2E8F0] transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <ShoppingBag className="h-4 w-4 text-[#6B7280]" />
+                    <ShoppingBag className="h-4 w-4 text-[#64748B]" />
                     <div>
-                      <p className="text-sm font-semibold text-[#112b4a]">Pedido #{order.id}</p>
-                      <p className="text-xs text-[#6B7280]">Cliente {order.customer} &middot; {order.quantity} unids</p>
+                      <p className="text-sm font-semibold text-[#172554]">Pedido #{order.id}</p>
+                      <p className="text-xs text-[#64748B]">Cliente {order.customer} &middot; {order.quantity} unids</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <span className={cn(
                       "rounded px-2 py-0.5 text-[10px] font-bold",
                       order.stage === "entregado" && "bg-green-50 text-green-600",
-                      order.stage === "created" && "bg-[#4B98CF]/10 text-[#4B98CF]",
-                      order.stage === "en_preparacion" && "bg-[#E3AA75]/10 text-[#E3AA75]",
+                      order.stage === "created" && "bg-[#2563EB]/10 text-[#2563EB]",
+                      order.stage === "en_preparacion" && "bg-[#D97706]/10 text-[#D97706]",
                       order.stage === "en_reparto" && "bg-purple-50 text-purple-600",
                       order.stage === "cancelado" && "bg-red-50 text-red-500",
                     )}>
                       {order.stage === "created" ? "Pendiente" : order.stage === "en_preparacion" ? "Preparación" : order.stage === "en_reparto" ? "En reparto" : order.stage === "entregado" ? "Entregado" : order.stage === "cancelado" ? "Cancelado" : order.stage}
                     </span>
-                    <p className="mt-0.5 text-[10px] text-[#6B7280]">{new Date(order.createdAt).toLocaleDateString("es-CL")}</p>
+                    <p className="mt-0.5 text-[10px] text-[#64748B]">{new Date(order.createdAt).toLocaleDateString("es-CL")}</p>
                   </div>
                 </Link>
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8">
-              <Package className="h-8 w-8 text-[#ECEEF0]" />
-              <p className="mt-2 text-xs text-[#6B7280]">Sin pedidos asociados</p>
+              <Package className="h-8 w-8 text-[#E2E8F0]" />
+              <p className="mt-2 text-xs text-[#64748B]">Sin pedidos asociados</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Product image picker */}
-      <div className="rounded border border-[#DCE0E2] bg-white p-5">
+      <div className="rounded border border-[#E2E8F0] bg-white p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <ImagePlus className="h-4 w-4 text-[#4B98CF]" />
-            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Imagen del producto</p>
+            <ImagePlus className="h-4 w-4 text-[#2563EB]" />
+            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Imagen del producto</p>
           </div>
           {!imagePickerOpen && (
             <button type="button"
               onClick={() => { setImagePickerOpen(true); setImageQuery(resolvedProduct.name); }}
-              className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
+              className="flex items-center gap-1.5 rounded border border-[#2563EB]/30 bg-[#2563EB]/5 px-3 py-1.5 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10"
             >
               <ImagePlus className="h-3.5 w-3.5" /> {resolvedProduct.imageUrl ? "Cambiar imagen" : "Buscar imagen"}
             </button>
@@ -380,8 +380,8 @@ export function InventoryDetailPage() {
             />
             <div className="flex flex-wrap gap-2">
               {imageSearching && (
-                <div className="flex h-16 w-16 items-center justify-center rounded border border-[#DCE0E2]">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />
+                <div className="flex h-16 w-16 items-center justify-center rounded border border-[#E2E8F0]">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#2563EB] border-t-transparent" />
                 </div>
               )}
               {!imageSearching && imageResults.map((img) => (
@@ -391,30 +391,30 @@ export function InventoryDetailPage() {
                   onClick={() => handleSelectImage(img.url)}
                   className={cn(
                     "relative h-16 w-16 overflow-hidden rounded border-2 transition-colors disabled:opacity-50",
-                    resolvedProduct.imageUrl === img.url ? "border-[#4B98CF]" : "border-transparent hover:border-[#DCE0E2]"
+                    resolvedProduct.imageUrl === img.url ? "border-[#2563EB]" : "border-transparent hover:border-[#E2E8F0]"
                   )}
                 >
                   <img src={img.thumbnail} alt={img.title} className="h-full w-full object-cover" />
                   {resolvedProduct.imageUrl === img.url && (
-                    <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#4B98CF]"><Check className="h-3 w-3 text-white" /></span>
+                    <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#2563EB]"><Check className="h-3 w-3 text-white" /></span>
                   )}
                 </button>
               ))}
               {!imageSearching && imageQuery.trim().length >= 3 && imageResults.length === 0 && (
-                <p className="text-xs text-[#6B7280]">Sin resultados para "{imageQuery}"</p>
+                <p className="text-xs text-[#64748B]">Sin resultados para "{imageQuery}"</p>
               )}
             </div>
-            <button type="button" onClick={() => setImagePickerOpen(false)} className="text-xs text-[#6B7280] hover:text-[#112b4a]">Cancelar</button>
+            <button type="button" onClick={() => setImagePickerOpen(false)} className="text-xs text-[#64748B] hover:text-[#172554]">Cancelar</button>
           </div>
         )}
       </div>
 
       {/* QR code */}
-      <div className="rounded border border-[#DCE0E2] bg-white p-5">
+      <div className="rounded border border-[#E2E8F0] bg-white p-5">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <QrCode className="h-4 w-4 text-[#4B98CF]" />
-            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Código QR del producto</p>
+            <QrCode className="h-4 w-4 text-[#2563EB]" />
+            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código QR del producto</p>
           </div>
           {qrRequested && qrImage.url && (
             <div className="flex items-center gap-2">
@@ -428,7 +428,7 @@ export function InventoryDetailPage() {
               </Select>
               <button type="button"
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-1.5 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
+                className="flex items-center gap-1.5 rounded border border-[#2563EB]/30 bg-[#2563EB]/5 px-3 py-1.5 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10"
               >
                 <Printer className="h-3.5 w-3.5" /> Imprimir QR
               </button>
@@ -439,15 +439,15 @@ export function InventoryDetailPage() {
         {!qrRequested && (
           <button type="button"
             onClick={() => { setQrVersion((version) => version + 1); setQrRequested(true); }}
-            className="flex items-center gap-1.5 rounded border border-[#4B98CF]/30 bg-[#4B98CF]/5 px-3 py-2 text-xs font-semibold text-[#4B98CF] hover:bg-[#4B98CF]/10"
+            className="flex items-center gap-1.5 rounded border border-[#2563EB]/30 bg-[#2563EB]/5 px-3 py-2 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10"
           >
             <QrCode className="h-3.5 w-3.5" /> Generar QR para {resolvedProduct.sku}
           </button>
         )}
 
         {qrRequested && qrImage.loading && (
-          <div className="flex items-center gap-2 text-xs text-[#6B7280]">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#4B98CF] border-t-transparent" />
+          <div className="flex items-center gap-2 text-xs text-[#64748B]">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#2563EB] border-t-transparent" />
             Generando código QR...
           </div>
         )}
@@ -455,28 +455,28 @@ export function InventoryDetailPage() {
         {qrRequested && qrImage.error && (
           <div className="flex items-center gap-3">
             <p className="text-xs text-red-500">{qrImage.error}</p>
-            <button type="button" onClick={() => setQrVersion((version) => version + 1)} className="text-xs font-semibold text-[#4B98CF] hover:underline">Reintentar</button>
+            <button type="button" onClick={() => setQrVersion((version) => version + 1)} className="text-xs font-semibold text-[#2563EB] hover:underline">Reintentar</button>
           </div>
         )}
 
         {qrRequested && qrImage.url && (
           <div className="flex flex-col items-center gap-3">
-            <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[#4B98CF] p-4">
+            <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[#2563EB] p-4">
               <img src={qrImage.url} alt={`QR de ${resolvedProduct.sku}`} className="h-40 w-40" />
-              <div className="w-full max-w-[220px] space-y-0.5 border-t border-[#ECEEF0] pt-2 text-center">
-                <p className="text-sm font-bold text-[#112b4a]">{resolvedProduct.name}</p>
-                <p className="font-mono text-xs text-[#6B7280]">SKU {resolvedProduct.sku}</p>
-                <p className="text-sm font-bold text-[#4B98CF]">{formatCurrency(resolvedProduct.price)}</p>
-                <p className="text-[10px] uppercase tracking-wide text-[#6B7280]">{resolvedProduct.category} · Stock {resolvedProduct.stock}</p>
+              <div className="w-full max-w-[220px] space-y-0.5 border-t border-[#E2E8F0] pt-2 text-center">
+                <p className="text-sm font-bold text-[#172554]">{resolvedProduct.name}</p>
+                <p className="font-mono text-xs text-[#64748B]">SKU {resolvedProduct.sku}</p>
+                <p className="text-sm font-bold text-[#2563EB]">{formatCurrency(resolvedProduct.price)}</p>
+                <p className="text-[10px] uppercase tracking-wide text-[#64748B]">{resolvedProduct.category} · Stock {resolvedProduct.stock}</p>
               </div>
             </div>
-            <p className="text-xs text-[#6B7280]">
+            <p className="text-xs text-[#64748B]">
               El QR identifica el SKU del producto — se puede escanear con la cámara de cualquier celular o, a futuro, con un lector dedicado.
             </p>
             <a
               href={qrImage.url}
               download={`qr-${resolvedProduct.sku}.png`}
-              className="text-xs font-semibold text-[#4B98CF] hover:underline"
+              className="text-xs font-semibold text-[#2563EB] hover:underline"
             >
               Descargar QR en PNG
             </a>

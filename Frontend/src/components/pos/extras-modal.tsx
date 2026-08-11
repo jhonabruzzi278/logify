@@ -55,7 +55,7 @@ export function ExtrasModal({ subtotal, onApply, onClose }: ExtrasModalProps) {
                 key={v}
                 type="button"
                 onClick={() => setType(v)}
-                className={cn("flex-1 rounded px-3 py-1.5 text-xs font-semibold transition-colors", type === v ? "bg-[#4B98CF] text-white" : "text-muted-foreground hover:text-foreground")}
+                className={cn("flex-1 rounded px-3 py-1.5 text-xs font-semibold transition-colors", type === v ? "bg-[#2563EB] text-white" : "text-muted-foreground hover:text-foreground")}
               >
                 {label}
               </button>
@@ -68,7 +68,7 @@ export function ExtrasModal({ subtotal, onApply, onClose }: ExtrasModalProps) {
                 key={v}
                 type="button"
                 onClick={() => setMode(v)}
-                className={cn("flex-1 rounded px-3 py-1.5 text-xs font-semibold transition-colors", mode === v ? "bg-[#4B98CF] text-white" : "text-muted-foreground hover:text-foreground")}
+                className={cn("flex-1 rounded px-3 py-1.5 text-xs font-semibold transition-colors", mode === v ? "bg-[#2563EB] text-white" : "text-muted-foreground hover:text-foreground")}
               >
                 {label}
               </button>
@@ -83,7 +83,7 @@ export function ExtrasModal({ subtotal, onApply, onClose }: ExtrasModalProps) {
           </div>
 
           {value && !error && (
-            <div className="flex items-center justify-between rounded bg-[#4B98CF]/10 px-3 py-2">
+            <div className="flex items-center justify-between rounded bg-[#2563EB]/10 px-3 py-2">
               <span className="text-xs text-muted-foreground">Nuevo total</span>
               <span className="text-sm font-bold text-foreground">{formatCurrency(subtotal + amount)}</span>
             </div>
@@ -93,7 +93,7 @@ export function ExtrasModal({ subtotal, onApply, onClose }: ExtrasModalProps) {
 
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-            <Button type="button" size="sm" className="bg-[#4B98CF] hover:bg-[#346384] text-white" onClick={handleApply}>
+            <Button type="button" size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" onClick={handleApply}>
               Aplicar {type === "discount" ? "Descuento" : "Recargo"}
             </Button>
           </div>

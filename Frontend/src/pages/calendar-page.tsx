@@ -54,18 +54,18 @@ export function CalendarPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#6B7280]">Calendario</p>
-          <h1 className="text-xl font-bold text-[#112b4a]">Actividad de envíos</h1>
+          <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Calendario</p>
+          <h1 className="text-xl font-bold text-[#172554]">Actividad de envíos</h1>
         </div>
 
         <div className="flex items-center gap-2">
-          <button type="button" onClick={prevMonth} className="flex h-9 w-9 items-center justify-center rounded border border-[#DCE0E2] bg-white text-[#6B7280] hover:bg-[#F5F7F9]">
+          <button type="button" onClick={prevMonth} className="flex h-9 w-9 items-center justify-center rounded border border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="min-w-[140px] text-center text-sm font-bold text-[#112b4a]">
+          <span className="min-w-[140px] text-center text-sm font-bold text-[#172554]">
             {MONTHS[month]} {year}
           </span>
-          <button type="button" onClick={nextMonth} className="flex h-9 w-9 items-center justify-center rounded border border-[#DCE0E2] bg-white text-[#6B7280] hover:bg-[#F5F7F9]">
+          <button type="button" onClick={nextMonth} className="flex h-9 w-9 items-center justify-center rounded border border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC]">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -73,27 +73,27 @@ export function CalendarPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded border border-[#DCE0E2] bg-white p-3 text-center">
-          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Este mes</p>
-          <p className="mt-1 text-xl font-bold text-[#112b4a]">{stats.total}</p>
+        <div className="rounded border border-[#E2E8F0] bg-white p-3 text-center">
+          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Este mes</p>
+          <p className="mt-1 text-xl font-bold text-[#172554]">{stats.total}</p>
         </div>
-        <div className="rounded border border-[#DCE0E2] bg-white p-3 text-center">
-          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">En curso</p>
-          <p className="mt-1 text-xl font-bold text-[#4EB4A5]">{stats.active}</p>
+        <div className="rounded border border-[#E2E8F0] bg-white p-3 text-center">
+          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">En curso</p>
+          <p className="mt-1 text-xl font-bold text-[#0D9488]">{stats.active}</p>
         </div>
-        <div className="rounded border border-[#DCE0E2] bg-white p-3 text-center">
-          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#6B7280]">Entregados</p>
-          <p className="mt-1 text-xl font-bold text-[#4B98CF]">{stats.delivered}</p>
+        <div className="rounded border border-[#E2E8F0] bg-white p-3 text-center">
+          <p className="text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Entregados</p>
+          <p className="mt-1 text-xl font-bold text-[#2563EB]">{stats.delivered}</p>
         </div>
       </div>
 
       {/* Calendar grid */}
-      <div className="overflow-x-auto scroll-x rounded border border-[#DCE0E2] bg-white">
+      <div className="overflow-x-auto scroll-x rounded border border-[#E2E8F0] bg-white">
         <div className="min-w-[600px] sm:min-w-0">
           {/* Weekday headers */}
           <div className="grid grid-cols-7">
             {WEEKDAYS.map((wd) => (
-              <div key={wd} className="border-b border-r border-[#ECEEF0] px-2 py-2.5 text-center text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#6B7280] last:border-r-0">
+              <div key={wd} className="border-b border-r border-[#E2E8F0] px-2 py-2.5 text-center text-[0.625rem] font-bold uppercase tracking-[0.92px] text-[#64748B] last:border-r-0">
                 {wd}
               </div>
             ))}
@@ -107,15 +107,15 @@ export function CalendarPage() {
                 <div
                   key={i}
                   className={cn(
-                    "min-h-[70px] sm:min-h-[90px] border-b border-r border-[#ECEEF0] p-1 sm:p-1.5 last:border-r-0",
-                    !day && "bg-[#F8FAFB]"
+                    "min-h-[70px] sm:min-h-[90px] border-b border-r border-[#E2E8F0] p-1 sm:p-1.5 last:border-r-0",
+                    !day && "bg-[#F8FAFC]"
                   )}
                 >
                   {day && (
                     <>
                       <span className={cn(
                         "inline-flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-[10px] sm:text-xs font-bold",
-                        isToday(day) ? "bg-[#4B98CF] text-white" : "text-[#112b4a]"
+                        isToday(day) ? "bg-[#2563EB] text-white" : "text-[#172554]"
                       )}>
                         {day}
                       </span>
@@ -129,8 +129,8 @@ export function CalendarPage() {
                             className={cn(
                               "flex items-center gap-1 truncate rounded px-0.5 sm:px-1 py-0.5 text-[8px] sm:text-[9px] font-medium",
                               s.stage === "entregado" && "bg-green-50 text-green-600",
-                              s.stage === "en_reparto" && "bg-[#4B98CF]/10 text-[#4B98CF]",
-                              s.stage === "en_preparacion" && "bg-[#E3AA75]/10 text-[#E3AA75]",
+                              s.stage === "en_reparto" && "bg-[#2563EB]/10 text-[#2563EB]",
+                              s.stage === "en_preparacion" && "bg-[#D97706]/10 text-[#D97706]",
                               s.stage === "cancelado" && "bg-red-50 text-red-500",
                             )}
                           >
@@ -139,7 +139,7 @@ export function CalendarPage() {
                           </Link>
                         ))}
                         {dayShipments.length > 2 && (
-                          <p className="text-[8px] sm:text-[9px] text-[#6B7280] pl-1">+{dayShipments.length - 2} mas</p>
+                          <p className="text-[8px] sm:text-[9px] text-[#64748B] pl-1">+{dayShipments.length - 2} mas</p>
                         )}
                       </div>
                     </>
@@ -152,9 +152,9 @@ export function CalendarPage() {
       </div>
 
       {/* Daily detail */}
-      <div className="rounded border border-[#DCE0E2] bg-white">
-        <div className="border-b border-[#ECEEF0] px-4 py-3">
-          <h2 className="text-sm font-bold text-[#112b4a]">Envíos registrados hoy ({today.toLocaleDateString("es-CL")})</h2>
+      <div className="rounded border border-[#E2E8F0] bg-white">
+        <div className="border-b border-[#E2E8F0] px-4 py-3">
+          <h2 className="text-sm font-bold text-[#172554]">Envíos registrados hoy ({today.toLocaleDateString("es-CL")})</h2>
         </div>
         <div className="p-3">
           {shipments?.filter((s) => {
@@ -169,25 +169,25 @@ export function CalendarPage() {
                 })
                 .slice(0, 5)
                 .map((s) => (
-                  <Link key={s.id} to="/shipments" className="flex items-center justify-between rounded px-3 py-2 hover:bg-[#F5F7F9]">
+                  <Link key={s.id} to="/shipments" className="flex items-center justify-between rounded px-3 py-2 hover:bg-[#F8FAFC]">
                     <div className="flex items-center gap-3">
                       <div className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full",
                         s.stage === "entregado" && "bg-green-50",
                         s.stage === "cancelado" && "bg-red-50",
-                        "bg-[#F5F7F9]"
+                        "bg-[#F8FAFC]"
                       )}>
-                        <Truck className="h-4 w-4 text-[#4B98CF]" />
+                        <Truck className="h-4 w-4 text-[#2563EB]" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-[#112b4a]">{s.tracking}</p>
-                        <p className="text-xs text-[#6B7280]">Pedido #{s.orderId} | SKU {s.sku}</p>
+                        <p className="text-sm font-medium text-[#172554]">{s.tracking}</p>
+                        <p className="text-xs text-[#64748B]">Pedido #{s.orderId} | SKU {s.sku}</p>
                       </div>
                     </div>
                     <span className={cn(
                       "rounded px-2 py-0.5 text-[10px] font-bold",
                       s.stage === "entregado" && "bg-green-50 text-green-600",
-                      s.stage === "en_reparto" && "bg-[#4B98CF]/10 text-[#4B98CF]",
+                      s.stage === "en_reparto" && "bg-[#2563EB]/10 text-[#2563EB]",
                       s.stage === "cancelado" && "bg-red-50 text-red-500",
                     )}>
                       {s.stage === "en_preparacion" ? "Preparación" : s.stage === "en_reparto" ? "En reparto" : s.stage === "entregado" ? "Entregado" : s.stage === "cancelado" ? "Cancelado" : s.stage}
@@ -196,7 +196,7 @@ export function CalendarPage() {
                 ))}
             </div>
           ) : (
-            <p className="py-6 text-center text-xs text-[#6B7280]">No hay envíos programados para hoy</p>
+            <p className="py-6 text-center text-xs text-[#64748B]">No hay envíos programados para hoy</p>
           )}
         </div>
       </div>

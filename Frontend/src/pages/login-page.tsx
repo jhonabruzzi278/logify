@@ -83,7 +83,18 @@ export function LoginPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
       {/* Panel de marca — oculto en mobile */}
-      <div className="relative hidden overflow-hidden bg-[#0F2036] lg:flex lg:flex-col lg:justify-between lg:p-14">
+      <div className="relative hidden overflow-hidden bg-[#172554] lg:flex lg:flex-col lg:justify-between lg:p-14">
+        <div
+          className="pointer-events-none absolute -right-32 -top-32 h-[420px] w-[420px] rounded-full opacity-40 blur-3xl"
+          style={{ background: "radial-gradient(circle, #8B5CF6 0%, transparent 70%)" }}
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -bottom-40 -left-24 h-[380px] w-[380px] rounded-full opacity-30 blur-3xl"
+          style={{ background: "radial-gradient(circle, #2563EB 0%, transparent 70%)" }}
+          aria-hidden="true"
+        />
+
         <svg
           ref={routeSvgRef}
           className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.14]"
@@ -91,68 +102,85 @@ export function LoginPage() {
           fill="none"
           aria-hidden="true"
         >
-          <path className="route-path" d="M-20 620 C 120 560, 180 460, 140 340 S 260 140, 420 180 S 560 60, 660 20" stroke="#6BB3E8" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
-          <path className="route-path" d="M-40 220 C 100 260, 160 180, 260 220 S 420 340, 520 300 S 640 400, 700 460" stroke="#6BB3E8" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
-          <circle className="route-dot" cx="140" cy="340" r="5" fill="#6BB3E8" />
-          <circle className="route-dot" cx="420" cy="180" r="5" fill="#6BB3E8" />
-          <circle className="route-dot" cx="260" cy="220" r="5" fill="#6BB3E8" />
-          <circle className="route-dot" cx="520" cy="300" r="5" fill="#6BB3E8" />
+          <path className="route-path" d="M-20 620 C 120 560, 180 460, 140 340 S 260 140, 420 180 S 560 60, 660 20" stroke="#3B82F6" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
+          <path className="route-path" d="M-40 220 C 100 260, 160 180, 260 220 S 420 340, 520 300 S 640 400, 700 460" stroke="#3B82F6" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
+          <circle className="route-dot" cx="140" cy="340" r="5" fill="#3B82F6" />
+          <circle className="route-dot" cx="420" cy="180" r="5" fill="#3B82F6" />
+          <circle className="route-dot" cx="260" cy="220" r="5" fill="#3B82F6" />
+          <circle className="route-dot" cx="520" cy="300" r="5" fill="#3B82F6" />
         </svg>
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#4B98CF]">
-            <span className="text-lg font-bold text-white">S</span>
-          </div>
-          <span className="text-lg font-bold text-white">Logify</span>
+          <span className="text-xl font-bold tracking-tight text-white">Logify</span>
         </div>
 
         <div className="relative z-10 max-w-md">
-          <h2 className="text-3xl font-bold leading-tight text-white">
+          <span className="inline-flex items-center rounded-full border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-3 py-1 text-xs font-semibold tracking-wide text-[#C4B5FD]">
+            Plataforma logística
+          </span>
+
+          <h2 className="mt-4 text-3xl font-bold leading-tight text-white">
             Control logístico para distribuidoras y almacenes
           </h2>
-          <p className="mt-3 text-sm text-[#A9C1D9]">
+          <p className="mt-3 text-sm text-[#CBD5E1]">
             Del pedido a la entrega, sin planillas sueltas ni datos desincronizados.
           </p>
 
-          <ul ref={featuresRef} className="mt-8 space-y-4">
+          <ul ref={featuresRef} className="mt-8 space-y-3">
             {FEATURES.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10">
-                  <Icon className="h-4 w-4 text-[#6BB3E8]" />
+              <li
+                key={text}
+                className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3"
+              >
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#3B82F6]/15">
+                  <Icon className="h-4 w-4 text-[#60A5FA]" />
                 </span>
-                <span className="text-sm leading-relaxed text-[#D7E4F0]">{text}</span>
+                <span className="text-sm leading-relaxed text-[#CBD5E1]">{text}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="relative z-10 text-xs text-[#6B85A3]">
+        <p className="relative z-10 border-t border-white/10 pt-6 text-xs text-[#64748B]">
           &copy; {new Date().getFullYear()} Logify &middot; Plataforma interna de operaciones
         </p>
       </div>
 
       {/* Panel de acceso */}
-      <div className="flex items-center justify-center bg-background px-6 py-12">
-        <div className="w-full max-w-sm">
+      <div className="relative flex items-center justify-center overflow-hidden bg-background px-6 py-12">
+        <div
+          className="pointer-events-none absolute -right-40 -top-40 h-[420px] w-[420px] rounded-full opacity-60 blur-3xl"
+          style={{ background: "radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%)" }}
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -bottom-48 -left-32 h-[380px] w-[380px] rounded-full opacity-50 blur-3xl"
+          style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.15) 0%, transparent 70%)" }}
+          aria-hidden="true"
+        />
+
+        <div className="relative z-10 w-full max-w-sm">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1A3142]">
-              <span className="text-lg font-bold text-white">S</span>
-            </div>
-            <span className="text-lg font-bold text-foreground">Logify</span>
+            <span className="text-xl font-bold tracking-tight text-foreground">Logify</span>
           </div>
 
-          <h1 className="text-2xl font-bold text-foreground">Bienvenido de vuelta</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Ingresa tus credenciales para acceder a tu panel.
-          </p>
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+            <span className="inline-flex items-center rounded-full border border-[#8B5CF6]/25 bg-accent px-3 py-1 text-xs font-semibold tracking-wide text-accent-foreground">
+              Acceso seguro
+            </span>
 
-          {deniedFrom ? (
-            <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
-              Tu cuenta no tiene acceso a <strong>{deniedFrom}</strong>. Inicia sesión con otro perfil.
-            </div>
-          ) : null}
+            <h1 className="mt-4 text-2xl font-bold text-foreground">Bienvenido de vuelta</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Ingresa tus credenciales para acceder a tu panel.
+            </p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            {deniedFrom ? (
+              <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                Tu cuenta no tiene acceso a <strong>{deniedFrom}</strong>. Inicia sesión con otro perfil.
+              </div>
+            ) : null}
+
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
               <label htmlFor="username" className="mb-1.5 block text-xs font-semibold text-foreground">
                 Usuario
@@ -178,7 +206,7 @@ export function LoginPage() {
                 <label htmlFor="password" className="block text-xs font-semibold text-foreground">
                   Contraseña
                 </label>
-                <Link to="/forgot-password" className="text-xs font-medium text-[#4B98CF] hover:underline">
+                <Link to="/forgot-password" className="text-xs font-medium text-primary hover:underline">
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
@@ -207,7 +235,7 @@ export function LoginPage() {
             </div>
 
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input type="checkbox" className="h-3.5 w-3.5 rounded border-input accent-[#4B98CF]" />
+              <input type="checkbox" className="h-3.5 w-3.5 rounded border-input accent-primary" />
               Mantener sesión iniciada
             </label>
 
@@ -219,22 +247,23 @@ export function LoginPage() {
 
             <Button
               type="submit"
-              className="h-11 w-full bg-[#4B98CF] text-sm font-bold hover:bg-[#346384]"
+              className="h-11 w-full bg-primary text-sm font-bold hover:bg-primary/90"
               disabled={busy || !username.trim() || !password.trim()}
             >
               {busy ? "Ingresando..." : "Iniciar sesión"}
             </Button>
-          </form>
+            </form>
+          </div>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
             ¿No recuerdas el nombre de tu negocio?{" "}
-            <a href="https://logify.cl/acceso" className="font-medium text-[#4B98CF] hover:underline">
+            <a href="https://logify.cl/acceso" className="font-medium text-primary hover:underline">
               Recupéralo aquí
             </a>
           </p>
           <p className="mt-2 text-center text-xs text-muted-foreground">
             ¿Problemas para ingresar?{" "}
-            <a href="mailto:soporte@logify.cl" className="font-medium text-[#4B98CF] hover:underline">
+            <a href="mailto:soporte@logify.cl" className="font-medium text-primary hover:underline">
               Contacta a soporte
             </a>
           </p>

@@ -65,7 +65,7 @@ export function ProfilePage() {
       detail: `SKU ${o.sku} - ${o.quantity} unidades - ${o.stage}`,
       time: o.createdAt,
       icon: Package,
-      iconBg: "bg-[#4B98CF]"
+      iconBg: "bg-[#2563EB]"
     })),
     ...(shipments ?? []).slice(0, 2).map((s) => ({
       id: `shipment-${s.id}`,
@@ -74,7 +74,7 @@ export function ProfilePage() {
       detail: `Pedido #${s.orderId} - ${s.stage}`,
       time: s.createdAt,
       icon: Truck,
-      iconBg: "bg-[#4EB4A5]"
+      iconBg: "bg-[#0D9488]"
     }))
   ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
@@ -89,10 +89,10 @@ export function ProfilePage() {
     <div>
       {/* Banner */}
       <div className="-mx-4 -mt-6 sm:-mx-6">
-        <div className="relative bg-[#4B98CF]" style={{ minHeight: 140 }}>
+        <div className="relative bg-[#2563EB]" style={{ minHeight: 140 }}>
           <div className="absolute bottom-0 left-4 right-4 flex items-end gap-4 sm:left-6">
             <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded border-2 border-white bg-[#E3AA75] text-xl font-bold text-white shadow-sm sm:h-24 sm:w-24 sm:text-2xl"
+              className="flex h-20 w-20 shrink-0 items-center justify-center rounded border-2 border-white bg-[#D97706] text-xl font-bold text-white shadow-sm sm:h-24 sm:w-24 sm:text-2xl"
               style={{ transform: "translateY(50%)" }}
             >
               {initials}
@@ -104,47 +104,47 @@ export function ProfilePage() {
       <div className="mt-16 flex flex-col gap-6 lg:flex-row">
         {/* Sidebar */}
         <aside className="w-full shrink-0 lg:w-64">
-          <h1 className="text-xl font-bold text-[#112b4a]">{session.name}</h1>
-          <p className="text-sm text-[#6B7280]">{session.username}</p>
+          <h1 className="text-xl font-bold text-[#172554]">{session.name}</h1>
+          <p className="text-sm text-[#64748B]">{session.username}</p>
 
-          <div className="mt-4 space-y-2.5 text-sm text-[#112b4a]">
-            <div className="flex items-center gap-2 text-[#6B7280]">
+          <div className="mt-4 space-y-2.5 text-sm text-[#172554]">
+            <div className="flex items-center gap-2 text-[#64748B]">
               <Clock className="h-4 w-4 shrink-0" />
               <span>{profile?.label ?? "Usuario"}</span>
             </div>
-            <div className="flex items-center gap-2 text-[#6B7280]">
+            <div className="flex items-center gap-2 text-[#64748B]">
               <Boxes className="h-4 w-4 shrink-0" />
               <span>Logify v2.0</span>
             </div>
-            <div className="flex items-center gap-2 text-[#6B7280]">
+            <div className="flex items-center gap-2 text-[#64748B]">
               <MapPin className="h-4 w-4 shrink-0" />
               <span>Entorno local</span>
             </div>
           </div>
 
-          <p className="mt-4 text-sm leading-relaxed text-[#6B7280]">
+          <p className="mt-4 text-sm leading-relaxed text-[#64748B]">
             {profile?.summary ?? "Perfil operativo de Logify."}
           </p>
 
           {/* Stats */}
           <div className="mt-5 space-y-2">
-            <div className="flex items-center justify-between rounded bg-[#F5F7F9] px-3 py-2 text-xs">
-              <span className="text-[#6B7280]">Pedidos</span>
-              <span className="font-bold text-[#112b4a]">{orders?.length ?? 0}</span>
+            <div className="flex items-center justify-between rounded bg-[#F8FAFC] px-3 py-2 text-xs">
+              <span className="text-[#64748B]">Pedidos</span>
+              <span className="font-bold text-[#172554]">{orders?.length ?? 0}</span>
             </div>
-            <div className="flex items-center justify-between rounded bg-[#F5F7F9] px-3 py-2 text-xs">
-              <span className="text-[#6B7280]">Envíos</span>
-              <span className="font-bold text-[#112b4a]">{shipments?.length ?? 0}</span>
+            <div className="flex items-center justify-between rounded bg-[#F8FAFC] px-3 py-2 text-xs">
+              <span className="text-[#64748B]">Envíos</span>
+              <span className="font-bold text-[#172554]">{shipments?.length ?? 0}</span>
             </div>
           </div>
 
           {/* Push notifications */}
-          <div className="mt-5 rounded border border-[#DCE0E2] bg-white p-3">
+          <div className="mt-5 rounded border border-[#E2E8F0] bg-white p-3">
             <div className="flex items-center gap-2">
-              {pushStatus === "subscribed" ? <Bell className="h-4 w-4 text-[#4B98CF]" /> : <BellOff className="h-4 w-4 text-[#6B7280]" />}
-              <p className="text-xs font-bold text-[#112b4a]">Notificaciones push</p>
+              {pushStatus === "subscribed" ? <Bell className="h-4 w-4 text-[#2563EB]" /> : <BellOff className="h-4 w-4 text-[#64748B]" />}
+              <p className="text-xs font-bold text-[#172554]">Notificaciones push</p>
             </div>
-            <p className="mt-1 text-[11px] text-[#6B7280]">
+            <p className="mt-1 text-[11px] text-[#64748B]">
               {pushStatus === "unsupported" && "No soportado en este navegador."}
               {pushStatus === "checking" && "Comprobando estado..."}
               {pushStatus === "subscribed" && "Recibirás alertas aunque la app esté cerrada."}
@@ -156,7 +156,7 @@ export function ProfilePage() {
                 disabled={pushBusy}
                 className={cn(
                   "mt-2 flex w-full items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-50",
-                  pushStatus === "subscribed" ? "border border-red-200 text-red-600 hover:bg-red-50" : "bg-[#4B98CF] text-white hover:bg-[#346384]"
+                  pushStatus === "subscribed" ? "border border-red-200 text-red-600 hover:bg-red-50" : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
                 )}
               >
                 {pushBusy ? "Procesando..." : pushStatus === "subscribed" ? "Desactivar" : "Activar"}
@@ -169,7 +169,7 @@ export function ProfilePage() {
         {/* Main content */}
         <div className="min-w-0 flex-1">
           <div className="mb-4">
-            <h2 className="text-sm font-bold uppercase tracking-[1.2px] text-[#6B7280]">
+            <h2 className="text-sm font-bold uppercase tracking-[1.2px] text-[#64748B]">
               Actividad reciente
             </h2>
           </div>
@@ -179,7 +179,7 @@ export function ProfilePage() {
               recentActivity.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded border border-[#DCE0E2] bg-white p-4"
+                  className="rounded border border-[#E2E8F0] bg-white p-4"
                 >
                   <div className="flex gap-3">
                     <div
@@ -189,8 +189,8 @@ export function ProfilePage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <strong className="text-sm text-[#112b4a]">{item.title}</strong>
-                        <span className="shrink-0 text-xs text-[#6B7280]">
+                        <strong className="text-sm text-[#172554]">{item.title}</strong>
+                        <span className="shrink-0 text-xs text-[#64748B]">
                           {new Date(item.time).toLocaleDateString("es-CL", {
                             day: "numeric",
                             month: "short",
@@ -199,15 +199,15 @@ export function ProfilePage() {
                           })}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-[#112b4a]/70">{item.detail}</p>
+                      <p className="mt-1 text-xs text-[#172554]/70">{item.detail}</p>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="rounded border border-[#DCE0E2] bg-white p-8 text-center">
-                <p className="text-sm text-[#6B7280]">Sin actividad reciente</p>
-                <p className="mt-1 text-xs text-[#6B7280]/70">
+              <div className="rounded border border-[#E2E8F0] bg-white p-8 text-center">
+                <p className="text-sm text-[#64748B]">Sin actividad reciente</p>
+                <p className="mt-1 text-xs text-[#64748B]/70">
                   Crea pedidos desde la sección de ordenes para ver actividad aquí.
                 </p>
               </div>
