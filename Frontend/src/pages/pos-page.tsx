@@ -702,12 +702,14 @@ export function PosPage() {
           <div className="bg-card rounded-xl shadow-xl w-full max-w-xs p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-sm text-foreground">Quitar producto</h3>
-              <button type="button" onClick={() => setPendingRemoval(null)} className="p-1 rounded hover:bg-muted"><X className="h-4 w-4" /></button>
+              <button type="button" aria-label="Cerrar" onClick={() => setPendingRemoval(null)} className="p-1 rounded hover:bg-muted"><X className="h-4 w-4" /></button>
             </div>
             <p className="text-sm text-muted-foreground">
               Indica el motivo por el que quitas <strong>{pendingRemoval.name}</strong> del carrito.
             </p>
+            <label htmlFor="pos-page-removal-reason" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-muted-foreground mb-1">Motivo</label>
             <input
+              id="pos-page-removal-reason"
               autoFocus
               value={removalReason}
               onChange={(e) => setRemovalReason(e.target.value)}
@@ -716,8 +718,8 @@ export function PosPage() {
               className="h-9 w-full rounded border border-input bg-background px-3 text-sm"
             />
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" size="sm" onClick={() => setPendingRemoval(null)}>Cancelar</Button>
-              <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white" disabled={!removalReason.trim()} onClick={confirmRemoval}>Quitar</Button>
+              <button type="button" onClick={() => setPendingRemoval(null)} className="h-9 rounded border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
+              <button type="button" onClick={confirmRemoval} disabled={!removalReason.trim()} className="h-9 rounded bg-red-500 px-4 text-xs font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40">Quitar</button>
             </div>
           </div>
         </div>
