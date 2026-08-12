@@ -524,6 +524,18 @@ app.get('/api/auth/users', authMiddleware, requireTenant, withTenantDb, requireR
   } catch (err) { sendError(res, 500, 'Failed to list users', err); }
 });
 
+// Listado liviano de transportistas reales del tenant (no requiere permisos de
+// administracion de usuarios) para asignar despachos y resolver nombres en
+// pedidos/notificaciones.
+app.get('/api/auth/couriers', authMiddleware, requireTenant, withTenantDb, async (req, res) => {
+  try {
+    const rows = (await req.db.query(
+      "SELECT id, username, name FROM users WHERE tenant_id=$1 AND role='shipper' ORDER BY name", [req.tenantId]
+    )).rows;
+    res.json(rows);
+  } catch (err) { sendError(res, 500, 'Failed to list couriers', err); }
+});
+
 app.put('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
     bcrypt = require('bcryptjs');

@@ -832,6 +832,23 @@ describe('orders-service', () => {
     });
   });
 
+  describe('GET /api/auth/couriers', () => {
+    it('retorna solo usuarios reales con rol shipper del tenant', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 5, username: 'luis.carvajal', name: 'Luis Carvajal' }] });
+      const res = await request(app).get('/api/auth/couriers');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([{ id: 5, username: 'luis.carvajal', name: 'Luis Carvajal' }]);
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining("role='shipper'"), [1]);
+    });
+
+    it('no requiere rol owner/admin (accesible a cualquier usuario autenticado del tenant)', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/auth/couriers');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+    });
+  });
+
   // ─── POST /api/auth/login ────────────────────────────────────────────────────
 
   describe('POST /api/auth/login', () => {

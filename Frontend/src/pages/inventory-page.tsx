@@ -6,6 +6,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useSystemSettings } from "@/hooks/use-system-settings";
 import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
 import { adaptInventory, adaptSupplier } from "@/lib/api-adapters";
 import { apiFetch } from "@/lib/api-client";
@@ -28,8 +29,8 @@ export function InventoryPage() {
   const [filter, setFilter] = useState<"all" | "critical" | "warning" | "healthy">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0,
-    supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true,
+    sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0, margin: 0,
+    supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true, imageUrl: "",
   });
   const [formError, setFormError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{ sku: string; name: string } | null>(null);
@@ -46,6 +47,7 @@ export function InventoryPage() {
   });
   const { can, role } = usePermissions();
   const { uf, dolar } = useIndicadores();
+  const { settings } = useSystemSettings();
 
   const { session } = useAuth();
   const canAdjust = can("inventory.adjust");
@@ -67,7 +69,7 @@ export function InventoryPage() {
 
   async function handleAdd(data: {
     sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory;
-    supplierId?: number | null; unitOfMeasure?: string; taxRate?: number; active?: boolean;
+    supplierId?: number | null; unitOfMeasure?: string; taxRate?: number; active?: boolean; imageUrl?: string;
   }) {
     await addProduct(data);
     refresh();
@@ -252,8 +254,9 @@ export function InventoryPage() {
                 await handleAdd({
                   sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost,
                   supplierId: form.supplierId ? Number(form.supplierId) : null, unitOfMeasure: form.unitOfMeasure, taxRate: form.taxRate, active: form.active,
+                  imageUrl: form.imageUrl.trim() || undefined,
                 });
-                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true });
+                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, margin: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true, imageUrl: "" });
                 setDialogOpen(false);
               }} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -278,6 +281,13 @@ export function InventoryPage() {
                   <label htmlFor="inventory-page-f304" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nombre</label>
                   <Input id="inventory-page-f304" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Coca-Cola 2L" className="h-9 text-sm" />
                 </div>
+
+                {settings.productImagesEnabled && (
+                  <div className="space-y-1">
+                    <label htmlFor="inventory-page-f-image" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Imagen (URL)</label>
+                    <Input id="inventory-page-f-image" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." className="h-9 text-sm" />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
@@ -346,12 +356,36 @@ export function InventoryPage() {
                       placeholder="1.500"
                       onChange={(e) => {
                         const raw = e.target.value.replace(/[^0-9]/g, "");
-                        setForm({ ...form, cost: parseInt(raw) || 0 });
+                        const cost = parseInt(raw) || 0;
+                        const price = settings.priceFromCostEnabled && form.margin > 0
+                          ? Math.round(cost * (1 + form.margin / 100))
+                          : form.price;
+                        setForm({ ...form, cost, price });
                       }}
                       className="h-9 text-sm"
                     />
                   </div>
                 </div>
+                {settings.priceFromCostEnabled && (
+                  <div className="space-y-1">
+                    <label htmlFor="inventory-page-f-margin" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Margen % (sobre el costo)</label>
+                    <Input id="inventory-page-f-margin"
+                      type="number"
+                      min={0}
+                      value={form.margin || ""}
+                      placeholder="30"
+                      onChange={(e) => {
+                        const margin = parseFloat(e.target.value) || 0;
+                        const price = Math.round(form.cost * (1 + margin / 100));
+                        setForm({ ...form, margin, price });
+                      }}
+                      className="h-9 text-sm"
+                    />
+                    {form.cost > 0 && form.margin > 0 && (
+                      <p className="text-[10px] text-muted-foreground">Precio calculado: ${form.price.toLocaleString("es-CL")}</p>
+                    )}
+                  </div>
+                )}
                 {(form.price > 0 || form.cost > 0) && (
                   <p className="text-xs font-medium text-[#0D9488]">
                     Ganancia por unidad: ${(form.price - form.cost).toLocaleString("es-CL")}

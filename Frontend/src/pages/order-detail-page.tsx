@@ -1,9 +1,9 @@
 ﻿import { useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Box, Check, Clock, Download, History, Package, Trash2, Truck, X, AlertTriangle } from "lucide-react";
-import { managedUsers } from "@/app/user-directory";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useCouriers } from "@/hooks/use-couriers";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
@@ -43,11 +43,12 @@ export function OrderDetailPage() {
   const operationalShipment = useMemo(() => operationalShipments.find((item) => item.orderId === orderId) ?? null, [operationalShipments, orderId]);
   const historyEntries = useMemo(() => getOrderHistory(orderId ?? ""), [orderId]);
 
+  const { couriers } = useCouriers();
   const transporterName = useMemo(() => {
     if (!order?.assignedTo) return null;
-    const t = managedUsers.find((u) => u.username === order.assignedTo);
+    const t = couriers.find((u) => u.username === order.assignedTo);
     return t?.name ?? order.assignedTo;
-  }, [order?.assignedTo]);
+  }, [order?.assignedTo, couriers]);
 
   const timeline = useMemo(() => buildOrderTimeline({ order, shipment: operationalShipment, notifications: notificationRecords }), [notificationRecords, operationalShipment, order]);
 

@@ -5,6 +5,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { CUSTOMER_TYPE_BY_MODE } from "@/hooks/use-business-mode";
 import { usePosCart } from "@/hooks/use-pos-cart";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
+import { useSystemSettings } from "@/hooks/use-system-settings";
 import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
 import { adaptCashSession, adaptCustomer, adaptInventory } from "@/lib/api-adapters";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
@@ -59,6 +60,9 @@ export function PosPage() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [creditWarning, setCreditWarning] = useState<string | null>(null);
   const customerDropdownRef = useRef<HTMLDivElement>(null);
+  const { settings } = useSystemSettings();
+  const [pendingRemoval, setPendingRemoval] = useState<{ cartId: string; name: string } | null>(null);
+  const [removalReason, setRemovalReason] = useState("");
 
   const { data: inventory, loading, error, refresh } = useApiQuery<ApiInventory[], Product[]>({
     path: "/api/inventory",
@@ -82,7 +86,23 @@ export function PosPage() {
 
   const { operationalInventory, recordSale } = useOperationalWorkspace({ inventory });
 
-  const { items, addToCart, addManualAmount, removeFromCart, updateQuantity, clearCart, total, itemCount, saleItems } = usePosCart();
+  const { items, addToCart, addManualAmount, removeFromCart, updateQuantity, clearCart, total, itemCount, saleItems, getLineSubtotal } = usePosCart({ roundWeightSubtotals: settings.weightRoundingEnabled });
+
+  function requestRemove(cartId: string, name: string) {
+    if (settings.requireDeleteReason) {
+      setRemovalReason("");
+      setPendingRemoval({ cartId, name });
+    } else {
+      removeFromCart(cartId);
+    }
+  }
+
+  function confirmRemoval() {
+    if (!pendingRemoval) return;
+    removeFromCart(pendingRemoval.cartId);
+    setPendingRemoval(null);
+    setRemovalReason("");
+  }
   const { uf, dolar } = useIndicadores();
 
   const filteredProducts = useMemo(() => {
@@ -117,6 +137,11 @@ export function PosPage() {
     if (items.length === 0) return;
     setCheckoutError(null);
     setCreditWarning(null);
+
+    if (settings.cashRegisterEnabled && !activeCashSession) {
+      setCheckoutError("Debes abrir la caja antes de registrar una venta");
+      return;
+    }
 
     const oversold = items.filter((entry) => entry.quantity > entry.product.stock);
     if (oversold.length > 0) {
@@ -258,7 +283,7 @@ export function PosPage() {
                 ) : (
                   <div className="flex items-center gap-1">
                     <button type="button"
-                      onClick={() => updateQuantity(entry.cartId, entry.quantity - 1)}
+                      onClick={() => entry.quantity === 1 ? requestRemove(entry.cartId, entry.product.name) : updateQuantity(entry.cartId, entry.quantity - 1)}
                       className="flex h-8 w-8 items-center justify-center rounded border border-border text-muted-foreground hover:bg-muted active:scale-[0.95]"
                     >
                       {entry.quantity === 1 ? <Trash2 className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
@@ -282,11 +307,11 @@ export function PosPage() {
                 )}
 
                 <p className="min-w-[70px] text-right text-sm font-bold text-foreground">
-                  {formatCurrency(entry.product.price * entry.quantity)}
+                  {formatCurrency(getLineSubtotal(entry))}
                 </p>
 
                 <button type="button"
-                  onClick={() => removeFromCart(entry.cartId)}
+                  onClick={() => requestRemove(entry.cartId, entry.product.name)}
                   className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground/40 hover:text-red-500"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -389,9 +414,16 @@ export function PosPage() {
               </div>
             )}
 
+            {settings.cashRegisterEnabled && !activeCashSession && (
+              <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Abre la caja para poder registrar ventas.
+              </div>
+            )}
+
             <button type="button"
               onClick={handleCheckout}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D9488] py-3 text-sm font-bold text-white transition-colors hover:bg-[#0D9488] active:scale-[0.98]"
+              disabled={settings.cashRegisterEnabled && !activeCashSession}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D9488] py-3 text-sm font-bold text-white transition-colors hover:bg-[#0D9488] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Check className="h-5 w-5" />
               Cobrar {formatCurrency(total)}
@@ -656,6 +688,39 @@ export function PosPage() {
           onApply={(label, amount) => { addManualAmount(label, amount); setExtrasOpen(false); }}
           onClose={() => setExtrasOpen(false)}
         />
+      )}
+
+      {pendingRemoval && (
+        <div
+          role="button"
+          tabIndex={-1}
+          aria-label="Cerrar"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setPendingRemoval(null)}
+          onKeyDown={onEscapeKey(() => setPendingRemoval(null))}
+        >
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-xs p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm text-foreground">Quitar producto</h3>
+              <button type="button" onClick={() => setPendingRemoval(null)} className="p-1 rounded hover:bg-muted"><X className="h-4 w-4" /></button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Indica el motivo por el que quitas <strong>{pendingRemoval.name}</strong> del carrito.
+            </p>
+            <input
+              autoFocus
+              value={removalReason}
+              onChange={(e) => setRemovalReason(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && removalReason.trim()) confirmRemoval(); }}
+              placeholder="Ej: cliente cambió de opinión"
+              className="h-9 w-full rounded border border-input bg-background px-3 text-sm"
+            />
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setPendingRemoval(null)}>Cancelar</Button>
+              <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white" disabled={!removalReason.trim()} onClick={confirmRemoval}>Quitar</Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
