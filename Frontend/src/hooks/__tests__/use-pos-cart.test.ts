@@ -8,6 +8,11 @@ const mockProduct: Product = {
   category: "bebidas", status: "healthy", updatedAt: new Date().toISOString(),
 };
 
+const weightProduct: Product = {
+  id: "2", sku: "QUESO-KG", name: "Queso por kilo", stock: 20, price: 1234, cost: 900,
+  category: "otros", status: "healthy", updatedAt: new Date().toISOString(), unitOfMeasure: "kg",
+};
+
 describe("usePosCart", () => {
   beforeEach(() => { localStorage.clear(); });
 
@@ -80,6 +85,26 @@ describe("usePosCart", () => {
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0].cartId).toBe(second.cartId);
     expect(result.current.total).toBe(700);
+  });
+
+  it("sin roundWeightSubtotals, un producto por peso no se redondea", () => {
+    const { result } = renderHook(() => usePosCart());
+    act(() => result.current.addToCart(weightProduct, 1));
+    expect(result.current.total).toBe(1234);
+  });
+
+  it("con roundWeightSubtotals, redondea el subtotal de productos por peso/volumen al $50 más cercano", () => {
+    const { result } = renderHook(() => usePosCart({ roundWeightSubtotals: true }));
+    act(() => result.current.addToCart(weightProduct, 1));
+    // 1234 -> múltiplo de 50 más cercano es 1250
+    expect(result.current.total).toBe(1250);
+    expect(result.current.saleItems[0].subtotal).toBe(1250);
+  });
+
+  it("con roundWeightSubtotals, un producto normal (unidad) no se redondea", () => {
+    const { result } = renderHook(() => usePosCart({ roundWeightSubtotals: true }));
+    act(() => result.current.addToCart(mockProduct, 1));
+    expect(result.current.total).toBe(2500);
   });
 
   it("clearCart vacía tanto productos reales como líneas manuales", () => {

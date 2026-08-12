@@ -6,6 +6,7 @@ import { useAuthImage } from "@/hooks/use-auth-image";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useOperationalWorkspace, type OperationalProduct } from "@/hooks/use-operational-workspace";
+import { useSystemSettings } from "@/hooks/use-system-settings";
 import { adaptInventory, adaptOrder, adaptSupplier } from "@/lib/api-adapters";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export function InventoryDetailPage() {
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const { can } = usePermissions();
+  const { settings } = useSystemSettings();
 
   const { data: product, refresh: refreshProduct } = useApiQuery<ApiInventory, Product | null>({
     path: `/api/inventory/${encodeURIComponent(decodedId)}`, transform: adaptInventory, enabled: Boolean(decodedId)
@@ -353,6 +355,7 @@ export function InventoryDetailPage() {
       </div>
 
       {/* Product image picker */}
+      {settings.productImagesEnabled && (
       <div className="rounded border border-[#E2E8F0] bg-white p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -408,6 +411,7 @@ export function InventoryDetailPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* QR code */}
       <div className="rounded border border-[#E2E8F0] bg-white p-5">
