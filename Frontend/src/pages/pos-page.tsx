@@ -696,10 +696,10 @@ export function PosPage() {
           tabIndex={-1}
           aria-label="Cerrar"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setPendingRemoval(null)}
+          onClick={(e) => { if (e.target === e.currentTarget) setPendingRemoval(null); }}
           onKeyDown={onEscapeKey(() => setPendingRemoval(null))}
         >
-          <div className="bg-card rounded-xl shadow-xl w-full max-w-xs p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-xs p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-sm text-foreground">Quitar producto</h3>
               <button type="button" aria-label="Cerrar" onClick={() => setPendingRemoval(null)} className="p-1 rounded hover:bg-muted"><X className="h-4 w-4" /></button>
