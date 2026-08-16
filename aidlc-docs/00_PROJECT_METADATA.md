@@ -28,6 +28,7 @@
 - Architecture: [aidlc-docs/design-artifacts/ARCHITECTURE.md](./design-artifacts/ARCHITECTURE.md)
 - Deployment: [aidlc-docs/deployment/](./deployment/)
 - Existing project wiki (source of truth this audit draws from): [wiki/](../wiki/)
+- **Evolución comercial (Bsale/Tuin/Fudo) — planificación 2026-08-14, aún sin construir:** [requirements/EVOLUTION_INTENT.md](./requirements/EVOLUTION_INTENT.md) → [design-artifacts/EVOLUTION_ROADMAP.md](./design-artifacts/EVOLUTION_ROADMAP.md) → fuente completa [requirements/BSALE_TUIN_FUDO_SOURCE.md](./requirements/BSALE_TUIN_FUDO_SOURCE.md)
 
 ## Notas del Análisis Automático
 
