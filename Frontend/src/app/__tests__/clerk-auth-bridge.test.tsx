@@ -12,8 +12,10 @@ const mockSetApiAuthRefreshHandler = vi.fn();
 const mockUpdateApiToken = vi.fn();
 
 let clerkAuthState: { isLoaded: boolean; isSignedIn: boolean } = { isLoaded: true, isSignedIn: false };
-let clerkUser: { organizationMemberships: Array<{ organization: { id: string } }> } = {
+const mockUserReload = vi.fn().mockResolvedValue(undefined);
+let clerkUser: { organizationMemberships: Array<{ organization: { id: string } }>; reload: typeof mockUserReload } = {
   organizationMemberships: [{ organization: { id: "org_1" } }],
+  reload: mockUserReload,
 };
 
 vi.mock("@clerk/react", () => ({
@@ -59,7 +61,8 @@ describe("ClerkBridgedAuthProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clerkAuthState = { isLoaded: true, isSignedIn: false };
-    clerkUser = { organizationMemberships: [{ organization: { id: "org_1" } }] };
+    clerkUser = { organizationMemberships: [{ organization: { id: "org_1" } }], reload: mockUserReload };
+    mockUserReload.mockResolvedValue(undefined);
   });
 
   it("no restaura sesion cuando Clerk no tiene una sesion activa", async () => {
