@@ -1,6 +1,6 @@
 # ADR-004: Delegar la autenticación a Clerk (IDaaS), preservando el modelo de roles/tenant actual
 
-**Status:** Propuesto — groundwork aditivo implementado (2026-08-17), corte real pendiente de configuración manual del usuario en el dashboard de Clerk.
+**Status:** Propuesto — groundwork aditivo implementado (2026-08-17). Aplicación de Clerk creada y vinculada al repo vía Clerk CLI (`app_3I21C3d2vw2s9YgINhbbYFp1VJh`, instancia de desarrollo; `clerk doctor` en verde), `.env.local` de `Frontend/` con las claves de desarrollo (ignorado por git). Paquete de React confirmado como **`@clerk/react`** (no `@clerk/clerk-react`, que se había usado en la primera pasada del groundwork) — es lo que la propia Clerk CLI instala hoy para un proyecto React sin framework, e incluye `OrganizationSwitcher` nativo. Corte real y activación en producción siguen pendientes.
 **Fecha:** 2026-08-17
 
 ## Contexto
@@ -9,7 +9,7 @@ Logify autentica hoy con JWT propio (`Backend/shared/auth.js`), firmado con `JWT
 
 El dueño del producto pidió delegar el login a un IDaaS y eligió **Clerk**, por:
 - Es el primer proveedor nombrado en ese punto de extensión ya existente.
-- SDK de React nativo (`@clerk/clerk-react`) — el Frontend es Vite + React 18, no necesita adaptar a un framework distinto.
+- SDK de React nativo (`@clerk/react`) — el Frontend es Vite + React 18, no necesita adaptar a un framework distinto.
 - Integración nativa con Vercel (donde ya se despliegan Frontend y Landing).
 - **Organizations**: Clerk modela nativamente "un usuario pertenece a una o más organizaciones y cambia entre ellas" — coincide con la meta declarada de una barra selectora post-login para acceder a distintas sucursales/organizaciones, sin tener que construir ese mecanismo desde cero.
 

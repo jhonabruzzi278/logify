@@ -1,4 +1,4 @@
-import { SignIn } from "@clerk/clerk-react";
+import { SignIn } from "@clerk/react";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { isClerkConfigured } from "@/lib/clerk-config";
 
