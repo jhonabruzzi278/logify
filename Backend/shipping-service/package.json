@@ -32,7 +32,7 @@
       "<rootDir>/node_modules"
     ],
     "moduleNameMapper": {
-      "^\\.\\./shared/(.*)$": "<rootDir>/../shared/$1"
+      "^(\\.\\./)+shared/(.*)$": "<rootDir>/../shared/$2"
     },
     "coverageReporters": [
       "text",
