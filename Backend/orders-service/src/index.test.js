@@ -39,7 +39,7 @@ const mockClientQuery = jest.fn((text, ...rest) => {
 const mockClient = { query: mockClientQuery, release: jest.fn() };
 createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn(), connect: jest.fn().mockResolvedValue(mockClient) });
 
-const { app, seedUsers } = require('./index');
+const { app, seedUsers, ensureTables } = require('./index');
 
 const mockOrder = {
   id: 1, customer_id: 10, sku: 'COCA-2L', quantity: 5,
@@ -1515,5 +1515,29 @@ describe('seedUsers() — arranque contra DB vacía', () => {
       ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO users')
     );
     expect(userInserts).toHaveLength(0);
+  });
+});
+
+// ─── ensureTables() / ensureTenants() — migraciones de arranque ─────────────
+// Solo corren via `if (require.main === module)` (ver el bottom de index.js),
+// nunca durante los tests normales -- por eso las columnas nuevas de Clerk
+// (tenants.clerk_org_id, users.clerk_user_id, users.password_hash nullable)
+// quedaban sin ejercitar pese a estar cubiertas por el resto de la suite.
+// Ambas funciones son awaits secuenciales sin ninguna rama sobre el
+// resultado de las queries, asi que ejecutarlas con el mock generico basta
+// para probar que corren de punta a punta sin lanzar.
+describe('ensureTables()', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockQuery.mockResolvedValue({ rows: [] });
+  });
+
+  it('corre todas las migraciones (incluidas las columnas de Clerk) sin lanzar', async () => {
+    await expect(ensureTables()).resolves.toBeUndefined();
+
+    const sqlCalls = mockQuery.mock.calls.map(([sql]) => sql);
+    expect(sqlCalls.some(sql => typeof sql === 'string' && sql.includes('users ADD COLUMN IF NOT EXISTS clerk_user_id'))).toBe(true);
+    expect(sqlCalls.some(sql => typeof sql === 'string' && sql.includes('users ALTER COLUMN password_hash DROP NOT NULL'))).toBe(true);
+    expect(sqlCalls.some(sql => typeof sql === 'string' && sql.includes('tenants ADD COLUMN IF NOT EXISTS clerk_org_id'))).toBe(true);
   });
 });
