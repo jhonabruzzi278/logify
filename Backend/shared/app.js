@@ -69,7 +69,12 @@ function createApp(dbName, port) {
   app.use(requestIdMiddleware);
   app.use(accessLogMiddleware);
   applySecurity(app);
-  app.use(express.json({ limit: '1mb' }));
+  // "verify" guarda el body crudo en req.rawBody ademas de parsear el JSON
+  // normalmente -- lo necesita la verificacion de firma Svix de los webhooks
+  // de Clerk (shared/clerk-webhooks.js), que exige el payload exacto tal como
+  // llego, no una re-serializacion de req.body. No cambia el comportamiento
+  // de ninguna ruta existente, solo agrega una propiedad mas a req.
+  app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
   app.use(extractTenantSlug);
 
   // "pool" conecta como superusuario (DB_URL) y se usa solo para DDL/migraciones

@@ -90,6 +90,14 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_question VARCHAR(200)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_answer_hash VARCHAR(255)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP`);
+  // Groundwork Clerk (ver ADR-004): puente hacia el usuario de Clerk. Nullable
+  // porque la mayoria de los usuarios existentes no tienen equivalente en
+  // Clerk todavia -- se completa via el webhook de sincronizacion
+  // (routes/webhooks.routes.js) cuando un tenant migra. password_hash deja de
+  // ser obligatorio para usuarios gestionados por Clerk (Clerk guarda la
+  // credencial, no Logify).
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_user_id VARCHAR(100) UNIQUE`);
+  await pool.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
   await pool.query(`CREATE TABLE IF NOT EXISTS user_invitations (
     id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, email VARCHAR(200) NOT NULL,
     role VARCHAR(50) NOT NULL, token VARCHAR(64) NOT NULL UNIQUE, status VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -122,6 +130,12 @@ async function ensureTenants() {
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_country VARCHAR(100)`);
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_industry VARCHAR(100)`);
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_phone VARCHAR(30)`);
+
+  // Groundwork Clerk (ver ADR-004): puente hacia la Organization de Clerk.
+  // 1 Organization de Clerk = 1 fila de tenants. Nullable porque los tenants
+  // existentes no tienen Organization todavia -- se completa via el webhook
+  // de sincronizacion cuando se crea/vincula la Organization en Clerk.
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS clerk_org_id VARCHAR(100) UNIQUE`);
 
   // Fase 4E del roadmap multi-tenant (ver wiki/Multi-Tenant.md): provisioning
   // self-service. trial_ends_at soporta la demo gratuita de 30 dias;
@@ -351,6 +365,87 @@ function stripClientCode(rows) {
 // ═══ AUTH ENDPOINTS ═══════════════════════════════════════════════════════════════
 
 registerSecurityModule(app, pool, sendError, resolveTenant);
+
+// ═══ WEBHOOK DE SINCRONIZACION CON CLERK (groundwork, ver ADR-004) ══════════════════
+// Publico (sin JWT ni requireAdminKey): la autenticidad se prueba con la
+// firma Svix del payload, no con un secreto compartido en un header. Requiere
+// req.rawBody (agregado de forma aditiva en shared/app.js) porque la firma
+// se calcula sobre el body EXACTO tal como Clerk lo envio, no sobre una
+// reserializacion de req.body ya parseado.
+//
+// Sin CLERK_WEBHOOK_SIGNING_SECRET configurada, esta ruta responde 501 y no
+// toca la base de datos -- no se activa sola.
+app.post('/api/webhooks/clerk', async (req, res) => {
+  const signingSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+  if (!signingSecret) {
+    return res.status(501).json({ error: 'CLERK_WEBHOOK_SIGNING_SECRET no esta configurada' });
+  }
+  let evt;
+  try {
+    const { verifyWebhook } = require('@clerk/backend/webhooks');
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (value != null) headers.set(key, Array.isArray(value) ? value.join(', ') : String(value));
+    }
+    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    const request = new Request(url, { method: 'POST', headers, body: req.rawBody });
+    evt = await verifyWebhook(request, { signingSecret });
+  } catch (err) {
+    log.warn('Clerk webhook signature verification failed', { message: err.message });
+    return res.status(400).json({ error: 'Firma de webhook invalida' });
+  }
+
+  try {
+    if (evt.type === 'organization.created' || evt.type === 'organization.updated') {
+      const org = evt.data;
+      const tenantSlug = org.public_metadata?.tenant_slug || org.slug;
+      // Vincula por slug si el tenant ya existia en Logify (caso: la
+      // Organization se creo en Clerk apuntando a un tenant preexistente);
+      // si no, crea el tenant nuevo con este org como fuente de verdad.
+      const existing = (await pool.query(
+        'SELECT id FROM tenants WHERE clerk_org_id=$1 OR slug=$2', [org.id, tenantSlug]
+      )).rows[0];
+      if (existing) {
+        await pool.query('UPDATE tenants SET clerk_org_id=$1, name=$2, updated_at=NOW() WHERE id=$3', [org.id, org.name, existing.id]);
+      } else {
+        await pool.query(
+          `INSERT INTO tenants (slug, name, status, plan, clerk_org_id) VALUES ($1,$2,'trial','pro',$3)`,
+          [tenantSlug, org.name, org.id]
+        );
+      }
+    } else if (evt.type === 'organizationMembership.created' || evt.type === 'organizationMembership.updated') {
+      const membership = evt.data;
+      const tenant = (await pool.query('SELECT id FROM tenants WHERE clerk_org_id=$1', [membership.organization.id])).rows[0];
+      if (!tenant) {
+        log.warn('Clerk membership webhook: tenant no sincronizado todavia', { orgId: membership.organization.id });
+      } else {
+        const clerkUserId = membership.public_user_data.user_id;
+        const role = membership.public_metadata?.role || 'customer';
+        const name = [membership.public_user_data.first_name, membership.public_user_data.last_name].filter(Boolean).join(' ') || membership.public_user_data.identifier;
+        const username = membership.public_metadata?.username || membership.public_user_data.identifier;
+        const existingUser = (await pool.query('SELECT id FROM users WHERE clerk_user_id=$1', [clerkUserId])).rows[0];
+        if (existingUser) {
+          await pool.query('UPDATE users SET name=$1, role=$2, tenant_id=$3, updated_at=NOW() WHERE id=$4', [name, role, tenant.id, existingUser.id]);
+        } else {
+          await pool.query(
+            `INSERT INTO users (username, name, role, tenant_id, clerk_user_id) VALUES ($1,$2,$3,$4,$5)
+             ON CONFLICT (tenant_id, username) DO UPDATE SET clerk_user_id=EXCLUDED.clerk_user_id, role=EXCLUDED.role, name=EXCLUDED.name`,
+            [username, name, role, tenant.id, clerkUserId]
+          );
+        }
+      }
+    } else if (evt.type === 'organizationMembership.deleted') {
+      const membership = evt.data;
+      // Desvincula en vez de borrar: un webhook duplicado/reintentado no
+      // debe poder destruir la fila; el desaprovisionamiento real de un
+      // usuario sigue siendo una accion manual de administracion.
+      await pool.query('UPDATE users SET clerk_user_id=NULL WHERE clerk_user_id=$1', [membership.public_user_data.user_id]);
+    }
+    res.status(200).json({ received: true, type: evt.type });
+  } catch (err) {
+    sendError(res, 500, 'Failed to process Clerk webhook', err);
+  }
+});
 
 // ═══ SIGNUP SELF-SERVICE (Fase 4E) ═══════════════════════════════════════════════
 // Publico, sin JWT: crea el tenant y su primer usuario ("owner") en una sola

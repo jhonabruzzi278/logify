@@ -29,6 +29,13 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorFallback />
   },
   {
+    // Groundwork Clerk (ver ADR-004): pagina de prueba separada de /login,
+    // sin enlazar desde la navegacion. Ver Frontend/src/pages/login-clerk-page.tsx.
+    path: "/login-clerk",
+    element: lazyPage(() => import("@/pages/login-clerk-page"), "LoginClerkPage"),
+    errorElement: <RouteErrorFallback />
+  },
+  {
     path: "/forgot-password",
     element: lazyPage(() => import("@/pages/forgot-password-page"), "ForgotPasswordPage"),
     errorElement: <RouteErrorFallback />

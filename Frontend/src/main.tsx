@@ -4,6 +4,7 @@ import { RouterProvider } from "react-router-dom";
 import { registerSW } from "virtual:pwa-register";
 import { router } from "@/app/router";
 import { AuthProvider } from "@/app/auth";
+import { ClerkAuthProvider } from "@/app/clerk-provider";
 import { ErrorBoundary } from "@/components/common/error-boundary";
 import { ToastProvider } from "@/components/common/toast-provider";
 import { BusinessModeProvider } from "@/hooks/use-business-mode";
@@ -44,11 +45,13 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <ErrorBoundary>
       <ToastProvider>
-        <AuthProvider>
-          <BusinessModeProvider>
-            <RouterProvider router={router} />
-          </BusinessModeProvider>
-        </AuthProvider>
+        <ClerkAuthProvider>
+          <AuthProvider>
+            <BusinessModeProvider>
+              <RouterProvider router={router} />
+            </BusinessModeProvider>
+          </AuthProvider>
+        </ClerkAuthProvider>
       </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>

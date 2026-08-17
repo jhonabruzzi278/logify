@@ -1304,6 +1304,42 @@ describe('orders-service', () => {
   });
 });
 
+// ─── WEBHOOK DE SINCRONIZACION CON CLERK (groundwork, ver ADR-004) ──────────
+describe('POST /api/webhooks/clerk', () => {
+  const ORIGINAL_SIGNING_SECRET = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_SIGNING_SECRET === undefined) {
+      delete process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+    } else {
+      process.env.CLERK_WEBHOOK_SIGNING_SECRET = ORIGINAL_SIGNING_SECRET;
+    }
+  });
+
+  it('retorna 501 y no toca la base de datos si CLERK_WEBHOOK_SIGNING_SECRET no esta configurada', async () => {
+    delete process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+    const res = await request(app).post('/api/webhooks/clerk').send({ type: 'organization.created', data: {} });
+    expect(res.status).toBe(501);
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it('retorna 400 si la firma del webhook es invalida', async () => {
+    process.env.CLERK_WEBHOOK_SIGNING_SECRET = 'whsec_test_secret_not_matching_the_request';
+    const res = await request(app)
+      .post('/api/webhooks/clerk')
+      .set('svix-id', 'msg_test')
+      .set('svix-timestamp', String(Math.floor(Date.now() / 1000)))
+      .set('svix-signature', 'v1,invalid-signature')
+      .send({ type: 'organization.created', data: { id: 'org_test' } });
+    expect(res.status).toBe(400);
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+});
+
 // ─── BOOTSTRAP CONTRA DB VACÍA ──────────────────────────────────────────────
 // Regresión del bug del 2026-08-06: al truncar `users`, seedUsers() insertaba
 // filas sin tenant_id, violando el NOT NULL ya migrado por ensureTenants() y

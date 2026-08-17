@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const log = require('./logger');
+const { isClerkConfigured, verifyClerkToken } = require('./clerk-auth');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -41,12 +42,29 @@ function verifyToken(token) {
   }
 }
 
-function authMiddleware(req, res, next) {
+// Ver ADR-004 (aidlc-docs/design-artifacts/ADR/): si CLERK_SECRET_KEY esta
+// configurada, intenta primero verificar el token como sesion de Clerk: si
+// falla (no es un token de Clerk, o Clerk aun no esta configurado para este
+// tenant), cae al JWT propio de siempre -- estrategia de corte aditiva,
+// ningun login existente se rompe mientras se migra. Si CLERK_SECRET_KEY no
+// esta configurada (el default en todo entorno hasta que se decida activar
+// Clerk), este bloque nunca se ejecuta y el comportamiento es identico al
+// de antes de que Clerk existiera en el proyecto.
+async function authMiddleware(req, res, next) {
   const header = req.headers['authorization'] || '';
   const token = header.replace(/^Bearer\s+/i, '');
 
   if (!token) {
     return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  if (isClerkConfigured()) {
+    try {
+      req.user = await verifyClerkToken(token);
+      return next();
+    } catch {
+      // no es (o no pudo verificarse como) un token de Clerk -- probar JWT propio
+    }
   }
 
   try {
