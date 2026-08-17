@@ -6,7 +6,7 @@ import { setApiAuthErrorListener, setApiAuthRefreshHandler, updateApiToken } fro
 import { loginWithBackend, type Session } from "@/lib/auth-service";
 import type { ApiLoginRequest } from "@/types/api";
 
-interface AuthContextValue {
+export interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   error: string | null;
@@ -15,7 +15,11 @@ interface AuthContextValue {
 }
 
 const STORAGE_KEY = "logify-auth-v2";
-const AuthContext = createContext<AuthContextValue | null>(null);
+// Exportado para que ClerkBridgedAuthProvider (clerk-auth-bridge.tsx) pueda
+// proveer el mismo contexto con Clerk por debajo -- login-page.tsx y el
+// resto de la app consumen useAuth() sin saber cual de los dos providers
+// esta activo.
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
 function readStoredSession(): Session | null {
   try {
