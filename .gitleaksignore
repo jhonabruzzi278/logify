@@ -12,3 +12,11 @@ c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/app/__tests__/clerk-provid
 c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/lib/__tests__/clerk-config.test.ts:generic-api-key:21
 c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/lib/__tests__/clerk-config.test.ts:generic-api-key:33
 c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/pages/__tests__/login-clerk-page.test.tsx:generic-api-key:24
+
+# Mismo caso, en el mensaje de uso de Backend/orders-service/scripts/
+# migrate-demo-users-to-clerk.js: "CLERK_SECRET_KEY=..." como ejemplo de
+# como invocar el script, nunca un secreto real. Corregido en un commit
+# posterior (se removio el ejemplo inline); persiste en el diff de los
+# commits historicos.
+1fd7042c8f35e3907644e361dae228864617cbf1:Backend/orders-service/scripts/migrate-demo-users-to-clerk.js:generic-api-key:108
+7252542598d321054d7b797d84129c9a328682e3:Backend/orders-service/scripts/migrate-demo-users-to-clerk.js:generic-api-key:111

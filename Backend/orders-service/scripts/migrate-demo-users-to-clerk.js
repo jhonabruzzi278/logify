@@ -108,7 +108,7 @@ async function ensureMembership(clerkClient, org, user, demoUser) {
 async function main() {
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) {
-    console.error('Falta CLERK_SECRET_KEY en el entorno. Uso: CLERK_SECRET_KEY=TU_SECRET_KEY_DE_PRODUCCION node scripts/migrate-demo-users-to-clerk.js');
+    console.error('Falta CLERK_SECRET_KEY en el entorno (ver el encabezado de este archivo para el modo de uso).');
     process.exit(1);
   }
 
