@@ -54,6 +54,12 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
       - SIGNUP_RATE_LIMIT_MAX=${SIGNUP_RATE_LIMIT_MAX:-5}
+      # Groundwork Clerk (ver aidlc-docs/design-artifacts/ADR/ADR-004-clerk-como-idaas-para-autenticacion.md).
+      # Vacio por defecto: sin CLERK_SECRET_KEY, authMiddleware se comporta
+      # exactamente igual que hoy (JWT propio). CLERK_WEBHOOK_SIGNING_SECRET
+      # solo lo usa orders-service (POST /api/webhooks/clerk).
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
+      - CLERK_WEBHOOK_SIGNING_SECRET=${CLERK_WEBHOOK_SIGNING_SECRET:-}
       - SUPPORT_WHATSAPP_URL=${SUPPORT_WHATSAPP_URL:-https://wa.me/56938980598}
     ports:
       - "8081:8081"
@@ -77,6 +83,9 @@ services:
       - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
+      # Groundwork Clerk, ver ADR-004. Vacio por defecto: sin CLERK_SECRET_KEY,
+      # authMiddleware se comporta exactamente igual que hoy (JWT propio).
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
     ports:
       - "8082:8082"
     depends_on:
@@ -107,6 +116,9 @@ services:
       - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
+      # Groundwork Clerk, ver ADR-004. Vacio por defecto: sin CLERK_SECRET_KEY,
+      # authMiddleware se comporta exactamente igual que hoy (JWT propio).
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
     ports:
       - "8084:8084"
     depends_on:
@@ -132,6 +144,9 @@ services:
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:logistica@logify.cl}
       - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
+      # Groundwork Clerk, ver ADR-004. Vacio por defecto: sin CLERK_SECRET_KEY,
+      # authMiddleware se comporta exactamente igual que hoy (JWT propio).
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
     ports:
       - "8085:8085"
     depends_on:
