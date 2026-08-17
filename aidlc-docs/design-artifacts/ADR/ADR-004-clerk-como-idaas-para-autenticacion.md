@@ -1,6 +1,13 @@
 # ADR-004: Delegar la autenticación a Clerk (IDaaS), preservando el modelo de roles/tenant actual
 
-**Status:** Propuesto — groundwork aditivo implementado (2026-08-17). Aplicación de Clerk creada y vinculada al repo vía Clerk CLI (`app_3I21C3d2vw2s9YgINhbbYFp1VJh`, instancia de desarrollo; `clerk doctor` en verde), `.env.local` de `Frontend/` con las claves de desarrollo (ignorado por git). Paquete de React confirmado como **`@clerk/react`** (no `@clerk/clerk-react`, que se había usado en la primera pasada del groundwork) — es lo que la propia Clerk CLI instala hoy para un proyecto React sin framework, e incluye `OrganizationSwitcher` nativo. Corte real y activación en producción siguen pendientes.
+**Status:** Propuesto — groundwork aditivo implementado (2026-08-17). Aplicación de Clerk creada y vinculada al repo vía Clerk CLI (`app_3I21C3d2vw2s9YgINhbbYFp1VJh`, instancia de desarrollo; `clerk doctor` en verde), `.env.local` de `Frontend/` con las claves de desarrollo (ignorado por git). Paquete de React confirmado como **`@clerk/react`** (no `@clerk/clerk-react`, que se había usado en la primera pasada del groundwork) — es lo que la propia Clerk CLI instala hoy para un proyecto React sin framework, e incluye `OrganizationSwitcher` nativo.
+
+**Avance de la instancia de desarrollo (2026-08-17, vía dashboard de Clerk):**
+- ✅ Organizations ya estaba activo por defecto en esta instancia — sin toggle que prender.
+- ✅ JWT Template creado, nombre **`logify-api`** (id `jtmp_3I25Kx5bc9lKTPn0GZH9VNo7k3d`), con los 5 claims exactos descritos abajo. El frontend deberá pedir el token con `getToken({ template: 'logify-api' })` (o el nombre equivalente en `@clerk/react`) para que `shared/clerk-auth.js` reciba esos claims — el token de sesión default de Clerk no los trae.
+- ⏸️ Webhook **deliberadamente no configurado todavía**: la instancia de Development de Clerk no puede apuntar a `https://api.logify.cl/api/webhooks/clerk` (producción) sin arriesgar que datos de prueba terminen en la base real. Se configura cuando haya un túnel local (ngrok o similar) hacia `orders-service`, o cuando se promueva a producción.
+
+Corte real y activación en producción siguen pendientes.
 **Fecha:** 2026-08-17
 
 ## Contexto
