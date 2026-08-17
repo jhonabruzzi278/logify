@@ -16,18 +16,22 @@ export interface Session {
 
 const VALID_ROLES = new Set<Role>(["owner", "ops", "warehouse", "shipper", "vendor", "support", "customer"]);
 
-function parseRole(raw: unknown): Role {
+export function parseRole(raw: unknown): Role {
   const r = typeof raw === "string" ? (raw.toLowerCase() as Role) : "customer";
   return VALID_ROLES.has(r) ? r : "customer";
 }
 
-function parseExpiry(token: string): number {
+export function decodeJwtPayload(token: string): Record<string, unknown> {
+  const part = token.split(".")[1];
+  if (!part) throw new Error("Token sin payload");
+  const padded = part.replace(/-/g, "+").replace(/_/g, "/");
+  return JSON.parse(atob(padded + "=".repeat((4 - (padded.length % 4)) % 4))) as Record<string, unknown>;
+}
+
+export function parseExpiry(token: string): number {
   try {
-    const part = token.split(".")[1];
-    if (!part) throw new Error();
-    const padded = part.replace(/-/g, "+").replace(/_/g, "/");
-    const json = JSON.parse(atob(padded + "=".repeat((4 - (padded.length % 4)) % 4))) as { exp?: number };
-    return json.exp ? json.exp * 1000 : Date.now() + 8 * 3_600_000;
+    const { exp } = decodeJwtPayload(token) as { exp?: number };
+    return exp ? exp * 1000 : Date.now() + 8 * 3_600_000;
   } catch {
     return Date.now() + 8 * 3_600_000;
   }

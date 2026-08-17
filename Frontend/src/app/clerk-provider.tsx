@@ -16,8 +16,15 @@ export function ClerkAuthProvider({ children }: PropsWithChildren) {
   const publishableKey = getClerkPublishableKey();
   if (!publishableKey) return <>{children}</>;
 
+  // El fallback NO puede ser `children`: desde la Fase 2 de ADR-004,
+  // ClerkBridgedAuthProvider (que consume hooks de Clerk) vive dentro de
+  // este arbol, y esos hooks explotan si se renderizan sin <ClerkProvider>
+  // montado -- que es exactamente lo que pasaria durante la breve ventana
+  // en la que se descarga el chunk lazy de @clerk/react. `null` evita ese
+  // crash a costa de un flash en blanco minimo y unico (una sola vez por
+  // carga de la app, no por navegacion).
   return (
-    <Suspense fallback={children}>
+    <Suspense fallback={null}>
       <LazyClerkProvider publishableKey={publishableKey}>{children}</LazyClerkProvider>
     </Suspense>
   );
