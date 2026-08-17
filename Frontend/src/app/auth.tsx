@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { isClerkConfigured } from "@/lib/clerk-config";
 import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
 import { getDefaultPathForRole, isPathAllowedForRole } from "@/app/access";
 import { setApiAuthErrorListener, setApiAuthRefreshHandler, updateApiToken } from "@/lib/api-client";
@@ -119,7 +120,10 @@ export function RequireAuth() {
   const { session } = useAuth();
   const location = useLocation();
 
-  if (typeof window !== "undefined" && isPlatformPortalHostname(window.location.hostname)) {
+  // Sin Clerk (modelo viejo de JWT por subdominio), app.logify.cl nunca tiene
+  // una sesion real -- es solo el buscador de espacio de trabajo. Con Clerk
+  // activo, app.logify.cl es un host valido para la app autenticada.
+  if (typeof window !== "undefined" && isPlatformPortalHostname(window.location.hostname) && !isClerkConfigured()) {
     return <Navigate to="/login" replace />;
   }
 
