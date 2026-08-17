@@ -29,7 +29,7 @@ describe("ClerkAuthProvider", () => {
   });
 
   it("envuelve los children en ClerkProvider con la publishable key cuando esta configurada", async () => {
-    vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "pk_test_abc123");
+    vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "fake-publishable-key-for-tests");
 
     render(
       <ClerkAuthProvider>
@@ -38,7 +38,7 @@ describe("ClerkAuthProvider", () => {
     );
 
     const provider = await screen.findByTestId("clerk-provider");
-    expect(provider).toHaveAttribute("data-publishable-key", "pk_test_abc123");
+    expect(provider).toHaveAttribute("data-publishable-key", "fake-publishable-key-for-tests");
     expect(screen.getByText("contenido")).toBeInTheDocument();
   });
 });

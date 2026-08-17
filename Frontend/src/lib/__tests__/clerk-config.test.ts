@@ -18,8 +18,8 @@ describe("clerk-config", () => {
     });
 
     it("retorna la clave, sin espacios, cuando esta definida", () => {
-      vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "  pk_test_abc123  ");
-      expect(getClerkPublishableKey()).toBe("pk_test_abc123");
+      vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "  fake-publishable-key-for-tests  ");
+      expect(getClerkPublishableKey()).toBe("fake-publishable-key-for-tests");
     });
   });
 
@@ -30,7 +30,7 @@ describe("clerk-config", () => {
     });
 
     it("retorna true con la variable de entorno definida", () => {
-      vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "pk_test_abc123");
+      vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "fake-publishable-key-for-tests");
       expect(isClerkConfigured()).toBe(true);
     });
   });

@@ -1,0 +1,14 @@
+# Falsos positivos de gitleaks (regla generic-api-key) sobre fixtures de
+# test para el groundwork de Clerk (ver ADR-004). Los valores marcados eran
+# strings de prueba tipo "pk_test_abc123" pasados a vi.stubEnv() para
+# simular VITE_CLERK_PUBLISHABLE_KEY -- nunca fueron una clave real, pero
+# su entropia disparaba la heuristica generica de gitleaks. Se corrigieron
+# a valores obviamente falsos (fake-publishable-key-for-tests) en un commit
+# posterior, pero el hallazgo persiste en el diff del commit historico
+# original -- por eso se allowlistea por fingerprint en vez de reescribir
+# el historial del branch.
+c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/app/__tests__/clerk-provider.test.tsx:generic-api-key:32
+c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/app/__tests__/clerk-provider.test.tsx:generic-api-key:41
+c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/lib/__tests__/clerk-config.test.ts:generic-api-key:21
+c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/lib/__tests__/clerk-config.test.ts:generic-api-key:33
+c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/pages/__tests__/login-clerk-page.test.tsx:generic-api-key:24

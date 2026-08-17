@@ -21,7 +21,7 @@ describe("LoginClerkPage", () => {
   });
 
   it("renderiza el SignIn de Clerk cuando esta configurado", () => {
-    vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "pk_test_abc123");
+    vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "fake-publishable-key-for-tests");
 
     render(<LoginClerkPage />);
 
