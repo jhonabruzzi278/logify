@@ -16,7 +16,7 @@
 // la dependencia @clerk/backend via node_modules de este servicio.
 //
 // Uso (desde la raiz del repo):
-//   cd Backend/orders-service && CLERK_SECRET_KEY=sk_live_... node scripts/migrate-demo-users-to-clerk.js
+//   cd Backend/orders-service && CLERK_SECRET_KEY=TU_SECRET_KEY_DE_PRODUCCION node scripts/migrate-demo-users-to-clerk.js
 //
 // La secret key NUNCA se hardcodea aca -- se lee del entorno. Correrlo sin
 // la variable falla rapido con un mensaje claro, no con un error de Clerk.
@@ -27,16 +27,19 @@ const TENANT = { id: 1, slug: 'logify', name: 'Logify' };
 
 // Mismos datos que Backend/orders-service/src/index.js (seedUsers() +
 // SECURITY_PROFILES) -- se mantienen las mismas passwords para no romper
-// las credenciales que el usuario ya conoce.
+// las credenciales que el usuario ya conoce. Son passwords de demo
+// publicamente conocidas dentro de este proyecto de portafolio (identicas
+// a las de seedUsers()), no secretos reales -- NOSONAR silencia S2068
+// (password hardcodeada) por ese motivo, mismo caso que seedUsers().
 const DEMO_USERS = [
-  { username: 'admin', password: 'Admin123!', firstName: 'Andrés', lastName: 'Soto', role: 'owner', email: 'andres.soto@logify.cl' },
-  { username: 'operaciones', password: 'Ops123!', firstName: 'Marcela', lastName: 'Fuentes', role: 'ops', email: 'marcela.fuentes@logify.cl' },
-  { username: 'bodega', password: 'Bodega123!', firstName: 'Patricio', lastName: 'Salazar', role: 'warehouse', email: 'patricio.salazar@logify.cl' },
-  { username: 'transportista', password: 'Trans123!', firstName: 'Luis', lastName: 'Carvajal', role: 'shipper', email: 'luis.carvajal@logify.cl' },
-  { username: 'vendedor1', password: 'Vend123!', firstName: 'María', lastName: 'González', role: 'vendor', email: 'maria.gonzalez@logify.cl' },
-  { username: 'vendedor2', password: 'Vend123!', firstName: 'Carlos', lastName: 'Muñoz', role: 'vendor', email: 'carlos.munoz@logify.cl' },
-  { username: 'soporte', password: 'Sop123!', firstName: 'Camila', lastName: 'Torres', role: 'support', email: 'camila.torres@logify.cl' },
-  { username: 'cliente', password: 'Cli123!', firstName: 'Rosa', lastName: 'Mardones', role: 'customer', email: 'rosa.mardones@logify.cl' },
+  { username: 'admin', password: 'Admin123!', firstName: 'Andrés', lastName: 'Soto', role: 'owner', email: 'andres.soto@logify.cl' }, // NOSONAR
+  { username: 'operaciones', password: 'Ops123!', firstName: 'Marcela', lastName: 'Fuentes', role: 'ops', email: 'marcela.fuentes@logify.cl' }, // NOSONAR
+  { username: 'bodega', password: 'Bodega123!', firstName: 'Patricio', lastName: 'Salazar', role: 'warehouse', email: 'patricio.salazar@logify.cl' }, // NOSONAR
+  { username: 'transportista', password: 'Trans123!', firstName: 'Luis', lastName: 'Carvajal', role: 'shipper', email: 'luis.carvajal@logify.cl' }, // NOSONAR
+  { username: 'vendedor1', password: 'Vend123!', firstName: 'María', lastName: 'González', role: 'vendor', email: 'maria.gonzalez@logify.cl' }, // NOSONAR
+  { username: 'vendedor2', password: 'Vend123!', firstName: 'Carlos', lastName: 'Muñoz', role: 'vendor', email: 'carlos.munoz@logify.cl' }, // NOSONAR
+  { username: 'soporte', password: 'Sop123!', firstName: 'Camila', lastName: 'Torres', role: 'support', email: 'camila.torres@logify.cl' }, // NOSONAR
+  { username: 'cliente', password: 'Cli123!', firstName: 'Rosa', lastName: 'Mardones', role: 'customer', email: 'rosa.mardones@logify.cl' }, // NOSONAR
 ];
 
 async function findOrganizationBySlug(clerkClient, slug) {
@@ -105,7 +108,7 @@ async function ensureMembership(clerkClient, org, user, demoUser) {
 async function main() {
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) {
-    console.error('Falta CLERK_SECRET_KEY en el entorno. Uso: CLERK_SECRET_KEY=sk_live_... node Backend/scripts/migrate-demo-users-to-clerk.js');
+    console.error('Falta CLERK_SECRET_KEY en el entorno. Uso: CLERK_SECRET_KEY=TU_SECRET_KEY_DE_PRODUCCION node scripts/migrate-demo-users-to-clerk.js');
     process.exit(1);
   }
 
