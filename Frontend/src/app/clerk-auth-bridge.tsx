@@ -114,6 +114,11 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           // tiene una organizacion ACTIVA, algo que setActive({session}) solo
           // no hace. Cada usuario Logify pertenece a una sola Organization
           // (el tenant), asi que se activa la primera membership disponible.
+          // clerk.user todavia no esta poblado en el mismo tick que setActive
+          // resuelve (confirmado en produccion: sin el reload(), organizationMemberships
+          // llega vacio y el JWT sale con los placeholders sin interpolar) -- reload()
+          // fuerza a traer el recurso User ya con las memberships actualizadas.
+          await clerk.user?.reload();
           const membership = clerk.user?.organizationMemberships?.[0];
           if (membership) {
             await setActive({ session: attempt.createdSessionId, organization: membership.organization.id });
