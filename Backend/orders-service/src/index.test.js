@@ -4,6 +4,7 @@ jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
 jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
+jest.mock('@clerk/backend/webhooks', () => ({ verifyWebhook: jest.fn() }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt-token'),
   verifyToken: jest.fn().mockReturnValue({ sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
@@ -17,6 +18,7 @@ jest.mock('../shared/auth', () => ({
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const { createPool } = require('../shared/db');
+const { verifyWebhook } = require('@clerk/backend/webhooks');
 
 process.env.DB_RUNTIME_URL = 'postgres://test-runtime';
 
@@ -1329,6 +1331,7 @@ describe('POST /api/webhooks/clerk', () => {
 
   it('retorna 400 si la firma del webhook es invalida', async () => {
     process.env.CLERK_WEBHOOK_SIGNING_SECRET = 'whsec_test_secret_not_matching_the_request';
+    verifyWebhook.mockRejectedValueOnce(new Error('invalid signature'));
     const res = await request(app)
       .post('/api/webhooks/clerk')
       .set('svix-id', 'msg_test')
@@ -1337,6 +1340,132 @@ describe('POST /api/webhooks/clerk', () => {
       .send({ type: 'organization.created', data: { id: 'org_test' } });
     expect(res.status).toBe(400);
     expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  describe('con firma valida (verifyWebhook mockeado)', () => {
+    beforeEach(() => {
+      process.env.CLERK_WEBHOOK_SIGNING_SECRET = 'whsec_test_secret';
+    });
+
+    it('crea un tenant nuevo en organization.created cuando no existe por clerk_org_id ni slug', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organization.created',
+        data: { id: 'org_123', name: 'Acme SpA', slug: 'acme', public_metadata: {} }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT tenants: no existe
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // INSERT tenants
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ received: true, type: 'organization.created' });
+      expect(mockQuery).toHaveBeenNthCalledWith(1, expect.stringContaining('SELECT id FROM tenants'), ['org_123', 'acme']);
+      expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO tenants'), ['acme', 'Acme SpA', 'org_123']);
+    });
+
+    it('actualiza el tenant existente en organization.updated cuando ya esta vinculado por slug', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organization.updated',
+        data: { id: 'org_456', name: 'Acme Renombrada', slug: 'acme', public_metadata: {} }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] }); // SELECT tenants: existe
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE tenants
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('UPDATE tenants'), ['org_456', 'Acme Renombrada', 7]);
+    });
+
+    it('registra un warning y no crea el usuario si organizationMembership.created llega antes de que el tenant este sincronizado', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organizationMembership.created',
+        data: {
+          organization: { id: 'org_sin_tenant' },
+          public_user_data: { user_id: 'user_1', identifier: 'juan@acme.cl' },
+          public_metadata: {}
+        }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT tenants: no encontrado
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenCalledTimes(1);
+    });
+
+    it('crea el usuario en organizationMembership.created cuando el tenant ya existe', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organizationMembership.created',
+        data: {
+          organization: { id: 'org_123' },
+          public_user_data: { user_id: 'user_1', first_name: 'Juan', last_name: 'Perez', identifier: 'juan@acme.cl' },
+          public_metadata: { role: 'vendor', username: 'juanp' }
+        }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] }); // SELECT tenants
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT users por clerk_user_id: no existe
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // INSERT users
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO users'), ['juanp', 'Juan Perez', 'vendor', 7, 'user_1']);
+    });
+
+    it('actualiza el usuario existente en organizationMembership.updated', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organizationMembership.updated',
+        data: {
+          organization: { id: 'org_123' },
+          public_user_data: { user_id: 'user_1', first_name: 'Juan', last_name: 'Perez', identifier: 'juan@acme.cl' },
+          public_metadata: { role: 'ops' }
+        }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] }); // SELECT tenants
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 42 }] }); // SELECT users por clerk_user_id: existe
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE users
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE users'), ['Juan Perez', 'ops', 7, 42]);
+    });
+
+    it('desvincula clerk_user_id en organizationMembership.deleted sin borrar la fila', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organizationMembership.deleted',
+        data: { public_user_data: { user_id: 'user_1' } }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE users SET clerk_user_id=NULL
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE users SET clerk_user_id=NULL'), ['user_1']);
+    });
+
+    it('responde 200 sin tocar la base para tipos de evento no manejados', async () => {
+      verifyWebhook.mockResolvedValueOnce({ type: 'user.deleted', data: {} });
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ received: true, type: 'user.deleted' });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('retorna 500 si la base de datos falla al procesar el evento', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organization.created',
+        data: { id: 'org_123', name: 'Acme SpA', slug: 'acme', public_metadata: {} }
+      });
+      mockQuery.mockRejectedValueOnce(new Error('DB down'));
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(500);
+    });
   });
 });
 
