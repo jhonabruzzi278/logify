@@ -2,9 +2,9 @@
 import { Check, Download, FileUp, Plus, Search, Trash2, Truck, User, X, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth";
-import { managedUsers } from "@/app/user-directory";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
+import { useCouriers } from "@/hooks/use-couriers";
 import { CUSTOMER_TYPE_BY_MODE } from "@/hooks/use-business-mode";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -19,10 +19,6 @@ import type { ApiCreateOrderRequest, ApiCreateOrderResponse, ApiCustomer, ApiInv
 import type { Customer, Order, Product, Role } from "@/types/domain";
 import type { OrderDecisionType } from "@/hooks/use-operational-workspace";
 
-const TRANSPORTERS = managedUsers
-  .filter((u) => u.role === "shipper")
-  .map((u) => ({ username: u.username, name: u.name }));
-
 export function OrdersPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -32,7 +28,7 @@ export function OrdersPage() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [sku, setSku] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [transporter, setTransporter] = useState(TRANSPORTERS[0]?.username ?? "");
+  const [transporter, setTransporter] = useState("");
   const [creating, setCreating] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -52,6 +48,11 @@ export function OrdersPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const customerScope = useCustomerScope();
+  const { couriers: TRANSPORTERS } = useCouriers();
+
+  useEffect(() => {
+    if (!transporter && TRANSPORTERS.length > 0) setTransporter(TRANSPORTERS[0].username);
+  }, [TRANSPORTERS, transporter]);
 
   const { data: customers, loading: cLoading } = useApiQuery<ApiCustomer[], Customer[]>({
     path: "/api/customers", transform: (r) => r.map(adaptCustomer).filter((c) => c.customerType === CUSTOMER_TYPE_BY_MODE.b2b)
@@ -398,7 +399,7 @@ export function OrdersPage() {
                 <th className="px-4 py-3 hidden md:table-cell">Transportista</th>
                 <th className="px-4 py-3">Estado</th>
                 <th className="px-4 py-3 hidden md:table-cell">Creado</th>
-                {!customerScope.isCustomer && <th className="px-4 py-3 text-right">{canReview ? "Acci&oacute;n" : ""}</th>}
+                {!customerScope.isCustomer && <th className="px-4 py-3 text-right">{canReview ? "Acción" : ""}</th>}
               </tr>
             </thead>
           <tbody>

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { lineSubtotal } from "@/lib/pos-pricing";
 import type { Product, SaleItem } from "@/types/domain";
 
 export interface CartEntry {
@@ -60,7 +61,8 @@ function persistCart(items: CartEntry[]) {
   } catch {}
 }
 
-export function usePosCart() {
+export function usePosCart(options?: { roundWeightSubtotals?: boolean }) {
+  const roundWeightSubtotals = options?.roundWeightSubtotals ?? false;
   const [items, setItems] = useState<CartEntry[]>(() => readCart());
 
   const addToCart = useCallback((product: Product, quantity = 1) => {
@@ -123,9 +125,16 @@ export function usePosCart() {
     persistCart([]);
   }, []);
 
+  const getLineSubtotal = useCallback(
+    (entry: CartEntry) => entry.isManualAmount
+      ? entry.product.price * entry.quantity
+      : lineSubtotal(entry.product, entry.quantity, roundWeightSubtotals),
+    [roundWeightSubtotals]
+  );
+
   const total = useMemo(
-    () => items.reduce((sum, e) => sum + e.product.price * e.quantity, 0),
-    [items]
+    () => items.reduce((sum, e) => sum + getLineSubtotal(e), 0),
+    [items, getLineSubtotal]
   );
 
   const itemCount = useMemo(
@@ -140,10 +149,10 @@ export function usePosCart() {
         name: e.product.name,
         quantity: e.quantity,
         unitPrice: e.product.price,
-        subtotal: e.product.price * e.quantity,
+        subtotal: getLineSubtotal(e),
         isManualAmount: e.isManualAmount,
       })),
-    [items]
+    [items, getLineSubtotal]
   );
 
   return {
@@ -156,5 +165,6 @@ export function usePosCart() {
     total,
     itemCount,
     saleItems,
+    getLineSubtotal,
   };
 }

@@ -1,12 +1,12 @@
 ﻿import { useEffect, useState, useMemo } from "react";
 import { Clock, Cloud, CloudRain, Download, Inbox, Package, QrCode, Search, Trash2, Truck, User, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { managedUsers } from "@/app/user-directory";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuthImage } from "@/hooks/use-auth-image";
+import { useCouriers } from "@/hooks/use-couriers";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
@@ -60,6 +60,7 @@ export function NotificationsPage() {
   const { can } = usePermissions();
   const canViewAlerts = can("alerts.view");
   const canManageNotifications = can("notifications.manage");
+  const { couriers } = useCouriers();
 
   const qrImage = useAuthImage(qrGenerated ? `/api/notifications/qr?text=${encodeURIComponent(qrGenerated)}` : null);
 
@@ -150,7 +151,7 @@ export function NotificationsPage() {
 
     // Transporter assignment notifications
     (orders ?? []).filter((o) => o.assignedTo).forEach((order) => {
-      const t = managedUsers.find((u) => u.username === order.assignedTo);
+      const t = couriers.find((u) => u.username === order.assignedTo);
       items.push({
         id: `asgn-${order.id}`,
         type: "order",
@@ -165,7 +166,7 @@ export function NotificationsPage() {
     });
 
     return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-  }, [orders, shipments, systemRecords]);
+  }, [orders, shipments, systemRecords, couriers]);
 
   const filtered = useMemo(() => {
     return notifications.filter((n) => {

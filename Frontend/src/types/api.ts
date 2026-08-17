@@ -19,6 +19,12 @@ export interface ApiOrder {
   clientCode?: string | null;
 }
 
+export interface ApiCourier {
+  id: number;
+  username: string;
+  name: string;
+}
+
 export interface ApiCustomer {
   id: number;
   name: string;
