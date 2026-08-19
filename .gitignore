@@ -72,6 +72,10 @@ skills-lock.json
 # Excepciones: código fuente legítimo que matchea los patrones de arriba
 # (forgot-password-page.tsx nunca se commiteó por esto — ver auditoría de producción)
 !Frontend/src/pages/forgot-password-page.tsx
+!Frontend/src/pages/forgot-password-clerk-page.tsx
+!Frontend/src/pages/forgot-password-legacy-page.tsx
+!Frontend/src/pages/__tests__/forgot-password-page.test.tsx
+!Frontend/src/pages/__tests__/forgot-password-clerk-page.test.tsx
 !Frontend/src/lib/security-service.ts
 
 .vercel

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { useStaggerReveal } from "@/hooks/use-stagger-reveal";
-import { isClerkConfigured } from "@/lib/clerk-config";
+import { shouldActivateClerk } from "@/lib/clerk-config";
 import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
 import { WorkspacePortalPage } from "@/pages/workspace-portal-page";
 import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
@@ -35,12 +35,16 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const routeSvgRef = useRef<SVGSVGElement>(null);
   const featuresRef = useStaggerReveal<HTMLUListElement>(true);
-  // Con Clerk activo, app.logify.cl es el punto de entrada real de login (Clerk
-  // resuelve el tenant desde la Organization del JWT, sin necesitar subdominio) --
-  // el buscador de espacio de trabajo solo aplica al modelo viejo de JWT propio,
-  // donde cada tenant vive detras de su propio subdominio.
+  // Con Clerk activo en este host, app.logify.cl es el punto de entrada real de
+  // login (Clerk resuelve el tenant desde la Organization del JWT, sin necesitar
+  // subdominio) -- el buscador de espacio de trabajo solo aplica al modelo viejo
+  // de JWT propio, donde cada tenant vive detras de su propio subdominio.
+  // shouldActivateClerk() (no isClerkConfigured() a secas) porque la env var es
+  // global a todo el build -- ver el incidente del 2026-08-19 en clerk-config.ts.
   const isPlatformPortal =
-    typeof window !== "undefined" && isPlatformPortalHostname(window.location.hostname) && !isClerkConfigured();
+    typeof window !== "undefined" &&
+    isPlatformPortalHostname(window.location.hostname) &&
+    !shouldActivateClerk(window.location.hostname);
 
   useEffect(() => {
     if (!routeSvgRef.current) return;

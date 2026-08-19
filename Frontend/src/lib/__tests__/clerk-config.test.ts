@@ -58,5 +58,23 @@ describe("clerk-config", () => {
       expect(shouldActivateClerk("minimarketelsol.logify.cl")).toBe(false);
       expect(shouldActivateClerk("lapercha.logify.cl")).toBe(false);
     });
+
+    // Pin de regresion del incidente 2026-08-19: estos 7 tenants existian en
+    // produccion sin ningun usuario en Clerk cuando la activacion global rompio
+    // su login. Si alguno de estos vuelve a dar `true`, su login vuelve a romperse.
+    const LEGACY_TENANT_SLUGS = [
+      "auditprodverify1",
+      "minimarketelsol",
+      "la-isla-barber-studio",
+      "vin-studio",
+      "jany",
+      "jonyfy",
+      "laboratorio",
+    ];
+
+    it.each(LEGACY_TENANT_SLUGS)("retorna false para el tenant legacy no migrado '%s'", (slug) => {
+      vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "fake-publishable-key-for-tests");
+      expect(shouldActivateClerk(`${slug}.logify.cl`)).toBe(false);
+    });
   });
 });

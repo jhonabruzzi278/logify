@@ -5,7 +5,7 @@ import { acceptInvite } from "@/lib/local-jwt-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
-import { buildTenantUrl } from "@/lib/tenant-navigation";
+import { buildTenantUrl, normalizeTenantSlug } from "@/lib/tenant-navigation";
 import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
 import { Logo } from "@/components/common/logo";
 
@@ -22,6 +22,18 @@ export function InvitePage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const tenantSlugRef = useRef("");
+
+  function handleGoToLogin() {
+    // buildTenantUrl() lanza para slugs reservados (ej. "logify", el tenant
+    // que ya vive en app.logify.cl sin subdominio propio) -- ahi el destino
+    // correcto es el portal, no un subdominio que nunca existio.
+    const slug = tenantSlugRef.current;
+    if (slug && normalizeTenantSlug(slug)) {
+      window.location.assign(buildTenantUrl(slug));
+      return;
+    }
+    navigate("/login", { replace: true });
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,7 +77,7 @@ export function InvitePage() {
               </p>
               <Button
                 type="button"
-                onClick={() => tenantSlugRef.current ? window.location.assign(buildTenantUrl(tenantSlugRef.current)) : navigate("/login", { replace: true })}
+                onClick={handleGoToLogin}
                 className="mt-5 h-11 w-full bg-[#2563EB] font-bold hover:bg-[#1D4ED8]"
               >
                 <KeyRound className="mr-2 h-4 w-4" />
