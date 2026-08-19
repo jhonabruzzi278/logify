@@ -9,7 +9,7 @@ import { ClerkBridgedAuthProvider } from "@/app/clerk-auth-bridge";
 import { ErrorBoundary } from "@/components/common/error-boundary";
 import { ToastProvider } from "@/components/common/toast-provider";
 import { BusinessModeProvider } from "@/hooks/use-business-mode";
-import { isClerkConfigured } from "@/lib/clerk-config";
+import { shouldActivateClerk } from "@/lib/clerk-config";
 import "@/styles/index.css";
 
 const isLocalEnvironment = ["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -43,11 +43,14 @@ updateServiceWorker = registerSW({
   },
 });
 
-// Fase 2 de ADR-004 (corte real): con Clerk configurado, ClerkBridgedAuthProvider
-// (que usa hooks de Clerk) reemplaza a AuthProvider -- ambos implementan el
-// mismo AuthContext, asi que login-page.tsx y el resto de la app no cambian.
-// Sin la env var (local/dev/tests sin Clerk), el arbol es identico al de antes.
-const authTree = isClerkConfigured() ? (
+// Fase 2 de ADR-004 (corte real): con Clerk configurado Y en un hostname
+// donde ya esta activado (ver shouldActivateClerk en clerk-config.ts),
+// ClerkBridgedAuthProvider (que usa hooks de Clerk) reemplaza a AuthProvider
+// -- ambos implementan el mismo AuthContext, asi que login-page.tsx y el
+// resto de la app no cambian. En cualquier otro caso (sin la env var, o en un
+// subdominio de tenant todavia no migrado a Clerk) el arbol es identico al de
+// antes de que Clerk existiera en el proyecto.
+const authTree = shouldActivateClerk(window.location.hostname) ? (
   <ClerkAuthProvider>
     <ClerkBridgedAuthProvider>
       <BusinessModeProvider>
