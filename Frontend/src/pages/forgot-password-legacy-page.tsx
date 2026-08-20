@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { CheckCircle2, KeyRound, ShieldQuestion, User } from "lucide-react";
+import { ShieldQuestion, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getSecretQuestion, resetPasswordWithToken, verifySecretAnswer } from "@/lib/security-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
-import { ErrorBanner, ForgotPasswordShell, PasswordResetStep } from "@/pages/forgot-password-shared";
+import { ErrorBanner, ForgotPasswordShell, PasswordResetDoneStep, PasswordResetStep } from "@/pages/forgot-password-shared";
 
 type Step = "username" | "question" | "reset" | "done";
 
@@ -142,21 +142,11 @@ export function ForgotPasswordLegacyPage() {
       ) : null}
 
       {step === "done" ? (
-        <div className="text-center">
-          <CheckCircle2 className="mx-auto h-10 w-10 text-primary" />
-          <h1 className="mt-3 text-xl font-bold text-foreground">Contraseña actualizada</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Ya puedes iniciar sesión con tu nueva contraseña.
-          </p>
-          <Button
-            type="button"
-            onClick={() => navigate("/login", { replace: true })}
-            className="mt-5 h-11 w-full bg-primary font-bold hover:bg-primary/90"
-          >
-            <KeyRound className="mr-2 h-4 w-4" />
-            Ir a iniciar sesión
-          </Button>
-        </div>
+        <PasswordResetDoneStep
+          message="Ya puedes iniciar sesión con tu nueva contraseña."
+          buttonLabel="Ir a iniciar sesión"
+          onContinue={() => navigate("/login", { replace: true })}
+        />
       ) : null}
     </ForgotPasswordShell>
   );

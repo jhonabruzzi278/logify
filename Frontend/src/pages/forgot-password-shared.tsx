@@ -1,4 +1,4 @@
-import { Lock } from "lucide-react";
+import { CheckCircle2, KeyRound, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { PropsWithChildren } from "react";
 import { Button } from "@/components/ui/button";
@@ -102,6 +102,33 @@ export function PasswordResetStep({
         </Button>
       </form>
     </>
+  );
+}
+
+interface PasswordResetDoneStepProps {
+  message: string;
+  buttonLabel: string;
+  onContinue: () => void;
+}
+
+// Paso final compartido ("contraseña actualizada") de ambos flujos -- solo
+// cambia el mensaje y el destino del boton (login vs panel), asi que cada
+// pagina aporta esos dos valores y el callback de continuar.
+export function PasswordResetDoneStep({ message, buttonLabel, onContinue }: PasswordResetDoneStepProps) {
+  return (
+    <div className="text-center">
+      <CheckCircle2 className="mx-auto h-10 w-10 text-primary" />
+      <h1 className="mt-3 text-xl font-bold text-foreground">Contraseña actualizada</h1>
+      <p className="mt-1.5 text-sm text-muted-foreground">{message}</p>
+      <Button
+        type="button"
+        onClick={onContinue}
+        className="mt-5 h-11 w-full bg-primary font-bold hover:bg-primary/90"
+      >
+        <KeyRound className="mr-2 h-4 w-4" />
+        {buttonLabel}
+      </Button>
+    </div>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, KeyRound, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useClerk } from "@clerk/react";
 import { useSignIn } from "@clerk/react/legacy";
@@ -7,7 +7,7 @@ import { activateFirstOrganizationMembership } from "@/app/clerk-auth-bridge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
-import { ErrorBanner, ForgotPasswordShell, PasswordResetStep } from "@/pages/forgot-password-shared";
+import { ErrorBanner, ForgotPasswordShell, PasswordResetDoneStep, PasswordResetStep } from "@/pages/forgot-password-shared";
 
 type Step = "email" | "code" | "reset" | "done";
 
@@ -173,21 +173,11 @@ export function ForgotPasswordClerkPage() {
       ) : null}
 
       {step === "done" ? (
-        <div className="text-center">
-          <CheckCircle2 className="mx-auto h-10 w-10 text-primary" />
-          <h1 className="mt-3 text-xl font-bold text-foreground">Contraseña actualizada</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Ya iniciaste sesión con tu nueva contraseña.
-          </p>
-          <Button
-            type="button"
-            onClick={() => navigate("/dashboard", { replace: true })}
-            className="mt-5 h-11 w-full bg-primary font-bold hover:bg-primary/90"
-          >
-            <KeyRound className="mr-2 h-4 w-4" />
-            Ir a mi panel
-          </Button>
-        </div>
+        <PasswordResetDoneStep
+          message="Ya iniciaste sesión con tu nueva contraseña."
+          buttonLabel="Ir a mi panel"
+          onContinue={() => navigate("/dashboard", { replace: true })}
+        />
       ) : null}
     </ForgotPasswordShell>
   );
