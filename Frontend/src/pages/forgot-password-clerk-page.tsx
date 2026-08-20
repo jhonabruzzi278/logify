@@ -3,7 +3,7 @@ import { Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useClerk } from "@clerk/react";
 import { useSignIn } from "@clerk/react/legacy";
-import { activateFirstOrganizationMembership } from "@/app/clerk-auth-bridge";
+import { activateFirstOrganizationMembership } from "@/app/clerk-org-activation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";

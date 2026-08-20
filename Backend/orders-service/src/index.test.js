@@ -5,6 +5,10 @@ jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: 
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
 jest.mock('@clerk/backend/webhooks', () => ({ verifyWebhook: jest.fn() }));
+const mockUpdateOrganization = jest.fn();
+jest.mock('@clerk/backend', () => ({
+  createClerkClient: jest.fn(() => ({ organizations: { updateOrganization: (...args) => mockUpdateOrganization(...args) } })),
+}));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt-token'),
   verifyToken: jest.fn().mockReturnValue({ sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
@@ -1309,6 +1313,7 @@ describe('orders-service', () => {
 // ─── WEBHOOK DE SINCRONIZACION CON CLERK (groundwork, ver ADR-004) ──────────
 describe('POST /api/webhooks/clerk', () => {
   const ORIGINAL_SIGNING_SECRET = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+  const ORIGINAL_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -1319,6 +1324,11 @@ describe('POST /api/webhooks/clerk', () => {
       delete process.env.CLERK_WEBHOOK_SIGNING_SECRET;
     } else {
       process.env.CLERK_WEBHOOK_SIGNING_SECRET = ORIGINAL_SIGNING_SECRET;
+    }
+    if (ORIGINAL_SECRET_KEY === undefined) {
+      delete process.env.CLERK_SECRET_KEY;
+    } else {
+      process.env.CLERK_SECRET_KEY = ORIGINAL_SECRET_KEY;
     }
   });
 
@@ -1353,28 +1363,56 @@ describe('POST /api/webhooks/clerk', () => {
         data: { id: 'org_123', name: 'Acme SpA', slug: 'acme', public_metadata: {} }
       });
       mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT tenants: no existe
-      mockQuery.mockResolvedValueOnce({ rows: [] }); // INSERT tenants
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 99 }] }); // INSERT tenants RETURNING id
 
       const res = await request(app).post('/api/webhooks/clerk').send({});
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ received: true, type: 'organization.created' });
-      expect(mockQuery).toHaveBeenNthCalledWith(1, expect.stringContaining('SELECT id FROM tenants'), ['org_123', 'acme']);
+      expect(mockQuery).toHaveBeenNthCalledWith(1, expect.stringContaining('SELECT id, slug FROM tenants'), ['org_123', 'acme']);
       expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO tenants'), ['acme', 'Acme SpA', 'org_123']);
+      // Sin CLERK_SECRET_KEY en el entorno de test, getClerkClient() retorna
+      // null y el write-back de publicMetadata se salta (solo un warning) --
+      // no hay una tercera query.
+      expect(mockQuery).toHaveBeenCalledTimes(2);
     });
 
     it('actualiza el tenant existente en organization.updated cuando ya esta vinculado por slug', async () => {
       verifyWebhook.mockResolvedValueOnce({
         type: 'organization.updated',
-        data: { id: 'org_456', name: 'Acme Renombrada', slug: 'acme', public_metadata: {} }
+        data: { id: 'org_456', name: 'Acme Renombrada', slug: 'acme', public_metadata: { tenant_id: 7, tenant_slug: 'acme' } }
       });
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] }); // SELECT tenants: existe
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 7, slug: 'acme' }] }); // SELECT tenants: existe
       mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE tenants
 
       const res = await request(app).post('/api/webhooks/clerk').send({});
 
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('UPDATE tenants'), ['org_456', 'Acme Renombrada', 7]);
+      // publicMetadata ya trae tenant_id/tenant_slug correctos -- no hace
+      // falta escribir de vuelta a Clerk.
+      expect(mockQuery).toHaveBeenCalledTimes(2);
+    });
+
+    // Regresion del bug encontrado en auditoria de produccion (ver PR #67):
+    // sin este write-back, cualquier token pedido para una Organization recien
+    // creada sale con los placeholders del JWT Template sin interpolar
+    // (authMiddleware lo rechaza, ver shared/clerk-auth.js).
+    it('escribe tenant_id/tenant_slug en publicMetadata de la Organization cuando CLERK_SECRET_KEY esta configurada', async () => {
+      process.env.CLERK_SECRET_KEY = 'sk_test_dummy';
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organization.created',
+        data: { id: 'org_789', name: 'Nueva Empresa', slug: 'nueva-empresa', public_metadata: {} }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT tenants: no existe
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 55 }] }); // INSERT tenants RETURNING id
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(mockUpdateOrganization).toHaveBeenCalledWith('org_789', {
+        publicMetadata: { tenant_id: 55, tenant_slug: 'nueva-empresa' },
+      });
     });
 
     it('registra un warning y no crea el usuario si organizationMembership.created llega antes de que el tenant este sincronizado', async () => {
@@ -1423,13 +1461,36 @@ describe('POST /api/webhooks/clerk', () => {
         }
       });
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] }); // SELECT tenants
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 42 }] }); // SELECT users por clerk_user_id: existe
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 42, tenant_id: 7 }] }); // SELECT users por clerk_user_id: existe, mismo tenant
       mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE users
 
       const res = await request(app).post('/api/webhooks/clerk').send({});
 
       expect(res.status).toBe(200);
-      expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE users'), ['Juan Perez', 'ops', 7, 42]);
+      expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE users'), ['Juan Perez', 'ops', 42]);
+    });
+
+    // Regresion del bug encontrado en auditoria de produccion (ver PR #67):
+    // sin este guard, un Clerk User con una membership en un segundo tenant
+    // reasignaria tenant_id en su fila existente, moviendo en silencio su
+    // acceso de un tenant a otro. Logify todavia no soporta multi-org.
+    it('ignora la membership nueva (sin UPDATE) si el usuario ya pertenece a OTRO tenant', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organizationMembership.updated',
+        data: {
+          organization: { id: 'org_456' },
+          public_user_data: { user_id: 'user_1', first_name: 'Juan', last_name: 'Perez', identifier: 'juan@otraempresa.cl' },
+          public_metadata: { role: 'owner' }
+        }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 9 }] }); // SELECT tenants: org_456 -> tenant 9
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 42, tenant_id: 7 }] }); // SELECT users: mismo clerk_user_id, tenant 7 (distinto)
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      // Solo las 2 SELECT -- ningun UPDATE ni INSERT sobre users.
+      expect(mockQuery).toHaveBeenCalledTimes(2);
     });
 
     it('desvincula clerk_user_id en organizationMembership.deleted sin borrar la fila', async () => {

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
 import { Logo } from "@/components/common/logo";
 
-export const PASSWORD_RULES = [
+const PASSWORD_RULES = [
   "Al menos 10 caracteres",
   "Una letra mayúscula y una minúscula",
   "Un número",

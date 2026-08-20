@@ -111,6 +111,28 @@ describe("ClerkBridgedAuthProvider", () => {
     expect(mockUpdateApiToken).toHaveBeenCalled();
   });
 
+  // Regresion: antes de este fix, un login sin ninguna Organization Membership
+  // "tenia exito" en silencio con un token sin organizacion activa -- cada
+  // llamada a la API fallaba con 401 sin que la persona entendiera por que.
+  it("login() falla con un mensaje claro y cierra la sesion de Clerk si el usuario no tiene ninguna Organization", async () => {
+    mockSignInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_1" });
+    mockSetActive.mockResolvedValue(undefined);
+    clerkUser = { organizationMemberships: [], reload: mockUserReload };
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    fireEvent.click(screen.getByText("Ingresar"));
+
+    await waitFor(() => expect(screen.getByTestId("error")).toHaveTextContent("Tu cuenta no está asociada a ninguna empresa en Logify. Contacta a soporte."));
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockGetToken).not.toHaveBeenCalled();
+    expect(screen.getByTestId("session-username")).toHaveTextContent("sin-sesion");
+  });
+
   it("login() falla si el intento de Clerk no queda 'complete' (ej. requiere un segundo factor)", async () => {
     mockSignInCreate.mockResolvedValue({ status: "needs_second_factor", createdSessionId: null });
 

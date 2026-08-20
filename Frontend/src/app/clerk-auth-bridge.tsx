@@ -4,6 +4,7 @@ import { useSignIn } from "@clerk/react/legacy";
 import { setApiAuthErrorListener, setApiAuthRefreshHandler, updateApiToken } from "@/lib/api-client";
 import { decodeJwtPayload, parseRole, type Session } from "@/lib/auth-service";
 import { AuthContext, type AuthContextValue } from "@/app/auth";
+import { activateFirstOrganizationMembership } from "@/app/clerk-org-activation";
 import type { ApiLoginRequest } from "@/types/api";
 
 // Fase 2 de ADR-004 (corte real): mismo AuthContext que AuthProvider
@@ -17,28 +18,6 @@ import type { ApiLoginRequest } from "@/types/api";
 // sesion default de Clerk no los trae, por eso getToken siempre pide este
 // template especifico.
 const CLERK_JWT_TEMPLATE = "logify-api";
-
-type ClerkClient = ReturnType<typeof useClerk>;
-type SetActiveFn = (params: { session: string; organization?: string }) => Promise<void>;
-
-// clerk.user todavia no esta poblado en el mismo tick que setActive resuelve
-// (confirmado en produccion: sin el reload(), organizationMemberships llega
-// vacio y el JWT sale con los placeholders sin interpolar) -- reload() fuerza
-// a traer el recurso User ya con las memberships actualizadas. Compartido
-// entre el login normal y el flujo de restablecer contraseña
-// (forgot-password-clerk-page.tsx), que tambien necesita una Organization
-// activa para que el JWT Template resuelva tenant_id/tenant_slug.
-export async function activateFirstOrganizationMembership(
-  clerk: ClerkClient,
-  setActive: SetActiveFn,
-  sessionId: string,
-): Promise<void> {
-  await clerk.user?.reload();
-  const membership = clerk.user?.organizationMemberships?.[0];
-  if (membership) {
-    await setActive({ session: sessionId, organization: membership.organization.id });
-  }
-}
 
 interface ClerkAppClaims {
   username?: string;
@@ -134,9 +113,17 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           // El JWT Template "logify-api" usa shortcodes {{organization.public_metadata.*}}
           // para tenant_id/tenant_slug -- Clerk solo los interpola si la sesion
           // tiene una organizacion ACTIVA, algo que setActive({session}) solo
-          // no hace. Cada usuario Logify pertenece a una sola Organization
-          // (el tenant), asi que se activa la primera membership disponible.
-          await activateFirstOrganizationMembership(clerk, setActive, attempt.createdSessionId);
+          // no hace.
+          const hasOrganization = await activateFirstOrganizationMembership(clerk, setActive, attempt.createdSessionId);
+          if (!hasOrganization) {
+            // Sin esto, el login "tenia exito" en silencio con un token sin
+            // organizacion activa -- cada llamada a la API fallaba con 401 sin
+            // que la persona entendiera por que (bug real, ver auditoria de
+            // produccion). Se cierra la sesion de Clerk a medio crear para que
+            // un reintento parta limpio, en vez de dejarla colgada.
+            await signOut();
+            throw new Error("Tu cuenta no está asociada a ninguna empresa en Logify. Contacta a soporte.");
+          }
           const token = await getToken({ template: CLERK_JWT_TEMPLATE });
           if (!token) {
             throw new Error("No se pudo obtener el token de sesión.");

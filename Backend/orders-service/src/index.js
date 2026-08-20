@@ -366,6 +366,20 @@ function stripClientCode(rows) {
 
 registerSecurityModule(app, pool, sendError, resolveTenant);
 
+let clerkClient;
+// Lazy, igual que verifyWebhook mas abajo: sin CLERK_SECRET_KEY (entornos sin
+// Clerk todavia) esta funcion nunca se llama de verdad porque el webhook
+// completo responde 501 antes de llegar aca.
+function getClerkClient() {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) return null;
+  if (!clerkClient) {
+    const { createClerkClient } = require('@clerk/backend');
+    clerkClient = createClerkClient({ secretKey });
+  }
+  return clerkClient;
+}
+
 // ═══ WEBHOOK DE SINCRONIZACION CON CLERK (groundwork, ver ADR-004) ══════════════════
 // Publico (sin JWT ni requireAdminKey): la autenticidad se prueba con la
 // firma Svix del payload, no con un secreto compartido en un header. Requiere
@@ -403,15 +417,37 @@ app.post('/api/webhooks/clerk', async (req, res) => {
       // Organization se creo en Clerk apuntando a un tenant preexistente);
       // si no, crea el tenant nuevo con este org como fuente de verdad.
       const existing = (await pool.query(
-        'SELECT id FROM tenants WHERE clerk_org_id=$1 OR slug=$2', [org.id, tenantSlug]
+        'SELECT id, slug FROM tenants WHERE clerk_org_id=$1 OR slug=$2', [org.id, tenantSlug]
       )).rows[0];
+      let tenantId, tenantSlugFinal;
       if (existing) {
         await pool.query('UPDATE tenants SET clerk_org_id=$1, name=$2, updated_at=NOW() WHERE id=$3', [org.id, org.name, existing.id]);
+        tenantId = existing.id;
+        tenantSlugFinal = existing.slug;
       } else {
-        await pool.query(
-          `INSERT INTO tenants (slug, name, status, plan, clerk_org_id) VALUES ($1,$2,'trial','pro',$3)`,
+        const inserted = (await pool.query(
+          `INSERT INTO tenants (slug, name, status, plan, clerk_org_id) VALUES ($1,$2,'trial','pro',$3) RETURNING id`,
           [tenantSlug, org.name, org.id]
-        );
+        )).rows[0];
+        tenantId = inserted.id;
+        tenantSlugFinal = tenantSlug;
+      }
+      // El JWT Template "logify-api" lee tenant_id/tenant_slug desde
+      // organization.public_metadata -- sin este write-back, cualquier token
+      // pedido para esta Organization sale con los placeholders del template
+      // sin interpolar y authMiddleware lo rechaza (ver shared/clerk-auth.js).
+      // Solo se escribe si falta o no coincide, para no generar un
+      // organization.updated en loop innecesario.
+      const currentMeta = org.public_metadata || {};
+      if (currentMeta.tenant_id !== tenantId || currentMeta.tenant_slug !== tenantSlugFinal) {
+        const clerkClient = getClerkClient();
+        if (clerkClient) {
+          await clerkClient.organizations.updateOrganization(org.id, {
+            publicMetadata: { ...currentMeta, tenant_id: tenantId, tenant_slug: tenantSlugFinal },
+          });
+        } else {
+          log.warn('Clerk webhook: no se pudo escribir tenant_id/tenant_slug en publicMetadata (CLERK_SECRET_KEY no configurada)', { orgId: org.id });
+        }
       }
     } else if (evt.type === 'organizationMembership.created' || evt.type === 'organizationMembership.updated') {
       const membership = evt.data;
@@ -423,9 +459,21 @@ app.post('/api/webhooks/clerk', async (req, res) => {
         const role = membership.public_metadata?.role || 'customer';
         const name = [membership.public_user_data.first_name, membership.public_user_data.last_name].filter(Boolean).join(' ') || membership.public_user_data.identifier;
         const username = membership.public_metadata?.username || membership.public_user_data.identifier;
-        const existingUser = (await pool.query('SELECT id FROM users WHERE clerk_user_id=$1', [clerkUserId])).rows[0];
-        if (existingUser) {
-          await pool.query('UPDATE users SET name=$1, role=$2, tenant_id=$3, updated_at=NOW() WHERE id=$4', [name, role, tenant.id, existingUser.id]);
+        const existingUser = (await pool.query('SELECT id, tenant_id FROM users WHERE clerk_user_id=$1', [clerkUserId])).rows[0];
+        if (existingUser && existingUser.tenant_id !== tenant.id) {
+          // Guard de multi-org (Fase 2 de la migracion a Clerk, ver PR #67):
+          // este Clerk User ya es un usuario Logify de OTRO tenant. Sin este
+          // guard, el UPDATE de abajo reasignaria tenant_id en la fila
+          // existente y moveria en silencio el acceso de un tenant a otro --
+          // bug real encontrado en auditoria de produccion. Logify todavia no
+          // soporta que una persona pertenezca a mas de un tenant, asi que la
+          // membership nueva se ignora (200, sin reintentos de Clerk) en vez
+          // de aplicarse mal.
+          log.warn('Clerk membership webhook: el usuario ya pertenece a otro tenant, se ignora la membership nueva (multi-org no soportado todavia)', {
+            clerkUserId, existingTenantId: existingUser.tenant_id, newTenantId: tenant.id,
+          });
+        } else if (existingUser) {
+          await pool.query('UPDATE users SET name=$1, role=$2, updated_at=NOW() WHERE id=$3', [name, role, existingUser.id]);
         } else {
           await pool.query(
             `INSERT INTO users (username, name, role, tenant_id, clerk_user_id) VALUES ($1,$2,$3,$4,$5)
