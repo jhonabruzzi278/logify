@@ -18,6 +18,28 @@ import type { ApiLoginRequest } from "@/types/api";
 // template especifico.
 const CLERK_JWT_TEMPLATE = "logify-api";
 
+type ClerkClient = ReturnType<typeof useClerk>;
+type SetActiveFn = (params: { session: string; organization?: string }) => Promise<void>;
+
+// clerk.user todavia no esta poblado en el mismo tick que setActive resuelve
+// (confirmado en produccion: sin el reload(), organizationMemberships llega
+// vacio y el JWT sale con los placeholders sin interpolar) -- reload() fuerza
+// a traer el recurso User ya con las memberships actualizadas. Compartido
+// entre el login normal y el flujo de restablecer contraseña
+// (forgot-password-clerk-page.tsx), que tambien necesita una Organization
+// activa para que el JWT Template resuelva tenant_id/tenant_slug.
+export async function activateFirstOrganizationMembership(
+  clerk: ClerkClient,
+  setActive: SetActiveFn,
+  sessionId: string,
+): Promise<void> {
+  await clerk.user?.reload();
+  const membership = clerk.user?.organizationMemberships?.[0];
+  if (membership) {
+    await setActive({ session: sessionId, organization: membership.organization.id });
+  }
+}
+
 interface ClerkAppClaims {
   username?: string;
   name?: string;
@@ -114,15 +136,7 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           // tiene una organizacion ACTIVA, algo que setActive({session}) solo
           // no hace. Cada usuario Logify pertenece a una sola Organization
           // (el tenant), asi que se activa la primera membership disponible.
-          // clerk.user todavia no esta poblado en el mismo tick que setActive
-          // resuelve (confirmado en produccion: sin el reload(), organizationMemberships
-          // llega vacio y el JWT sale con los placeholders sin interpolar) -- reload()
-          // fuerza a traer el recurso User ya con las memberships actualizadas.
-          await clerk.user?.reload();
-          const membership = clerk.user?.organizationMemberships?.[0];
-          if (membership) {
-            await setActive({ session: attempt.createdSessionId, organization: membership.organization.id });
-          }
+          await activateFirstOrganizationMembership(clerk, setActive, attempt.createdSessionId);
           const token = await getToken({ template: CLERK_JWT_TEMPLATE });
           if (!token) {
             throw new Error("No se pudo obtener el token de sesión.");
