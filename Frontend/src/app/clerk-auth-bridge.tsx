@@ -28,16 +28,24 @@ type SetActiveFn = (params: { session: string; organization?: string }) => Promi
 // entre el login normal y el flujo de restablecer contraseña
 // (forgot-password-clerk-page.tsx), que tambien necesita una Organization
 // activa para que el JWT Template resuelva tenant_id/tenant_slug.
+//
+// Activa la primera membership de forma deterministica -- Logify todavia no
+// soporta que una persona pertenezca a mas de una Organization (el webhook
+// de orders-service rechaza sincronizar una segunda membership del mismo
+// Clerk User a un tenant distinto, ver Fase 2 de la migracion a Clerk).
+// Retorna false si no hay ninguna membership, para que el llamador pueda
+// tratarlo como el error real que es en vez de dejar avanzar un login con un
+// token sin organizacion activa.
 export async function activateFirstOrganizationMembership(
   clerk: ClerkClient,
   setActive: SetActiveFn,
   sessionId: string,
-): Promise<void> {
+): Promise<boolean> {
   await clerk.user?.reload();
   const membership = clerk.user?.organizationMemberships?.[0];
-  if (membership) {
-    await setActive({ session: sessionId, organization: membership.organization.id });
-  }
+  if (!membership) return false;
+  await setActive({ session: sessionId, organization: membership.organization.id });
+  return true;
 }
 
 interface ClerkAppClaims {
@@ -134,9 +142,17 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           // El JWT Template "logify-api" usa shortcodes {{organization.public_metadata.*}}
           // para tenant_id/tenant_slug -- Clerk solo los interpola si la sesion
           // tiene una organizacion ACTIVA, algo que setActive({session}) solo
-          // no hace. Cada usuario Logify pertenece a una sola Organization
-          // (el tenant), asi que se activa la primera membership disponible.
-          await activateFirstOrganizationMembership(clerk, setActive, attempt.createdSessionId);
+          // no hace.
+          const hasOrganization = await activateFirstOrganizationMembership(clerk, setActive, attempt.createdSessionId);
+          if (!hasOrganization) {
+            // Sin esto, el login "tenia exito" en silencio con un token sin
+            // organizacion activa -- cada llamada a la API fallaba con 401 sin
+            // que la persona entendiera por que (bug real, ver auditoria de
+            // produccion). Se cierra la sesion de Clerk a medio crear para que
+            // un reintento parta limpio, en vez de dejarla colgada.
+            await signOut();
+            throw new Error("Tu cuenta no está asociada a ninguna empresa en Logify. Contacta a soporte.");
+          }
           const token = await getToken({ template: CLERK_JWT_TEMPLATE });
           if (!token) {
             throw new Error("No se pudo obtener el token de sesión.");
