@@ -45,6 +45,8 @@ export function LoginPage() {
     typeof window !== "undefined" &&
     isPlatformPortalHostname(window.location.hostname) &&
     !shouldActivateClerk(window.location.hostname);
+  const isCentralLogin =
+    typeof window !== "undefined" && shouldActivateClerk(window.location.hostname);
 
   useEffect(() => {
     if (!routeSvgRef.current) return;
@@ -154,7 +156,7 @@ export function LoginPage() {
         </div>
 
         <p className="relative z-10 border-t border-white/10 pt-6 text-xs text-[#94A3B8]">
-          &copy; {new Date().getFullYear()} Logify &middot; Plataforma interna de operaciones
+          &copy; {new Date().getFullYear()} Logify &middot; Plataforma de operaciones
         </p>
       </div>
 
@@ -181,9 +183,13 @@ export function LoginPage() {
               Acceso seguro
             </span>
 
-            <h1 className="mt-4 text-2xl font-bold text-foreground">Bienvenido de vuelta</h1>
+            <h1 className="mt-4 text-2xl font-bold text-foreground">
+              {isCentralLogin ? "Un solo acceso para tu empresa" : "Bienvenido de vuelta"}
+            </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Ingresa tus credenciales para acceder a tu panel.
+              {isCentralLogin
+                ? "Ingresa con las credenciales que recibiste durante la activación."
+                : "Ingresa tus credenciales para acceder a tu panel."}
             </p>
 
             {deniedFrom ? (
@@ -195,7 +201,7 @@ export function LoginPage() {
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
               <label htmlFor="username" className="mb-1.5 block text-xs font-semibold text-foreground">
-                Usuario
+                {isCentralLogin ? "Correo o usuario" : "Usuario"}
               </label>
               <div className="relative">
                 <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -204,7 +210,7 @@ export function LoginPage() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="nombre.usuario"
+                  placeholder={isCentralLogin ? "tu@empresa.cl" : "nombre.usuario"}
                   autoComplete="username"
                   autoFocus
                   disabled={busy}
@@ -267,12 +273,11 @@ export function LoginPage() {
             </form>
           </div>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            ¿No recuerdas el nombre de tu negocio?{" "}
-            <a href="https://logify.cl/acceso" className="font-medium text-primary hover:underline">
-              Recupéralo aquí
-            </a>
-          </p>
+          {isCentralLogin ? (
+            <p className="mt-6 text-center text-xs text-muted-foreground">
+              ¿Es tu primer ingreso? Al entrar te guiaremos para configurar tu negocio.
+            </p>
+          ) : null}
           <p className="mt-2 text-center text-xs text-muted-foreground">
             ¿Problemas para ingresar?{" "}
             <a href="mailto:jonathanguerra278@gmail.com" className="font-medium text-primary hover:underline">

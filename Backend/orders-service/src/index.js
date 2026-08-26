@@ -154,6 +154,11 @@ async function ensureTenants() {
   // personalizar la activacion del tenant nuevo.
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS used_pos_before BOOLEAN`);
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_goals JSONB DEFAULT '[]'`);
+  // Los tenants existentes quedan marcados como configurados al crear la
+  // columna. Inmediatamente se retira el default para que cada tenant nuevo
+  // deba completar el onboarding después de su primer login.
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMP DEFAULT NOW()`);
+  await pool.query(`ALTER TABLE tenants ALTER COLUMN onboarding_completed_at DROP DEFAULT`);
 
   // Cupones de bienvenida: dias extra de demo gratuita, canjeables una vez
   // por tenant. Tabla a nivel plataforma (sin tenant_id propio).
@@ -1147,6 +1152,50 @@ function toBusinessSettingsDto(tenant) {
     businessPhone: tenant.business_phone,
   };
 }
+
+function toOnboardingDto(tenant) {
+  return {
+    completed: Boolean(tenant.onboarding_completed_at),
+    name: tenant.name,
+    contactEmail: tenant.contact_email,
+    businessCountry: tenant.business_country,
+    businessIndustry: tenant.business_industry,
+    businessPhone: tenant.business_phone,
+    usedPosBefore: tenant.used_pos_before,
+    goals: Array.isArray(tenant.onboarding_goals) ? tenant.onboarding_goals : [],
+  };
+}
+
+app.get('/api/onboarding', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const r = await req.db.query('SELECT * FROM tenants WHERE id=$1', [req.tenantId]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
+    res.json(toOnboardingDto(r.rows[0]));
+  } catch (err) { sendError(res, 500, 'Failed to get onboarding status', err); }
+});
+
+app.put('/api/onboarding', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { name, contactEmail, businessCountry, businessIndustry, businessPhone, usedPosBefore, goals } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre del negocio es obligatorio' });
+    if (!businessIndustry || !businessIndustry.trim()) return res.status(400).json({ error: 'Selecciona el rubro del negocio' });
+    if (typeof usedPosBefore !== 'boolean') return res.status(400).json({ error: 'Indica si ya utilizabas un sistema de ventas' });
+    if (!Array.isArray(goals) || goals.length === 0 || goals.some((goal) => typeof goal !== 'string')) {
+      return res.status(400).json({ error: 'Selecciona al menos un objetivo' });
+    }
+    const sanitizedGoals = [...new Set(goals.map((goal) => goal.trim()).filter(Boolean))].slice(0, 6);
+    if (!sanitizedGoals.length) return res.status(400).json({ error: 'Selecciona al menos un objetivo' });
+    const r = await req.db.query(
+      `UPDATE tenants SET name=$1, contact_email=$2, business_country=$3, business_industry=$4,
+        business_phone=$5, used_pos_before=$6, onboarding_goals=$7, onboarding_completed_at=NOW(),
+        updated_at=NOW() WHERE id=$8 RETURNING *`,
+      [name.trim(), contactEmail || null, businessCountry || null, businessIndustry.trim(),
+       businessPhone || null, usedPosBefore, JSON.stringify(sanitizedGoals), req.tenantId]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Negocio no encontrado' });
+    res.json(toOnboardingDto(r.rows[0]));
+  } catch (err) { sendError(res, 500, 'Failed to complete onboarding', err); }
+});
 
 app.get('/api/settings/business', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {

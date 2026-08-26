@@ -694,8 +694,44 @@ describe('orders-service', () => {
   const mockTenant = {
     id: 1, slug: 'logify', name: 'Logify', status: 'active', plan: 'enterprise',
     contact_email: 'contacto@logify.cl', business_rut: null, business_country: null,
-    business_industry: null, business_phone: null, settings: {}
+    business_industry: null, business_phone: null, settings: {}, used_pos_before: null,
+    onboarding_goals: [], onboarding_completed_at: new Date().toISOString()
   };
+
+  describe('GET /api/onboarding', () => {
+    it('retorna el estado y los datos iniciales del tenant', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...mockTenant, onboarding_completed_at: null }] });
+      const res = await request(app).get('/api/onboarding');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ completed: false, name: 'Logify', goals: [] });
+    });
+  });
+
+  describe('PUT /api/onboarding', () => {
+    it('completa el onboarding y normaliza los objetivos', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{
+        ...mockTenant,
+        name: 'Almacén Central',
+        business_industry: 'Almacén',
+        used_pos_before: false,
+        onboarding_goals: ['inventario', 'ventas'],
+      }] });
+      const res = await request(app).put('/api/onboarding').send({
+        name: 'Almacén Central', businessIndustry: 'Almacén', businessCountry: 'Chile',
+        usedPosBefore: false, goals: ['inventario', 'ventas', 'ventas']
+      });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ completed: true, usedPosBefore: false, goals: ['inventario', 'ventas'] });
+      expect(mockQuery.mock.calls.at(-1)[1][6]).toBe(JSON.stringify(['inventario', 'ventas']));
+    });
+
+    it('rechaza un onboarding sin objetivo', async () => {
+      const res = await request(app).put('/api/onboarding').send({
+        name: 'Almacén Central', businessIndustry: 'Almacén', usedPosBefore: true, goals: []
+      });
+      expect(res.status).toBe(400);
+    });
+  });
 
   describe('GET /api/settings/business', () => {
     it('retorna los datos de negocio del tenant actual', async () => {

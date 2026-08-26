@@ -105,6 +105,17 @@ export interface ApiBusinessSettings {
   businessPhone: string | null;
 }
 
+export interface ApiOnboarding {
+  completed: boolean;
+  name: string;
+  contactEmail: string | null;
+  businessCountry: string | null;
+  businessIndustry: string | null;
+  businessPhone: string | null;
+  usedPosBefore: boolean | null;
+  goals: string[];
+}
+
 export type ApiSystemSettings = Record<string, boolean | string | number>;
 
 export interface ApiInvitation {

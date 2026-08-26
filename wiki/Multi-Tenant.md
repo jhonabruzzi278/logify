@@ -1,8 +1,8 @@
 # Arquitectura Multi-Tenant
 
-Logify opera como SaaS multi-tenant, con una empresa cliente por subdominio
-(`<empresa>.logify.cl`). La migración incremental 4A–4E está desplegada; se
-conservan las fases como trazabilidad de la evolución arquitectónica.
+Logify opera como SaaS multi-tenant. La entrada pública actual es única en
+`app.logify.cl/login`; los subdominios `<empresa>.logify.cl` permanecen como
+compatibilidad durante la migración de tenants antiguos.
 
 ## Topología
 
@@ -13,16 +13,17 @@ request. Esto mantiene una API central y evita problemas de CORS.
 
 ### Portal central de acceso
 
-`app.logify.cl` es un host reservado y neutral: no resuelve al tenant por
-defecto ni permite iniciar sesión directamente. Solicita el slug de la empresa
-y redirige el login o la recuperación a `<empresa>.logify.cl`. Las invitaciones
-sí comienzan en `app.logify.cl`, porque su token aleatorio identifica la
-invitación; al aceptarla, el backend devuelve el `tenantSlug` y el frontend
-continúa en el subdominio correcto.
+`app.logify.cl` es el portal central. Con Clerk activo, el usuario inicia sesión
+con correo o username y la Organization activa del JWT determina el tenant, sin
+solicitar un slug ni exponer una búsqueda pública de empresas. Los tenants que
+aún no se han migrado a Clerk continúan autenticándose en su subdominio; este
+fallback no se anuncia como una segunda entrada pública.
 
-No se ofrece una búsqueda pública de empresas por correo o username para
-evitar enumeración de tenants y usuarios. El soporte puede recuperar el slug
-desde el correo de bienvenida o mediante el canal de soporte.
+Después del primer acceso, el propietario de un tenant nuevo completa
+`/onboarding`: datos del negocio, experiencia previa y objetivos iniciales.
+`tenants.onboarding_completed_at` distingue cuentas nuevas de cuentas ya
+operativas; la migración marca como completados los tenants existentes para no
+bloquearlos. Los demás roles nunca pasan por este flujo.
 
 **Regla de seguridad dura:** el header `X-Tenant-Slug` nunca se usa para
 filtrar SQL directamente — solo `req.user.tenant_id`, ya verificado desde el
