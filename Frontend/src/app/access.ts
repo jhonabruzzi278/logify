@@ -39,7 +39,7 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
     label: "Administrador",
     summary: "Control completo de la operacion, seguimiento transversal y gestion de usuarios del negocio.",
     defaultPath: "/dashboard",
-    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/shipments", "/deliveries", "/alerts", "/users", "/settings", "/suppliers", "/purchases", ...basePaths],
+    paths: ["/dashboard", "/onboarding", "/inventory", "/orders", "/customers", "/shipments", "/deliveries", "/alerts", "/users", "/settings", "/suppliers", "/purchases", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",

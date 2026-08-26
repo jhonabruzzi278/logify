@@ -25,10 +25,10 @@ export default function Header1({ scroll, handleMobileMenuOpen }) {
                     </nav>
                     <div className="flex items-center gap-2 shrink-0">
                         <ThemeToggle />
-                        <Link href="/acceso"
+                        <a href="https://app.logify.cl/login"
                             className="hidden sm:inline-flex text-sm font-semibold text-fg/85 border border-tint/15 hover:border-tint/30 hover:text-fg px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-brand-1 focus:ring-offset-2 focus:ring-offset-canvas"
                             aria-label="Acceso Clientes al software Logify"
-                        >Acceso Clientes</Link>
+                        >Acceso Clientes</a>
                         <Link href="/registro"
                             className="hidden sm:inline-flex text-sm font-bold text-ink bg-brand-1 hover:brightness-90 px-4 py-2.5 rounded-lg transition-all whitespace-nowrap hover:-translate-y-0.5 shadow-[0_0_0_1px_rgba(143,171,212,0.4)] focus:outline-none focus:ring-2 focus:ring-brand-3 focus:ring-offset-2 focus:ring-offset-canvas"
                             aria-label="Solicitar acceso a Logify"
