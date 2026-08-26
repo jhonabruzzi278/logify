@@ -87,7 +87,7 @@ describe('POST /api/signup', () => {
     expect(res.body.trialEndsAt).toBe(trialEndsAt);
     expect(mockClerk.organizations.createOrganization).toHaveBeenCalledWith({
       name: 'Acme Distribuciones',
-      slug: 'acme',
+      slug: 'acme-2',
       publicMetadata: { tenant_id: 2, tenant_slug: 'acme' },
     });
     expect(mockClerk.users.createUser).toHaveBeenCalledWith(expect.objectContaining({

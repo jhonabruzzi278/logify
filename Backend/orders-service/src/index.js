@@ -622,10 +622,12 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
     // El alta pública deja lista la misma identidad que usa app.logify.cl.
     // El slug se conserva únicamente como identificador interno del tenant;
     // ya no se expone como dominio ni se requiere durante el login.
+    const clerkSlugSuffix = `-${tenant.id}`;
+    const clerkOrganizationSlug = `${tenant.slug.slice(0, 64 - clerkSlugSuffix.length)}${clerkSlugSuffix}`;
     signupStage = 'organization';
     createdClerkOrganization = await centralClerk.organizations.createOrganization({
       name: companyName.trim(),
-      slug: tenant.slug,
+      slug: clerkOrganizationSlug,
       publicMetadata: { tenant_id: tenant.id, tenant_slug: tenant.slug },
     });
     const nameParts = ownerName.trim().split(/\s+/);
