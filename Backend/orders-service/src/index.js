@@ -572,6 +572,7 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
   const client = await pool.connect();
   let createdClerkOrganization = null;
   let createdClerkUser = null;
+  let signupStage = 'database';
   try {
     await client.query('BEGIN');
 
@@ -621,6 +622,7 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
     // El alta pública deja lista la misma identidad que usa app.logify.cl.
     // El slug se conserva únicamente como identificador interno del tenant;
     // ya no se expone como dominio ni se requiere durante el login.
+    signupStage = 'organization';
     createdClerkOrganization = await centralClerk.organizations.createOrganization({
       name: companyName.trim(),
       slug: tenant.slug,
@@ -630,22 +632,26 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
     // El correo es la credencial universal del acceso central. No enviamos
     // `username` a Clerk porque ese identificador es opcional por instancia;
     // el username interno sigue viajando en metadata para permisos y UI.
+    signupStage = 'identity';
     createdClerkUser = await centralClerk.users.createUser({
       emailAddress: [contactEmail.trim().toLowerCase()],
       password: ownerPassword,
       firstName: nameParts.shift(),
       lastName: nameParts.join(' ') || undefined,
     });
+    signupStage = 'membership';
     await centralClerk.organizations.createOrganizationMembership({
       organizationId: createdClerkOrganization.id,
       userId: createdClerkUser.id,
       role: 'org:admin',
     });
+    signupStage = 'membership_metadata';
     await centralClerk.organizations.updateOrganizationMembershipMetadata({
       organizationId: createdClerkOrganization.id,
       userId: createdClerkUser.id,
       publicMetadata: { role: 'owner', username: usernameNorm },
     });
+    signupStage = 'linking';
     await client.query('UPDATE tenants SET clerk_org_id=$1 WHERE id=$2', [createdClerkOrganization.id, tenant.id]);
     await client.query('UPDATE users SET clerk_user_id=$1 WHERE id=$2', [createdClerkUser.id, owner.id]);
 
@@ -692,7 +698,23 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
         code: 'SIGNUP_IDENTITY_INVALID',
       });
     }
-    sendError(res, 500, 'Signup failed', err);
+    const stageMessages = {
+      database: 'No pudimos preparar la cuenta en este momento.',
+      organization: 'No pudimos crear la empresa en el sistema de acceso.',
+      identity: 'No pudimos crear la identidad de acceso.',
+      membership: 'No pudimos vincular la cuenta con la empresa.',
+      membership_metadata: 'No pudimos completar los permisos de la cuenta.',
+      linking: 'No pudimos guardar la vinculación final de la cuenta.',
+    };
+    log.warn('Signup failed', {
+      stage: signupStage,
+      error: err?.message || String(err),
+      upstreamStatus: err?.status,
+    });
+    return res.status(500).json({
+      error: `${stageMessages[signupStage]} Intenta nuevamente o contacta a soporte.`,
+      code: `SIGNUP_${signupStage.toUpperCase()}_FAILED`,
+    });
   } finally {
     client.release();
   }

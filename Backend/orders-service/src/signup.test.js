@@ -198,6 +198,7 @@ describe('POST /api/signup', () => {
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
 
     expect(res.status).toBe(500);
+    expect(res.body.code).toBe('SIGNUP_MEMBERSHIP_FAILED');
     expect(mockClientQuery).toHaveBeenCalledWith('ROLLBACK');
     expect(mockClerk.users.deleteUser).toHaveBeenCalledWith('user_signup');
     expect(mockClerk.organizations.deleteOrganization).toHaveBeenCalledWith('org_signup');
