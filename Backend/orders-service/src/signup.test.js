@@ -91,8 +91,9 @@ describe('POST /api/signup', () => {
       publicMetadata: { tenant_id: 2, tenant_slug: 'acme' },
     });
     expect(mockClerk.users.createUser).toHaveBeenCalledWith(expect.objectContaining({
-      emailAddress: ['contacto@acme.cl'], username: 'anacontrerast2', firstName: 'Ana', lastName: 'Contreras',
+      emailAddress: ['contacto@acme.cl'], firstName: 'Ana', lastName: 'Contreras',
     }));
+    expect(mockClerk.users.createUser.mock.calls[0][0]).not.toHaveProperty('username');
     expect(mockClerk.organizations.createOrganizationMembership).toHaveBeenCalledWith({
       organizationId: 'org_signup', userId: 'user_signup', role: 'org:admin',
     });
@@ -115,7 +116,7 @@ describe('POST /api/signup', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.ownerUsername).toBe('usuariot27');
-    expect(mockClerk.users.createUser).toHaveBeenCalledWith(expect.objectContaining({ username: 'usuariot27' }));
+    expect(mockClerk.users.createUser.mock.calls[0][0]).not.toHaveProperty('username');
   });
 
   it('responde 503 antes de escribir si la identidad central no está configurada', async () => {
