@@ -523,6 +523,18 @@ function requireSignupEnabled(_req, res, next) {
   next();
 }
 
+function buildClerkSafeOwnerUsername(value, tenantId) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+  const suffix = `t${tenantId}`;
+  const stem = normalized.length >= 3 ? normalized : 'usuario';
+  return `${stem.slice(0, 64 - suffix.length)}${suffix}`;
+}
+
 app.get('/api/signup/check-slug', requireSignupEnabled, async (req, res) => {
   try {
     const slug = (req.query.slug || '').toString().trim().toLowerCase();
@@ -596,7 +608,9 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
        phone || null, businessIndustry || null, usedPosBefore ?? null, JSON.stringify(goals || [])]
     )).rows[0];
 
-    const usernameNorm = ownerUsername.trim().toLowerCase();
+    // Clerk restringe los usernames a 4-64 caracteres y puede rechazar
+    // puntuación. El id del tenant evita colisiones globales entre empresas.
+    const usernameNorm = buildClerkSafeOwnerUsername(ownerUsername, tenant.id);
     const hash = await bcrypt.hash(ownerPassword, 10);
     const owner = (await client.query(
       `INSERT INTO users (username, password_hash, name, role, email, tenant_id)
@@ -668,6 +682,12 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
     const clerkCodes = Array.isArray(err.errors) ? err.errors.map((item) => item.code) : [];
     if (err.status === 422 && clerkCodes.some((code) => ['form_identifier_exists', 'duplicate_record'].includes(code))) {
       return res.status(409).json({ error: 'Ese correo o usuario ya tiene una cuenta. Inicia sesión o usa otros datos.', code: 'ACCOUNT_EXISTS' });
+    }
+    if (err.status === 422) {
+      return res.status(400).json({
+        error: 'No pudimos crear la identidad con esos datos. Revisa el correo y la contraseña.',
+        code: 'SIGNUP_IDENTITY_INVALID',
+      });
     }
     sendError(res, 500, 'Signup failed', err);
   } finally {
