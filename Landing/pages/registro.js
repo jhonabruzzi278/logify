@@ -7,7 +7,7 @@ import Layout from "@/components/layout/Layout"
 // cuando el flujo de alta quede adaptado a ese modelo.
 export default function Registro() {
     return (
-        <Layout headTitle="Crea tu cuenta gratis">
+        <Layout headTitle="Solicita acceso a Logify">
             <section className="py-24 bg-ink relative overflow-hidden min-h-screen flex items-center">
                 <div className="absolute inset-0 bg-noise opacity-40 pointer-events-none"/>
                 <div className="absolute top-[-200px] right-[-200px] w-[600px] h-[600px] rounded-full bg-brand-1/8 blur-3xl pointer-events-none"/>

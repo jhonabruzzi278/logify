@@ -12,7 +12,7 @@ export default function Cta1() {
                         <div>
                             <div className="inline-flex items-center gap-2 bg-brand-3/15 border border-brand-3/30 px-4 py-2 rounded-full mb-4 text-brand-3 text-sm font-semibold">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
-                                30 días gratis, sin tarjeta
+                                Activación asistida
                             </div>
                             <h2 className="text-white font-extrabold leading-tight mb-3" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>
                                 Gestiona tu negocio sin<br className="hidden lg:block" />
@@ -25,11 +25,11 @@ export default function Cta1() {
                         <div className="flex flex-col items-start lg:items-end gap-3 shrink-0">
                             <Link href="/registro" className="inline-flex items-center gap-2.5 bg-brand-1 text-ink font-bold px-8 py-4 rounded-xl hover:brightness-90 hover:-translate-y-1 transition-all shadow-[0_15px_40px_-10px_rgba(143,171,212,0.5)]">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                                Recuperar mi tiempo ahora
+                                Solicitar acceso
                             </Link>
                             <p className="text-white/60 text-sm flex items-center gap-1.5">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-                                Sin tarjeta de crédito
+                                Te acompañamos en la configuración
                             </p>
                         </div>
                     </div>

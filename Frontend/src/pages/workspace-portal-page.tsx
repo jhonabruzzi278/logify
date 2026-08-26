@@ -109,7 +109,7 @@ export function WorkspacePortalPage({ destination = "/login" }: WorkspacePortalP
               <div className="flex items-start gap-3">
                 <LifeBuoy className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" />
                 <p className="text-xs leading-5 text-[#64748B]">
-                  ¿No recuerdas el nombre? Revisa el correo de bienvenida o solicita ayuda en <a href="mailto:soporte@logify.cl" className="font-bold text-[#2563EB] hover:underline">soporte@logify.cl</a>.
+                  ¿No recuerdas el nombre? Revisa el correo de bienvenida o solicita ayuda en <a href="mailto:jonathanguerra278@gmail.com" className="font-bold text-[#2563EB] hover:underline">jonathanguerra278@gmail.com</a>.
                 </p>
               </div>
             </div>

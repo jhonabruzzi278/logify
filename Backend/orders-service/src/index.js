@@ -509,7 +509,17 @@ const signupRateLimit = rateLimit({
   message: { error: 'Demasiados intentos de registro, intenta de nuevo mas tarde' },
 });
 
-app.get('/api/signup/check-slug', async (req, res) => {
+function requireSignupEnabled(_req, res, next) {
+  if (process.env.SIGNUP_ENABLED === 'false') {
+    return res.status(503).json({
+      error: 'El registro automático está temporalmente deshabilitado. Contacta a soporte para activar tu cuenta.',
+      code: 'SIGNUP_DISABLED',
+    });
+  }
+  next();
+}
+
+app.get('/api/signup/check-slug', requireSignupEnabled, async (req, res) => {
   try {
     const slug = (req.query.slug || '').toString().trim().toLowerCase();
     const formatError = validateSlugFormat(slug);
@@ -520,7 +530,7 @@ app.get('/api/signup/check-slug', async (req, res) => {
   } catch (err) { sendError(res, 500, 'Failed to check slug', err); }
 });
 
-app.post('/api/signup', signupRateLimit, async (req, res) => {
+app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) => {
   const { companyName, slug: rawSlug, contactEmail, ownerName, ownerUsername, ownerPassword, couponCode,
     phone, businessIndustry, usedPosBefore, goals } = req.body;
   const slug = (rawSlug || '').trim().toLowerCase();

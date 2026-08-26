@@ -275,7 +275,7 @@ export function LoginPage() {
           </p>
           <p className="mt-2 text-center text-xs text-muted-foreground">
             ¿Problemas para ingresar?{" "}
-            <a href="mailto:soporte@logify.cl" className="font-medium text-primary hover:underline">
+            <a href="mailto:jonathanguerra278@gmail.com" className="font-medium text-primary hover:underline">
               Contacta a soporte
             </a>
           </p>

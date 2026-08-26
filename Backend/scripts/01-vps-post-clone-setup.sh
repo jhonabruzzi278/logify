@@ -19,7 +19,9 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKUP_SCRIPT="$REPO_DIR/Backend/postgres/backup.sh"
-CRON_LINE="0 3 * * * $BACKUP_SCRIPT >> /var/log/logify-backup.log 2>&1"
+BACKUP_DIR="$REPO_DIR/Backend/postgres/backups"
+BACKUP_LOG="$BACKUP_DIR/backup.log"
+CRON_LINE="0 3 * * * cd $REPO_DIR && $BACKUP_SCRIPT >> $BACKUP_LOG 2>&1"
 
 if [ ! -f "$BACKUP_SCRIPT" ]; then
   echo "No se encontro $BACKUP_SCRIPT. Corre este script desde la raiz del repo clonado." >&2
@@ -28,14 +30,15 @@ fi
 
 echo "==> Dando permisos de ejecucion a backup.sh..."
 chmod +x "$BACKUP_SCRIPT"
+mkdir -p "$BACKUP_DIR"
 
 echo "==> Configurando cron de backup diario..."
-if crontab -l 2>/dev/null | grep -qF "$BACKUP_SCRIPT"; then
-  echo "El cron de backup ya esta configurado, se omite."
-else
-  (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
-  echo "Cron agregado: $CRON_LINE"
-fi
+cron_file="$(mktemp)"
+trap 'rm -f "$cron_file"' EXIT
+crontab -l 2>/dev/null | grep -vF "$BACKUP_SCRIPT" > "$cron_file" || true
+echo "$CRON_LINE" >> "$cron_file"
+crontab "$cron_file"
+echo "Cron instalado: $CRON_LINE"
 
 echo ""
 echo "Recordatorio importante: los backups quedan en Backend/postgres/backups/,"

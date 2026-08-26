@@ -1,14 +1,6 @@
 ﻿import Link from "next/link"
 import { openCookiePreferences } from "@/util/cookieConsent"
 import rubros from "@/data/rubros"
-import { FacebookIcon, InstagramIcon, XIcon, YoutubeIcon } from "@/components/elements/SocialIcons"
-
-const socials = [
-    { name: "Facebook", href: "#", Icon: FacebookIcon },
-    { name: "Instagram", href: "#", Icon: InstagramIcon },
-    { name: "X", href: "#", Icon: XIcon },
-    { name: "YouTube", href: "#", Icon: YoutubeIcon },
-]
 
 export default function Footer() {
     return (
@@ -22,19 +14,12 @@ export default function Footer() {
                             <text x="36" y="23" fontFamily="Arial" fontWeight="800" fontSize="17" fill="var(--color-fg)">Logify</text>
                         </svg>
                         <p className="text-sm text-fg/50 mb-5">Logify es la plataforma todo-en-uno para pequeños comercios. POS, inventario, pedidos, despachos y panel en un solo lugar.</p>
-                        <h6 className="text-fg font-semibold mb-3">Síguenos</h6>
-                        <div className="flex gap-3">
-                            {socials.map(({ name, href, Icon }) => (
-                                <Link key={name} href={href} aria-label={name} className="w-9 h-9 rounded-lg bg-tint/5 hover:bg-tint/10 flex items-center justify-center text-fg transition-colors">
-                                    <Icon className="w-4 h-4" />
-                                </Link>
-                            ))}
-                        </div>
+                        <p className="text-sm text-fg/50">Atención y activación asistida por nuestro equipo.</p>
                     </div>
                     <div>
                         <h5 className="text-fg font-bold mb-4">Producto</h5>
                         <ul className="space-y-3">
-                            {["Características","Cómo Funciona","Planes y Precios","Prueba gratis","Preguntas Frecuentes"].map((item, i) => (
+                            {["Características","Cómo Funciona","Planes y Precios","Solicitar acceso","Preguntas Frecuentes"].map((item, i) => (
                                 <li key={i}><a href={["/#caracteristicas","/#como-funciona","/#planes","/registro","/#faq"][i]} className="text-sm text-fg/50 hover:text-brand-3 transition-colors">{item}</a></li>
                             ))}
                         </ul>
@@ -52,7 +37,7 @@ export default function Footer() {
                         <h5 className="text-fg font-bold mb-4">Contacto</h5>
                         <ul className="space-y-3">
                             <li><a href="mailto:jonathanguerra278@gmail.com" className="text-sm text-fg/60 hover:text-brand-3 transition-colors">jonathanguerra278@gmail.com</a></li>
-                            <li><a href="tel:+56912345678" className="text-sm text-fg/60 hover:text-brand-3 transition-colors">+56 9 1234 5678</a></li>
+                            <li><a href="https://wa.me/56938980598" className="text-sm text-fg/60 hover:text-brand-3 transition-colors">+56 9 3898 0598</a></li>
                             <li><span className="text-sm text-fg/50">Santiago, Chile</span></li>
                         </ul>
                     </div>
@@ -63,7 +48,6 @@ export default function Footer() {
                     <span className="text-sm text-fg/50">© Logify {new Date().getFullYear()}. Todos los derechos reservados.</span>
                     <div className="flex gap-6">
                         <Link href="/politica-de-privacidad" className="text-xs text-fg/40 hover:text-fg/60 transition-colors">Política de Privacidad</Link>
-                        <Link href="#" className="text-xs text-fg/40 hover:text-fg/60 transition-colors">Términos del Servicio</Link>
                         <button
                             type="button"
                             onClick={openCookiePreferences}

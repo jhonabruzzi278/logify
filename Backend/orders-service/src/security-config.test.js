@@ -47,6 +47,20 @@ describe('shared/security - CORS', () => {
     process.env.ALLOWED_ORIGINS = 'https://app.logify.cl';
     const app = buildApp();
     const res = await request(app).get('/ping').set('Origin', 'https://evil-site.com');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Origin not allowed');
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('rechaza preflight de un origen no permitido con 403 controlado', async () => {
+    process.env.ALLOWED_ORIGINS = 'https://app.logify.cl';
+    const app = buildApp();
+    const res = await request(app)
+      .options('/ping')
+      .set('Origin', 'https://evil-site.com')
+      .set('Access-Control-Request-Method', 'GET');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Origin not allowed');
     expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 

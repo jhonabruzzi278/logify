@@ -54,6 +54,7 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
       - SIGNUP_RATE_LIMIT_MAX=${SIGNUP_RATE_LIMIT_MAX:-5}
+      - SIGNUP_ENABLED=${SIGNUP_ENABLED:-true}
       # Groundwork Clerk (ver aidlc-docs/design-artifacts/ADR/ADR-004-clerk-como-idaas-para-autenticacion.md).
       # Vacio por defecto: sin CLERK_SECRET_KEY, authMiddleware se comporta
       # exactamente igual que hoy (JWT propio). CLERK_WEBHOOK_SIGNING_SECRET

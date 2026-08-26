@@ -67,6 +67,18 @@ describe('POST /api/signup', () => {
     expect(res.body.trialEndsAt).toBe(trialEndsAt);
   });
 
+  it('responde 503 sin escribir cuando SIGNUP_ENABLED=false', async () => {
+    process.env.SIGNUP_ENABLED = 'false';
+    try {
+      const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+      expect(res.status).toBe(503);
+      expect(res.body.code).toBe('SIGNUP_DISABLED');
+      expect(mockQuery).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.SIGNUP_ENABLED;
+    }
+  });
+
   it('rechaza slug ya en uso → 409', async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // slug ya existe
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
@@ -130,6 +142,18 @@ describe('GET /api/signup/check-slug', () => {
     const res = await request(app).get('/api/signup/check-slug').query({ slug: 'nuevaempresa' });
     expect(res.status).toBe(200);
     expect(res.body.available).toBe(true);
+  });
+
+  it('responde 503 sin consultar BD cuando SIGNUP_ENABLED=false', async () => {
+    process.env.SIGNUP_ENABLED = 'false';
+    try {
+      const res = await request(app).get('/api/signup/check-slug').query({ slug: 'nuevaempresa' });
+      expect(res.status).toBe(503);
+      expect(res.body.code).toBe('SIGNUP_DISABLED');
+      expect(mockQuery).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.SIGNUP_ENABLED;
+    }
   });
 
   it('ocupado → { available: false }', async () => {

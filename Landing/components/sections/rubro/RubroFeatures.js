@@ -19,8 +19,8 @@ export default function RubroFeatures({ rubro }) {
                     ))}
                 </div>
                 <div className="mt-10 flex items-center gap-3 text-fg/50 text-sm">
-                    <span className="text-brand-3 font-bold">+500 comercios</span>
-                    ya gestionan sus ventas con Logify. Todos empezaron con la misma prueba de 30 días.
+                    <span className="text-brand-3 font-bold">Implementación guiada</span>
+                    para configurar productos, usuarios y operación inicial.
                 </div>
             </div>
         </section>
