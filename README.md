@@ -487,4 +487,8 @@ Documentación completa en [`/aidlc-docs/`](./aidlc-docs/):
 - [Deployment Checklist](./aidlc-docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Operations](./aidlc-docs/operations/) *(producción activa: VPS + Vercel, Uptime Kuma, CI/CD y post-mortems)*
 
-Última auditoría: 2026-08-09 (portal central, VAPID en producción, calendario basado solo en API, actualización automática PWA y sincronización documental).
+Última auditoría: 2026-08-25. Se cerraron los bloqueantes de registro público,
+CORS, backups y acceso SSH; producción quedó validada en el commit `c1fdd05`.
+Quedan como tareas de mantenimiento la copia externa de backups, la rotación de
+la contraseña root expuesta y un reinicio programado. Ver
+[`aidlc-docs/operations/PRODUCTION_AUDIT_2026-08-25.md`](./aidlc-docs/operations/PRODUCTION_AUDIT_2026-08-25.md).
