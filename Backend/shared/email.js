@@ -349,9 +349,8 @@ function buildShipmentDeliveredEmail({ customerName, orderId, clientCode, tracki
 }
 
 // ── EMAIL 4: Bienvenida (signup) ───────────────────────────────────────────────
-function buildWelcomeEmail({ ownerName, companyName, slug, ownerUsername, trialEndsAt, supportWhatsappUrl }) {
-  const appUrl = `https://${slug}.logify.cl`;
-  const loginUrl = `${appUrl}/login`;
+function buildWelcomeEmail({ ownerName, companyName, ownerUsername, trialEndsAt, supportWhatsappUrl }) {
+  const loginUrl = 'https://app.logify.cl/login';
   const firstName = escapeHtml(ownerName ? ownerName.split(' ')[0] : 'Hola');
   const trialDate = trialEndsAt ? new Date(trialEndsAt).toLocaleDateString('es-CL') : '';
 
@@ -374,24 +373,24 @@ function buildWelcomeEmail({ ownerName, companyName, slug, ownerUsername, trialE
             La cuenta de <strong style="color:#0F172A">${escapeHtml(companyName)}</strong> en Logify ya está lista para usarse.
           </p>
 
-          <!-- Nombre del negocio / subdominio -->
+          <!-- Credencial de acceso central -->
           ${codeBlock({
-            label: 'El nombre de tu negocio en Logify es',
-            code: slug,
-            description: 'Guarda este dato: es el que usas para entrar a tu panel<br>(<strong>' + escapeHtml(slug) + '.logify.cl</strong>) cada vez que inicies sesión.',
+            label: 'Tu usuario de acceso es',
+            code: ownerUsername,
+            description: 'También puedes iniciar sesión con el correo usado durante el registro.',
             color: '#2563EB',
             bgColor: '#EFF6FF'
           })}
 
           <table width="100%" cellpadding="0" cellspacing="0">
-            ${infoRow('Tu panel', `${slug}.logify.cl`)}
+            ${infoRow('Tu panel', 'app.logify.cl')}
             ${infoRow('Usuario', ownerUsername)}
             ${trialDate ? infoRow('Tu prueba gratuita vence', trialDate) : ''}
           </table>
 
           ${ctaButton(loginUrl, 'Ingresar a mi panel →')}
 
-          ${alertBox('&#128161; <strong>Tip:</strong> si alguna vez olvidas el nombre de tu negocio, entra a <a href="https://logify.cl/acceso" style="color:#0F172A">logify.cl/acceso</a> y te llevamos directo a tu panel.')}
+          ${alertBox('&#128161; <strong>Tip:</strong> todos los clientes ingresan desde <a href="https://app.logify.cl/login" style="color:#0F172A">app.logify.cl/login</a>. No necesitas recordar un subdominio.')}
 
           ${supportWhatsappUrl ? `<p style="margin:24px 0 0;font-size:14px;color:#64748B;text-align:center;line-height:1.6">
             ¿Dudas para arrancar? <a href="${escapeHtml(supportWhatsappUrl)}" style="color:#2563EB;font-weight:700;text-decoration:none">Escríbenos por WhatsApp</a>

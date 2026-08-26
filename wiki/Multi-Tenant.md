@@ -1,29 +1,28 @@
 # Arquitectura Multi-Tenant
 
-Logify opera como SaaS multi-tenant. La entrada pública actual es única en
-`app.logify.cl/login`; los subdominios `<empresa>.logify.cl` permanecen como
-compatibilidad durante la migración de tenants antiguos.
+Logify opera como SaaS multi-tenant. Toda cuenta se crea mediante el onboarding
+público de `logify.cl/registro` y la única entrada a la aplicación es
+`app.logify.cl/login`. Los clientes no tienen subdominios propios.
 
 ## Topología
 
-Frontend en `*.logify.cl` (wildcard, Vercel), pero **un solo backend fijo**
-en `api.logify.cl` (VPS detrás de Caddy). El frontend deriva el tenant de
-`window.location.hostname` y lo manda como header `X-Tenant-Slug` en cada
-request. Esto mantiene una API central y evita problemas de CORS.
+Frontend central en `app.logify.cl` (Vercel) y **un solo backend fijo** en
+`api.logify.cl` (VPS detrás de Caddy). El tenant se deriva de los claims de la
+Organization activa en el JWT de Clerk, no del hostname ni de datos pedidos al
+usuario. Esto mantiene una API central y evita enumerar empresas.
 
 ### Portal central de acceso
 
-`app.logify.cl` es el portal central. Con Clerk activo, el usuario inicia sesión
-con correo o username y la Organization activa del JWT determina el tenant, sin
-solicitar un slug ni exponer una búsqueda pública de empresas. Los tenants que
-aún no se han migrado a Clerk continúan autenticándose en su subdominio; este
-fallback no se anuncia como una segunda entrada pública.
+`app.logify.cl` es el portal central. El usuario inicia sesión con correo o
+username y la Organization activa del JWT determina el tenant, sin solicitar
+un slug ni exponer una búsqueda pública de empresas.
 
-Después del primer acceso, el propietario de un tenant nuevo completa
-`/onboarding`: datos del negocio, experiencia previa y objetivos iniciales.
-`tenants.onboarding_completed_at` distingue cuentas nuevas de cuentas ya
-operativas; la migración marca como completados los tenants existentes para no
-bloquearlos. Los demás roles nunca pasan por este flujo.
+Antes de crear la cuenta, el propietario completa el onboarding público: datos
+de contacto, negocio, experiencia, objetivos y contraseña. `POST /api/signup`
+crea tenant, usuario, Organization y membership en Clerk, y marca
+`tenants.onboarding_completed_at`. Por eso el primer login abre directamente la
+aplicación; `/onboarding` queda como salvaguarda para altas administrativas
+incompletas.
 
 **Regla de seguridad dura:** el header `X-Tenant-Slug` nunca se usa para
 filtrar SQL directamente — solo `req.user.tenant_id`, ya verificado desde el
@@ -40,7 +39,7 @@ una referencia lógica, no forzada por constraint.
 ```sql
 tenants
   id             SERIAL PRIMARY KEY
-  slug           VARCHAR(63) UNIQUE NOT NULL   -- subdominio, ej. "acme"
+  slug           VARCHAR(63) UNIQUE NOT NULL   -- identificador interno, ej. "acme"
   name           VARCHAR(200) NOT NULL
   status         VARCHAR(20) NOT NULL DEFAULT 'trial'  -- trial|active|suspended|cancelled
   plan           VARCHAR(50) NOT NULL DEFAULT 'trial'
@@ -83,12 +82,13 @@ forma consistente entre bases separadas).
   suscripciones sin filtrar por tenant). Verificado con un tenant de prueba
   real (`acme`): aislamiento de datos confirmado y reuso cruzado de token
   entre tenants rechazado con 403.
-- **4D — Wildcard DNS + dominio propio** ✅ `*.logify.cl` en Vercel y
+- **4D — Dominios de producción** ✅ `app.logify.cl` en Vercel y
   `api.logify.cl` en el VPS, con `ALLOWED_ORIGINS`/`APP_URL` configurados.
 - **4E — Provisioning de tenants** ✅ Signup self-service público
   (`POST /api/signup` + `GET /api/signup/check-slug` en orders-service,
-  formulario en `Landing/pages/registro.js`): crea el tenant y su usuario
-  "owner" en una transacción, sin verificación de email, con una demo
+  formulario en `Landing/pages/registro.js`): crea el tenant, su usuario
+  `owner`, la Organization de Clerk y su membership; finaliza en el login
+  central, sin depender de subdominios. El alta incluye una demo
   gratuita de 30 días (`tenants.trial_ends_at`) extensible vía un sistema de
   cupones (tablas `coupons`/`coupon_redemptions`, administradas por
   `POST/GET /api/admin/coupons` protegidos con el header `X-Admin-Key`).

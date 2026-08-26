@@ -1,5 +1,4 @@
 import { useState } from "react"
-import Link from "next/link"
 import { slugify } from "@/util/tenant"
 import QuestionShell from "./QuestionShell"
 import { TextField, PhoneField, PasswordField, ChoiceGrid, MultiChoiceGrid, BooleanChoice, validatePassword } from "./fields"
@@ -128,7 +127,7 @@ export default function OnboardingWizard() {
                     return
                 }
                 lastError = data.error || "No se pudo crear tu cuenta"
-                const isSlugTaken = res.status === 409 || /subdominio ya esta en uso/i.test(lastError)
+                const isSlugTaken = data.code === "TENANT_SLUG_TAKEN"
                 if (!isSlugTaken) break
                 attempt += 1
             }
@@ -158,20 +157,19 @@ export default function OnboardingWizard() {
                 </div>
                 <h2 className="text-white font-extrabold text-2xl mb-3">Tu cuenta está lista</h2>
                 <p className="text-white/80 mb-4">
-                    Ingresa con el usuario <strong className="text-brand-1">{success.ownerUsername}</strong> en tu panel:
+                    Ya puedes ingresar con <strong className="text-brand-1">{answers.contactEmail}</strong> o con tu usuario <strong className="text-brand-1">{success.ownerUsername}</strong>.
                 </p>
                 <div className="bg-white/10 border-2 border-brand-1/30 rounded-xl px-5 py-4 mb-6 text-left">
-                    <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">El nombre de tu negocio en Logify es</p>
-                    <p className="text-brand-1 font-extrabold text-xl mb-2 break-all">{success.tenantSlug}</p>
+                    <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">Un solo acceso para todos</p>
+                    <p className="text-brand-1 font-extrabold text-xl mb-2 break-all">app.logify.cl</p>
                     <p className="text-xs text-white/70 leading-relaxed">
-                        Guarda este dato: es lo que usas para volver a entrar a tu panel.
-                        Si alguna vez lo olvidas, entra a <Link href="/acceso" className="text-brand-1 font-semibold">logify.cl/acceso</Link> y te llevamos directo.
+                        Tu empresa ya quedó vinculada a tu cuenta. No necesitas un subdominio ni elegir tu negocio al iniciar sesión.
                     </p>
                 </div>
-                <a href={`${success.appUrl}/login`}
+                <a href="https://app.logify.cl/login"
                     className="inline-flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-3.5 px-8 rounded-xl hover:brightness-90 hover:-translate-y-0.5 transition-all shadow-lg shadow-brand-1/30"
                 >
-                    Ir a mi panel
+                    Iniciar sesión en Logify
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             </div>

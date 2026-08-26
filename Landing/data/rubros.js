@@ -126,7 +126,7 @@ const rubros = [
         faqs: [
             { q: "¿Puedo configurar precio distinto por cada corte?", a: "Sí, cada producto tiene su propio precio por kilo, independiente de los demás cortes." },
             { q: "¿El stock se actualiza automáticamente?", a: "Sí, cada venta descuenta el stock disponible del corte vendido en tiempo real." },
-            { q: "¿Cómo activo una cuenta?", a: "Solicita acceso y nuestro equipo te ayudará con la configuración inicial y el plan disponible." },
+            { q: "¿Cómo activo una cuenta?", a: "Completa el onboarding en logify.cl/registro y luego inicia sesión en app.logify.cl." },
         ],
     },
     {

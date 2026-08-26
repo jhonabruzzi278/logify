@@ -14,7 +14,7 @@ export default function Header1({ scroll, handleMobileMenuOpen }) {
                         </svg>
                     </Link>
                     <nav className="hidden xl:flex items-center gap-1">
-                        {["Inicio","Características","Cómo Funciona","Planes","Solicitar acceso","FAQ"].map((item, i) => {
+                        {["Inicio","Características","Cómo Funciona","Planes","Crear cuenta","FAQ"].map((item, i) => {
                             const hrefs = ["/","/#caracteristicas","/#como-funciona","/#planes","/registro","/#faq"]
                             return (
                                 <Link key={i} href={hrefs[i]}
@@ -31,8 +31,8 @@ export default function Header1({ scroll, handleMobileMenuOpen }) {
                         >Acceso Clientes</a>
                         <Link href="/registro"
                             className="hidden sm:inline-flex text-sm font-bold text-ink bg-brand-1 hover:brightness-90 px-4 py-2.5 rounded-lg transition-all whitespace-nowrap hover:-translate-y-0.5 shadow-[0_0_0_1px_rgba(143,171,212,0.4)] focus:outline-none focus:ring-2 focus:ring-brand-3 focus:ring-offset-2 focus:ring-offset-canvas"
-                            aria-label="Solicitar acceso a Logify"
-                        >Solicitar acceso</Link>
+                            aria-label="Crear cuenta en Logify"
+                        >Crear cuenta</Link>
                         <button type="button" onClick={handleMobileMenuOpen} aria-label="Abrir menú" className="xl:hidden inline-flex flex-col items-center justify-center gap-1.5 w-10 h-10 rounded-lg border border-canvas-border shrink-0">
                             <span className="block w-5 h-0.5 bg-fg rounded-sm"/>
                             <span className="block w-5 h-0.5 bg-fg rounded-sm"/>

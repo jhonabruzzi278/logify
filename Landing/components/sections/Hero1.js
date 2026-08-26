@@ -25,8 +25,8 @@ export default function Hero1() {
                             Logify es el sistema todo-en-uno para comercios: POS con fiado, control de stock en tiempo real, gestión de pedidos y despachos con QR. Fácil de usar desde el primer día, aunque nunca hayas usado un sistema.
                         </p>
                         <div className="flex flex-wrap gap-3 mb-10">
-                            <a href="/registro" className="inline-flex items-center gap-2 bg-brand-1 text-ink font-bold px-7 py-4 rounded-xl hover:brightness-90 transition-all hover:-translate-y-0.5 shadow-[0_12px_30px_-8px_rgba(143,171,212,0.5)] focus:outline-none focus:ring-2 focus:ring-brand-3 focus:ring-offset-2 focus:ring-offset-canvas" aria-label="Solicitar acceso a Logify">
-                                Solicitar acceso
+                            <a href="/registro" className="inline-flex items-center gap-2 bg-brand-1 text-ink font-bold px-7 py-4 rounded-xl hover:brightness-90 transition-all hover:-translate-y-0.5 shadow-[0_12px_30px_-8px_rgba(143,171,212,0.5)] focus:outline-none focus:ring-2 focus:ring-brand-3 focus:ring-offset-2 focus:ring-offset-canvas" aria-label="Crear cuenta en Logify">
+                                Crear mi cuenta
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                             </a>
                             <a href="/#planes" className="inline-flex items-center gap-2 text-fg font-semibold px-6 py-4 rounded-xl border border-tint/15 hover:border-tint/30 hover:bg-tint/5 transition-all focus:outline-none focus:ring-2 focus:ring-tint/30" aria-label="Ver precios de Logify">

@@ -14,12 +14,12 @@ export default function Footer() {
                             <text x="36" y="23" fontFamily="Arial" fontWeight="800" fontSize="17" fill="var(--color-fg)">Logify</text>
                         </svg>
                         <p className="text-sm text-fg/50 mb-5">Logify es la plataforma todo-en-uno para pequeños comercios. POS, inventario, pedidos, despachos y panel en un solo lugar.</p>
-                        <p className="text-sm text-fg/50">Atención y activación asistida por nuestro equipo.</p>
+                        <p className="text-sm text-fg/50">Crea tu cuenta online y comienza a operar en minutos.</p>
                     </div>
                     <div>
                         <h5 className="text-fg font-bold mb-4">Producto</h5>
                         <ul className="space-y-3">
-                            {["Características","Cómo Funciona","Planes y Precios","Solicitar acceso","Preguntas Frecuentes"].map((item, i) => (
+                            {["Características","Cómo Funciona","Planes y Precios","Crear cuenta","Preguntas Frecuentes"].map((item, i) => (
                                 <li key={i}><a href={["/#caracteristicas","/#como-funciona","/#planes","/registro","/#faq"][i]} className="text-sm text-fg/50 hover:text-brand-3 transition-colors">{item}</a></li>
                             ))}
                         </ul>

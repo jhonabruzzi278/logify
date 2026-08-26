@@ -20,9 +20,8 @@ const SHIPPING_URL = process.env.SHIPPING_SERVICE_URL || 'http://shipping-servic
 const NOTIFICATION_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8085'; // NOSONAR
 const DEFAULT_TENANT_SLUG = 'logify';
 
-// Fase 4E del roadmap multi-tenant: mismos slugs reservados que ya usa el
-// Frontend (ver Frontend/src/lib/api-config.ts RESERVED_TENANT_SLUGS) —
-// duplicado aca porque backend y frontend no comparten paquete de constantes.
+// Identificadores internos reservados para infraestructura. Aunque ya no son
+// subdominios de clientes, el slug sigue siendo una clave estable del tenant.
 const RESERVED_TENANT_SLUGS = new Set(['www', 'api', 'app', 'admin', 'mail', 'logify', 'static', 'landing', 'demo', 'status']);
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 const TRIAL_DAYS = 30;
@@ -44,9 +43,9 @@ async function resolveTenant(slug) {
 // usada tanto en /api/signup como en /api/signup/check-slug).
 function validateSlugFormat(slug) {
   const value = (slug || '').trim().toLowerCase();
-  if (!value) return 'El subdominio es obligatorio';
-  if (!SLUG_PATTERN.test(value)) return 'El subdominio debe tener 3-63 caracteres: minusculas, numeros y guiones, sin empezar ni terminar en guion';
-  if (RESERVED_TENANT_SLUGS.has(value)) return 'Ese subdominio esta reservado, elige otro';
+  if (!value) return 'El identificador es obligatorio';
+  if (!SLUG_PATTERN.test(value)) return 'El identificador debe tener 3-63 caracteres: minusculas, numeros y guiones, sin empezar ni terminar en guion';
+  if (RESERVED_TENANT_SLUGS.has(value)) return 'Ese identificador esta reservado, elige otro';
   return null;
 }
 
@@ -530,7 +529,7 @@ app.get('/api/signup/check-slug', requireSignupEnabled, async (req, res) => {
     const formatError = validateSlugFormat(slug);
     if (formatError) return res.json({ available: false, reason: formatError });
     const exists = await pool.query('SELECT 1 FROM tenants WHERE slug=$1', [slug]);
-    if (exists.rows.length) return res.json({ available: false, reason: 'Ese subdominio ya esta en uso' });
+    if (exists.rows.length) return res.json({ available: false, reason: 'Ese identificador ya esta en uso' });
     res.json({ available: true });
   } catch (err) { sendError(res, 500, 'Failed to check slug', err); }
 });
@@ -549,15 +548,25 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
   const passwordErrors = validatePasswordStrength(ownerPassword);
   if (passwordErrors.length) return res.status(400).json({ error: passwordErrors.join('. ') });
 
+  const centralClerk = getClerkClient();
+  if (!centralClerk) {
+    return res.status(503).json({
+      error: 'El registro automático no está disponible temporalmente. Intenta nuevamente más tarde.',
+      code: 'SIGNUP_AUTH_UNAVAILABLE',
+    });
+  }
+
   bcrypt = require('bcryptjs');
   const client = await pool.connect();
+  let createdClerkOrganization = null;
+  let createdClerkUser = null;
   try {
     await client.query('BEGIN');
 
     const slugTaken = await client.query('SELECT 1 FROM tenants WHERE slug=$1', [slug]);
     if (slugTaken.rows.length) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ error: 'Ese subdominio ya esta en uso' });
+      return res.status(409).json({ error: 'Ese identificador ya esta en uso', code: 'TENANT_SLUG_TAKEN' });
     }
 
     let extraDays = 0;
@@ -581,8 +590,8 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
 
     const tenant = (await client.query(
       `INSERT INTO tenants (slug, name, status, plan, subscription_status, contact_email, trial_ends_at,
-        business_phone, business_industry, used_pos_before, onboarding_goals)
-       VALUES ($1,$2,'trial','pro','trialing',$3,$4,$5,$6,$7,$8) RETURNING id, slug, name, trial_ends_at`,
+        business_phone, business_industry, used_pos_before, onboarding_goals, onboarding_completed_at)
+       VALUES ($1,$2,'trial','pro','trialing',$3,$4,$5,$6,$7,$8,NOW()) RETURNING id, slug, name, trial_ends_at`,
       [slug, companyName.trim(), contactEmail.trim(), trialEndsAt,
        phone || null, businessIndustry || null, usedPosBefore ?? null, JSON.stringify(goals || [])]
     )).rows[0];
@@ -595,6 +604,35 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
       [usernameNorm, hash, ownerName.trim(), contactEmail.trim(), tenant.id]
     )).rows[0];
 
+    // El alta pública deja lista la misma identidad que usa app.logify.cl.
+    // El slug se conserva únicamente como identificador interno del tenant;
+    // ya no se expone como dominio ni se requiere durante el login.
+    createdClerkOrganization = await centralClerk.organizations.createOrganization({
+      name: companyName.trim(),
+      slug: tenant.slug,
+      publicMetadata: { tenant_id: tenant.id, tenant_slug: tenant.slug },
+    });
+    const nameParts = ownerName.trim().split(/\s+/);
+    createdClerkUser = await centralClerk.users.createUser({
+      emailAddress: [contactEmail.trim().toLowerCase()],
+      username: usernameNorm,
+      password: ownerPassword,
+      firstName: nameParts.shift(),
+      lastName: nameParts.join(' ') || undefined,
+    });
+    await centralClerk.organizations.createOrganizationMembership({
+      organizationId: createdClerkOrganization.id,
+      userId: createdClerkUser.id,
+      role: 'org:admin',
+    });
+    await centralClerk.organizations.updateOrganizationMembershipMetadata({
+      organizationId: createdClerkOrganization.id,
+      userId: createdClerkUser.id,
+      publicMetadata: { role: 'owner', username: usernameNorm },
+    });
+    await client.query('UPDATE tenants SET clerk_org_id=$1 WHERE id=$2', [createdClerkOrganization.id, tenant.id]);
+    await client.query('UPDATE users SET clerk_user_id=$1 WHERE id=$2', [createdClerkUser.id, owner.id]);
+
     if (coupon) {
       await client.query('UPDATE coupons SET redemptions_count = redemptions_count + 1 WHERE id=$1', [coupon.id]);
       await client.query('INSERT INTO coupon_redemptions (tenant_id, coupon_id) VALUES ($1,$2)', [tenant.id, coupon.id]);
@@ -602,20 +640,35 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
 
     await client.query('COMMIT');
 
-    const appUrl = `https://${tenant.slug}.logify.cl`;
+    const appUrl = 'https://app.logify.cl';
     const welcomeEmail = buildWelcomeEmail({
       ownerName: ownerName.trim(),
       companyName: companyName.trim(),
-      slug: tenant.slug,
       ownerUsername: owner.username,
       trialEndsAt: tenant.trial_ends_at,
       supportWhatsappUrl: SUPPORT_WHATSAPP_URL
     });
     sendEmail({ to: contactEmail.trim(), subject: welcomeEmail.subject, html: welcomeEmail.html }).catch(() => {});
 
-    res.status(201).json({ tenantSlug: tenant.slug, appUrl, trialEndsAt: tenant.trial_ends_at, ownerUsername: owner.username });
+    res.status(201).json({ appUrl, trialEndsAt: tenant.trial_ends_at, ownerUsername: owner.username });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
+    // Compensación exacta: si Clerk alcanzó a crear recursos pero Postgres no
+    // pudo confirmar el alta, no dejamos identidades u organizaciones huérfanas.
+    if (createdClerkUser) {
+      await centralClerk.users.deleteUser(createdClerkUser.id).catch((cleanupErr) => {
+        log.error('Signup cleanup: no se pudo eliminar el usuario Clerk', { userId: createdClerkUser.id, message: cleanupErr.message });
+      });
+    }
+    if (createdClerkOrganization) {
+      await centralClerk.organizations.deleteOrganization(createdClerkOrganization.id).catch((cleanupErr) => {
+        log.error('Signup cleanup: no se pudo eliminar la organización Clerk', { organizationId: createdClerkOrganization.id, message: cleanupErr.message });
+      });
+    }
+    const clerkCodes = Array.isArray(err.errors) ? err.errors.map((item) => item.code) : [];
+    if (err.status === 422 && clerkCodes.some((code) => ['form_identifier_exists', 'duplicate_record'].includes(code))) {
+      return res.status(409).json({ error: 'Ese correo o usuario ya tiene una cuenta. Inicia sesión o usa otros datos.', code: 'ACCOUNT_EXISTS' });
+    }
     sendError(res, 500, 'Signup failed', err);
   } finally {
     client.release();
