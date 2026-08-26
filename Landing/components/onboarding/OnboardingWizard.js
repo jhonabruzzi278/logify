@@ -35,7 +35,7 @@ const INITIAL_ANSWERS = {
 }
 
 function usernameFromName(name) {
-    const base = slugify(name).replace(/-+/g, ".")
+    const base = slugify(name).replace(/-/g, "")
     return base || "usuario"
 }
 

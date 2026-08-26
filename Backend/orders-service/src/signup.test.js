@@ -76,14 +76,14 @@ describe('POST /api/signup', () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [] }) // slug disponible
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] }) // insert tenant
-      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'ana.contreras', name: 'Ana Contreras', role: 'owner' }] }); // insert user
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] }); // insert user
 
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
 
     expect(res.status).toBe(201);
     expect(res.body.tenantSlug).toBeUndefined();
     expect(res.body.appUrl).toBe('https://app.logify.cl');
-    expect(res.body.ownerUsername).toBe('ana.contreras');
+    expect(res.body.ownerUsername).toBe('anacontrerast2');
     expect(res.body.trialEndsAt).toBe(trialEndsAt);
     expect(mockClerk.organizations.createOrganization).toHaveBeenCalledWith({
       name: 'Acme Distribuciones',
@@ -91,13 +91,31 @@ describe('POST /api/signup', () => {
       publicMetadata: { tenant_id: 2, tenant_slug: 'acme' },
     });
     expect(mockClerk.users.createUser).toHaveBeenCalledWith(expect.objectContaining({
-      emailAddress: ['contacto@acme.cl'], username: 'ana.contreras', firstName: 'Ana', lastName: 'Contreras',
+      emailAddress: ['contacto@acme.cl'], username: 'anacontrerast2', firstName: 'Ana', lastName: 'Contreras',
     }));
     expect(mockClerk.organizations.createOrganizationMembership).toHaveBeenCalledWith({
       organizationId: 'org_signup', userId: 'user_signup', role: 'org:admin',
     });
     expect(mockQuery).toHaveBeenCalledWith('UPDATE tenants SET clerk_org_id=$1 WHERE id=$2', ['org_signup', 2]);
     expect(mockQuery).toHaveBeenCalledWith('UPDATE users SET clerk_user_id=$1 WHERE id=$2', ['user_signup', 10]);
+  });
+
+  it('normaliza el usuario al formato seguro de Clerk y evita colisiones entre tenants', async () => {
+    const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 27, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] })
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'usuariot27', name: 'Á.', role: 'owner' }] });
+
+    const res = await request(app).post('/api/signup').send({
+      ...VALID_SIGNUP_BODY,
+      ownerName: 'Á.',
+      ownerUsername: 'á.',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.ownerUsername).toBe('usuariot27');
+    expect(mockClerk.users.createUser).toHaveBeenCalledWith(expect.objectContaining({ username: 'usuariot27' }));
   });
 
   it('responde 503 antes de escribir si la identidad central no está configurada', async () => {
@@ -140,7 +158,7 @@ describe('POST /api/signup', () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: new Date().toISOString() }] })
-      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'ana.contreras', name: 'Ana Contreras', role: 'owner' }] });
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] });
 
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
 
@@ -151,12 +169,30 @@ describe('POST /api/signup', () => {
     expect(mockClerk.users.deleteUser).not.toHaveBeenCalled();
   });
 
+  it('traduce una validación de identidad Clerk a un error accionable', async () => {
+    const clerkValidation = Object.assign(new Error('invalid username'), {
+      status: 422,
+      errors: [{ code: 'form_param_format_invalid' }],
+    });
+    mockClerk.users.createUser.mockRejectedValueOnce(clerkValidation);
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: new Date().toISOString() }] })
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] });
+
+    const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('SIGNUP_IDENTITY_INVALID');
+    expect(mockClerk.organizations.deleteOrganization).toHaveBeenCalledWith('org_signup');
+  });
+
   it('elimina usuario y organización Clerk si falla la membership', async () => {
     mockClerk.organizations.createOrganizationMembership.mockRejectedValueOnce(new Error('membership failed'));
     mockQuery
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: new Date().toISOString() }] })
-      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'ana.contreras', name: 'Ana Contreras', role: 'owner' }] });
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] });
 
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
 
@@ -192,7 +228,7 @@ describe('POST /api/signup', () => {
       .mockResolvedValueOnce({ rows: [] }) // slug disponible
       .mockResolvedValueOnce({ rows: [{ id: 5, code: 'BIENVENIDA90', extra_trial_days: 90, max_redemptions: null, redemptions_count: 0 }] }) // cupón válido
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] }) // insert tenant
-      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'ana.contreras', name: 'Ana Contreras', role: 'owner' }] }) // insert user
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] }) // insert user
       .mockResolvedValueOnce({ rows: [] }) // vincula organization
       .mockResolvedValueOnce({ rows: [] }) // vincula usuario
       .mockResolvedValueOnce({ rows: [] }) // update coupons redemptions_count
