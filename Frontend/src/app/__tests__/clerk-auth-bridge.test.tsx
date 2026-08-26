@@ -108,7 +108,11 @@ describe("ClerkBridgedAuthProvider", () => {
     expect(mockSignInCreate).toHaveBeenCalledWith({ identifier: "admin", password: "Admin123!" });
     expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_1" });
     expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_1", organization: "org_1" });
-    expect(mockGetToken).toHaveBeenCalledWith({ template: "logify-api", skipCache: true });
+    expect(mockGetToken).toHaveBeenCalledWith({
+      template: "logify-api",
+      organizationId: "org_1",
+      skipCache: true,
+    });
     expect(mockUpdateApiToken).toHaveBeenCalled();
   });
 

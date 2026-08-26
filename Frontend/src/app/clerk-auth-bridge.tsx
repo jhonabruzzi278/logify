@@ -116,8 +116,8 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           // para tenant_id/tenant_slug -- Clerk solo los interpola si la sesion
           // tiene una organizacion ACTIVA, algo que setActive({session}) solo
           // no hace.
-          const hasOrganization = await activateFirstOrganizationMembership(clerk, setActive, attempt.createdSessionId);
-          if (!hasOrganization) {
+          const organizationId = await activateFirstOrganizationMembership(clerk, setActive, attempt.createdSessionId);
+          if (!organizationId) {
             // Sin esto, el login "tenia exito" en silencio con un token sin
             // organizacion activa -- cada llamada a la API fallaba con 401 sin
             // que la persona entendiera por que (bug real, ver auditoria de
@@ -126,7 +126,14 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
             await signOut();
             throw new Error("Tu cuenta no está asociada a ninguna empresa en Logify. Contacta a soporte.");
           }
-          const token = await getToken({ template: CLERK_JWT_TEMPLATE, skipCache: true });
+          // Pasar organizationId evita depender de la propagación asíncrona
+          // del estado activo de Clerk y garantiza que se interpolen los
+          // shortcodes organization/org_membership del template logify-api.
+          const token = await getToken({
+            template: CLERK_JWT_TEMPLATE,
+            organizationId,
+            skipCache: true,
+          });
           if (!token) {
             throw new Error("No se pudo obtener el token de sesión.");
           }

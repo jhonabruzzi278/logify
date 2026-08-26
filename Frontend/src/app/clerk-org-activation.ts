@@ -22,10 +22,10 @@ export async function activateFirstOrganizationMembership(
   clerk: ClerkClient,
   setActive: SetActiveFn,
   sessionId: string,
-): Promise<boolean> {
+): Promise<string | null> {
   await clerk.user?.reload();
   const membership = clerk.user?.organizationMemberships?.[0];
-  if (!membership) return false;
+  if (!membership) return null;
   await setActive({ session: sessionId, organization: membership.organization.id });
-  return true;
+  return membership.organization.id;
 }
