@@ -48,7 +48,9 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
   const [restoringSession, setRestoringSession] = useState(true);
 
   const refreshToken = useCallback(async () => {
-    return getToken({ template: CLERK_JWT_TEMPLATE });
+    // Los claims dependen de la Organization activa. Forzar un token nuevo
+    // evita reutilizar durante 60 s uno emitido antes de setActive({ organization }).
+    return getToken({ template: CLERK_JWT_TEMPLATE, skipCache: true });
   }, [getToken]);
 
   useEffect(() => {
@@ -76,7 +78,7 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
     }
     let cancelled = false;
     void (async () => {
-      const token = await getToken({ template: CLERK_JWT_TEMPLATE });
+      const token = await getToken({ template: CLERK_JWT_TEMPLATE, skipCache: true });
       if (cancelled) return;
       if (token) {
         const next = sessionFromClerkToken(token);
@@ -124,7 +126,7 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
             await signOut();
             throw new Error("Tu cuenta no está asociada a ninguna empresa en Logify. Contacta a soporte.");
           }
-          const token = await getToken({ template: CLERK_JWT_TEMPLATE });
+          const token = await getToken({ template: CLERK_JWT_TEMPLATE, skipCache: true });
           if (!token) {
             throw new Error("No se pudo obtener el token de sesión.");
           }
