@@ -61,11 +61,30 @@ El script hace:
 5. Configura rotación de logs de Docker (`/etc/docker/daemon.json`, evita llenar el disco con el tiempo)
 
 Al terminar, copiá tu clave SSH al nuevo usuario y conectate siempre como
-`deploy`, no como `root`:
+`deploy`, no como `root`. Si producción usa un puerto alternativo, indicá
+también `-p <PUERTO_SSH>`:
 
 ```bash
 ssh-copy-id deploy@IP_DEL_VPS
+ssh -p <PUERTO_SSH> deploy@IP_DEL_VPS
 ```
+
+Antes de cerrar la sesión inicial de root, abrí una segunda terminal y
+confirmá que el acceso como `deploy` funciona con llave. Luego validá con
+`sshd -t` y recargá una política como esta:
+
+```text
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+X11Forwarding no
+MaxAuthTries 3
+```
+
+En Ubuntu, `sshd` conserva el primer valor encontrado: poné el archivo en
+`/etc/ssh/sshd_config.d/00-logify-hardening.conf` para que no lo anteceda
+`50-cloud-init.conf`. Probá de nuevo las sesiones `deploy` y de recuperación
+antes de cerrar el puerto anterior en UFW.
 
 > Esto es exactamente lo que resuelve el punto crítico de la auditoría: en
 > `docker-compose.prod.yml` ningún servicio interno (Postgres, los 4
@@ -107,8 +126,11 @@ falla explícitamente si falta alguno):
 
 ```bash
 POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=')   # generalo y pegalo
+DB_RUNTIME_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=') # distinto a POSTGRES_PASSWORD
 JWT_SECRET=$(openssl rand -base64 48)                         # generalo y pegalo, distinto al de local
+PLATFORM_ADMIN_KEY=$(openssl rand -base64 48)                 # operaciones administrativas internas
 ALLOWED_ORIGINS=https://tu-dominio.cl,https://www.tu-dominio.cl,https://tu-proyecto.vercel.app
+APP_URL=https://app.tu-dominio.cl
 API_DOMAIN=api.tu-dominio.cl
 STATUS_DOMAIN=status.tu-dominio.cl
 ACME_EMAIL=tu-correo@tu-dominio.cl
@@ -177,7 +199,7 @@ y redeployar. El resto de la configuración de Vercel no cambia.
 
 ## 8. Backups de Postgres
 
-Corré el script de post-clone, que activa el backup automático:
+Corré el script de post-clone, que instala el backup automático:
 
 ```bash
 bash Backend/scripts/01-vps-post-clone-setup.sh
@@ -186,6 +208,27 @@ bash Backend/scripts/01-vps-post-clone-setup.sh
 Hace: da permisos de ejecución a `backup.sh` y agrega el cron diario a
 las 3 AM (retiene 14 días por defecto) si todavía no existe. Es
 idempotente, se puede correr de nuevo sin duplicar el cron.
+
+El cron instalado cambia primero al repositorio y escribe en un directorio
+propiedad de `deploy`:
+
+```cron
+0 3 * * * cd /home/deploy/logify && /home/deploy/logify/Backend/postgres/backup.sh >> /home/deploy/logify/Backend/postgres/backups/backup.log 2>&1
+```
+
+Verificación obligatoria después de instalar o cambiar el cron:
+
+```bash
+cd ~/logify
+Backend/postgres/backup.sh
+ls -lh Backend/postgres/backups/*_$(date +%F).sql.gz
+gzip -t Backend/postgres/backups/*_$(date +%F).sql.gz
+tail -n 50 Backend/postgres/backups/backup.log
+```
+
+La existencia y la integridad gzip no bastan: restaurá periódicamente las
+cuatro bases en un PostgreSQL temporal, incluyendo los roles requeridos por el
+dump, y ejecutá `psql` con `ON_ERROR_STOP=1`.
 
 Los `.sql.gz` quedan en `Backend/postgres/backups/` (fuera del repo,
 `.gitignore` ya los excluye). **Recomendado**: copiar periódicamente esa
@@ -226,9 +269,10 @@ script:
 1. Sincroniza SMTP opcional, soporte y VAPID desde GitHub Secrets al `.env`
    del VPS sin exponer sus valores.
 2. Hace `git reset --hard origin/main` — **no** `git pull` con merge.
-   El VPS deja de tener working tree propio: es un espejo exacto de
-   `main`. Cualquier edición manual hecha directo por SSH se pierde en
-   el próximo deploy, a propósito — el incidente del 2026-08-06 (ver
+   Los archivos versionados quedan alineados con `main`, pero `git reset
+   --hard` **no elimina archivos no trackeados**. No guardes scripts ni
+   artefactos manuales dentro de `~/logify`; comprobá `git status --short`
+   después de cada intervención. El incidente del 2026-08-06 (ver
    `aidlc-docs/operations/POST_MORTEMS/2026-08-06-signup-404-produccion.md`)
    pasó justamente porque el VPS y `main` habían divergido.
 3. Reconstruye y levanta los contenedores esperando a que los
@@ -261,6 +305,11 @@ bash Backend/scripts/02-vps-deploy.sh
 
 ## 11. Pendientes recomendados (no bloqueantes, pero valen la pena)
 
+> Estado comprobado el 2026-08-25: el cron y el instalador versionado fueron
+> corregidos; los cuatro dumps restauraron en un contenedor temporal. Sigue
+> pendiente una copia externa cifrada y automatizada. Ver
+> [`PRODUCTION_AUDIT_2026-08-25.md`](../aidlc-docs/operations/PRODUCTION_AUDIT_2026-08-25.md).
+
 - ~~**CI/CD**~~ ✅ Hecho — `.github/workflows/ci.yml` corre tests en los
   4 microservicios, Frontend (typecheck + vitest + build) y Landing
   (build) en cada PR y push a `main`, con branch protection obligatoria
@@ -284,3 +333,9 @@ bash Backend/scripts/02-vps-deploy.sh
   No aplicado todavía por el riesgo de dejar el pipeline sin poder
   desplegar si algo queda mal configurado — hacerlo con cuidado y
   probando el path de deploy inmediatamente después.
+- **Mantenimiento del host**: aplicar actualizaciones en una ventana controlada,
+  reiniciar cuando `/var/run/reboot-required` exista y repetir healthchecks,
+  smoke tests y verificación de acceso SSH.
+- **Credenciales compartidas**: rotar o bloquear inmediatamente cualquier
+  contraseña administrativa transmitida por un canal de soporte, aunque SSH
+  por contraseña ya esté desactivado.

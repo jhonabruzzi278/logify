@@ -1,6 +1,14 @@
 # Monitoring Setup
 
-**Estado al 2026-08-08: monitoreo básico operativo; observabilidad avanzada pendiente.**
+**Estado al 2026-08-25: monitoreo básico operativo; observabilidad avanzada pendiente.**
+
+La auditoría del 2026-08-25 confirmó Uptime Kuma, TLS y healthchecks sanos,
+pero detectó que el cron de backup llevaba 19 días sin producir copias. Se
+reparó el instalador y el cron, se generaron cuatro dumps y todos restauraron
+correctamente en PostgreSQL temporal. La disponibilidad HTTP no detectó ese
+fallo, por lo que una alerta por antigüedad del último backup sigue siendo
+prioritaria. Ver
+[`PRODUCTION_AUDIT_2026-08-25.md`](PRODUCTION_AUDIT_2026-08-25.md).
 
 ## Implementado
 
@@ -22,7 +30,7 @@ La configuración detallada de monitores y notificaciones está en
 - APM y error tracking para Frontend y microservicios.
 - Métricas técnicas y de negocio con histórico.
 - Agregación centralizada de los logs JSON existentes.
-- Alertas de disco, memoria, expiración TLS y fallos de backup.
+- Alertas de disco, memoria, expiración TLS y fallos/antigüedad de backup.
 - SLO operativos medibles y revisión periódica de incidentes.
 
 Uptime Kuma cubre disponibilidad externa, pero no reemplaza trazas, métricas,
