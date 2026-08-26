@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "test": "jest --coverage",
+    "test": "cd .. && node orders-service/node_modules/jest/bin/jest.js --config orders-service/package.json --coverage",
     "test:watch": "jest --watch"
   },
   "dependencies": {
@@ -26,24 +26,31 @@
     "supertest": "^7.2.2"
   },
   "jest": {
+    "rootDir": "..",
     "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/orders-service/src",
+      "<rootDir>/shared"
+    ],
     "testMatch": [
-      "**/src/**/*.test.js"
+      "**/orders-service/src/**/*.test.js"
     ],
     "modulePaths": [
-      "<rootDir>/node_modules"
+      "<rootDir>/orders-service/node_modules"
     ],
     "moduleNameMapper": {
-      "^\\.\\./shared/(.*)$": "<rootDir>/../shared/$1"
+      "^\\.\\./shared/(.*)$": "<rootDir>/shared/$1"
     },
+    "coverageDirectory": "<rootDir>/orders-service/coverage",
     "coverageReporters": [
       "text",
       "html",
       "lcov"
     ],
     "collectCoverageFrom": [
-      "src/**/*.js",
-      "!src/**/*.test.js"
+      "orders-service/src/**/*.js",
+      "!orders-service/src/**/*.test.js",
+      "shared/security.js"
     ]
   }
 }

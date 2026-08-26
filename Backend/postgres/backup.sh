@@ -6,7 +6,7 @@
 #   chmod +x Backend/postgres/backup.sh
 #   crontab -e
 #   # agregar la linea (backup diario a las 3:00 AM):
-#   0 3 * * * /ruta/absoluta/a/Logify/Backend/postgres/backup.sh >> /var/log/logify-backup.log 2>&1
+#   0 3 * * * cd /ruta/absoluta/a/Logify && Backend/postgres/backup.sh >> Backend/postgres/backups/backup.log 2>&1
 #
 # Restaurar un backup:
 #   gunzip -c backups/orders_db_2026-08-05.sql.gz | docker exec -i logify-db psql -U postgres -d orders_db
@@ -23,7 +23,20 @@ mkdir -p "$BACKUP_DIR"
 
 for db in orders_db inventory_db shipping_db notification_db; do
   echo "[$(date -Iseconds)] Backing up $db..."
-  docker exec "$CONTAINER" pg_dump -U postgres "$db" | gzip > "$BACKUP_DIR/${db}_${DATE}.sql.gz"
+  target="$BACKUP_DIR/${db}_${DATE}.sql.gz"
+  temporary="$BACKUP_DIR/.${db}_${DATE}.sql.gz.tmp"
+  rm -f "$temporary"
+  if ! docker exec "$CONTAINER" pg_dump -U postgres "$db" | gzip > "$temporary"; then
+    rm -f "$temporary"
+    echo "[$(date -Iseconds)] ERROR: fallo el backup de $db" >&2
+    exit 1
+  fi
+  if ! gzip -t "$temporary"; then
+    rm -f "$temporary"
+    echo "[$(date -Iseconds)] ERROR: el backup de $db no es un gzip valido" >&2
+    exit 1
+  fi
+  mv "$temporary" "$target"
 done
 
 echo "[$(date -Iseconds)] Borrando backups con mas de $RETENTION_DAYS dias..."

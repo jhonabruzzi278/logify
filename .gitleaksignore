@@ -20,3 +20,10 @@ c337fc7875759882cc6e59b2447f4f581ebe3dcd:Frontend/src/pages/__tests__/login-cler
 # commits historicos.
 1fd7042c8f35e3907644e361dae228864617cbf1:Backend/orders-service/scripts/migrate-demo-users-to-clerk.js:generic-api-key:108
 7252542598d321054d7b797d84129c9a328682e3:Backend/orders-service/scripts/migrate-demo-users-to-clerk.js:generic-api-key:111
+
+# Identificador publico de proyecto SonarCloud (no autentica ni concede acceso)
+# y nombres de variables vacias de colecciones Postman historicas. Los tres
+# hallazgos fueron revisados en la auditoria de produccion del 2026-08-25.
+43474d3284c2ea3c12f7829e4dd732f50bf02104:sonar-project.properties:generic-api-key:2
+3fce31669b9d3c71e9c12a9c0571d1705a3d8e90:docs/api/logify-postman-collection.json:generic-api-key:1
+a6a6a77182b3e528fa341726db40648999c3f249:ENTREGABLE/SmartLogix-Postman-Collection.json:generic-api-key:1

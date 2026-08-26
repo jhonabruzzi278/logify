@@ -74,7 +74,7 @@ const rubros = [
         faqs: [
             { q: "¿Puedo diferenciar precios por tamaño de botella?", a: "Sí, cada variante de un producto (tamaño, marca) se configura con su propio precio y stock." },
             { q: "¿Cómo llevo el fiado de mis clientes habituales?", a: "Cada cliente tiene una cuenta corriente donde queda registrado lo que debe y sus pagos." },
-            { q: "¿Puedo probarlo antes de pagar?", a: "Sí, Logify tiene 30 días de prueba gratuita sin necesidad de tarjeta de crédito." },
+            { q: "¿Cómo solicito acceso?", a: "El alta es asistida. Escríbenos y nuestro equipo te ayudará a configurar tu negocio." },
         ],
     },
     {
@@ -126,7 +126,7 @@ const rubros = [
         faqs: [
             { q: "¿Puedo configurar precio distinto por cada corte?", a: "Sí, cada producto tiene su propio precio por kilo, independiente de los demás cortes." },
             { q: "¿El stock se actualiza automáticamente?", a: "Sí, cada venta descuenta el stock disponible del corte vendido en tiempo real." },
-            { q: "¿Cuánto cuesta probarlo?", a: "La prueba de 30 días es gratuita y sin tarjeta de crédito. Después pagas el precio normal del plan." },
+            { q: "¿Cómo activo una cuenta?", a: "Solicita acceso y nuestro equipo te ayudará con la configuración inicial y el plan disponible." },
         ],
     },
     {

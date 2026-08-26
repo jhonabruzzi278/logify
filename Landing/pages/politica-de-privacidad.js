@@ -14,7 +14,7 @@ const SECTIONS = [
                     <strong>Jonathan Guerra</strong>, RUT <strong>28.309.224-0</strong>, con domicilio en{" "}
                     <strong>El Toril 0214</strong>, Chile.
                 </p>
-                <p>Correo de contacto y soporte: soporte@logify.cl.</p>
+                <p>Correo de contacto y soporte: jonathanguerra278@gmail.com.</p>
             </>
         ),
     },
@@ -141,7 +141,7 @@ const SECTIONS = [
             <p>
                 El titular de los datos podrá ejercer los derechos de acceso, rectificación, actualización y
                 supresión, así como los demás derechos que le reconozca la normativa chilena de protección
-                de datos personales. Para ejercerlos, deberá enviar una solicitud a soporte@logify.cl,
+                de datos personales. Para ejercerlos, deberá enviar una solicitud a jonathanguerra278@gmail.com,
                 acreditando razonablemente su identidad e indicando con claridad el derecho que desea
                 ejercer.
             </p>
@@ -203,7 +203,7 @@ const SECTIONS = [
             <p>
                 El tratamiento de datos personales en Chile se rige por la Ley N° 19.628 sobre Protección de
                 la Vida Privada y demás normativa aplicable en materia de protección de datos personales.
-                Ante cualquier consulta o reclamo, el titular puede contactar primero a soporte@logify.cl y,
+                Ante cualquier consulta o reclamo, el titular puede contactar primero a jonathanguerra278@gmail.com y,
                 cuando corresponda, dirigirse a la autoridad de protección de datos personales competente en
                 Chile.
             </p>

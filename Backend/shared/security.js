@@ -24,14 +24,27 @@ function applySecurity(app) {
     /^https:\/\/([a-z0-9-]+\.)?logify\.cl$/,
   ];
 
-  app.use(helmet());
+  const isAllowedOrigin = (origin) => (
+    !origin ||
+    allowedOrigins.includes(origin) ||
+    allowedOriginPatterns.some((pattern) => pattern.test(origin))
+  );
+
+  app.use(helmet({ frameguard: { action: 'deny' } }));
+
+  // Un origen rechazado debe producir un 403 controlado. Pasar un Error al
+  // callback de cors terminaba en el handler generico de Express como 500,
+  // generando ruido operacional aunque el navegador igualmente bloqueara la
+  // respuesta por ausencia de Access-Control-Allow-Origin.
+  app.use((req, res, next) => {
+    if (!isAllowedOrigin(req.headers.origin)) {
+      return res.status(403).json({ error: 'Origin not allowed' });
+    }
+    next();
+  });
 
   app.use(cors({
-    origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-      if (allowedOriginPatterns.some((pattern) => pattern.test(origin))) return cb(null, true);
-      cb(new Error('CORS not allowed'));
-    },
+    origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
     credentials: true,
   }));
 
