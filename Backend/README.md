@@ -130,6 +130,7 @@ docker exec -i logify-db psql -U postgres -d orders_db < Backend/seed.sql
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Correo (opcional) |
 | `PLATFORM_ADMIN_KEY` (orders-service) | Secreto compartido para `POST/GET /api/admin/coupons` (gestión de cupones de bienvenida del signup self-service, ver [wiki/Multi-Tenant.md](../wiki/Multi-Tenant.md#fases) Fase 4E). Sin esta variable, esos endpoints responden 503. Se envía como header `X-Admin-Key`. |
 | `SIGNUP_RATE_LIMIT_MAX` (orders-service) | Máximo de registros por IP cada 15 min en `POST /api/signup` (default `5`) |
+| `SIGNUP_ENABLED` (orders-service) | Habilita el onboarding público central. Producción lo sincroniza como `true` desde el workflow de despliegue. |
 
 ### Gestión de cupones (Fase 4E, sin panel de super-admin)
 
