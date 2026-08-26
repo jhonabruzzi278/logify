@@ -18,7 +18,7 @@ export default function Acceso() {
 
                     <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-2xl shadow-black/30">
                         <p className="text-sm leading-6 text-grey-500">
-                            Usa tu correo o usuario y la contraseña entregada durante la activación. En tu primer ingreso te guiaremos para dejar el negocio configurado.
+                            Usa el correo o usuario y la contraseña que creaste durante el onboarding. Tu empresa se identifica automáticamente.
                         </p>
                         <a href="https://app.logify.cl/login"
                             className="w-full mt-6 flex items-center justify-center gap-2 bg-brand-1 text-brand-2 font-bold py-4 rounded-xl hover:brightness-90 hover:-translate-y-0.5 transition-colors shadow-lg shadow-brand-1/30 focus:outline-none focus:ring-2 focus:ring-brand-3 focus:ring-offset-2"
@@ -27,7 +27,7 @@ export default function Acceso() {
                             Ingresar a Logify
                         </a>
                         <p className="text-center text-xs text-grey-500 mt-4">
-                            ¿Todavía no tienes una cuenta? <Link href="/registro" className="text-brand-3 font-semibold">Solicita acceso</Link>
+                            ¿Todavía no tienes una cuenta? <Link href="/registro" className="text-brand-3 font-semibold">Créala ahora</Link>
                         </p>
                     </div>
                 </div>

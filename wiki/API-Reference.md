@@ -85,8 +85,8 @@ Content-Type: application/json
 { "username": "persona", "password": "...", "name": "Persona" }
 ```
 
-La respuesta incluye `tenantSlug` para continuar en
-`https://<empresa>.logify.cl`.
+La invitación queda asociada al tenant del emisor. Una vez aceptada, el usuario
+ingresa por `https://app.logify.cl/login`.
 
 ---
 
@@ -97,13 +97,16 @@ GET  /api/signup/check-slug?slug=<empresa>
 POST /api/signup
 ```
 
-`POST /api/signup` crea en una transacción el tenant y su primer usuario
-`owner`, con trial de 30 días y cupón opcional. Está protegido por un rate
-limit específico (5 intentos por IP cada 15 minutos por defecto).
+`POST /api/signup` crea el tenant, su primer usuario `owner`, la Organization
+de Clerk y la membership administrativa, con trial de 30 días y cupón
+opcional. Si falla el aprovisionamiento central se revierte la transacción y se
+eliminan los recursos Clerk creados. Está protegido por un rate limit específico
+(5 intentos por IP cada 15 minutos por defecto).
 
 Campos obligatorios: `companyName`, `slug`, `contactEmail`, `ownerName`,
-`ownerUsername` y `ownerPassword`. La respuesta `201` incluye `tenantSlug`,
-`appUrl`, `trialEndsAt` y `ownerUsername`.
+`ownerUsername` y `ownerPassword`. `slug` es un identificador interno generado
+por el onboarding, no un dominio del cliente. La respuesta `201` incluye
+`appUrl` (`https://app.logify.cl`), `trialEndsAt` y `ownerUsername`.
 
 ---
 
@@ -115,9 +118,9 @@ POST /api/security/forgot-password/verify
 POST /api/security/forgot-password/reset
 ```
 
-El inicio de recuperación debe incluir `X-Tenant-Slug`; `app.logify.cl`
-primero redirige al subdominio de la empresa para evitar búsquedas globales y
-enumeración de usuarios entre tenants.
+La recuperación de credenciales del acceso central se gestiona mediante Clerk.
+Estas rutas corresponden únicamente a la autenticación local histórica y no se
+exponen como flujo público.
 
 ---
 

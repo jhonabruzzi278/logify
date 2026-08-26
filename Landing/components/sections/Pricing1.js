@@ -47,7 +47,7 @@ export default function Pricing1() {
 
                 <div className="text-center max-w-2xl mx-auto mb-10">
                     <h2 className="text-fg font-extrabold mb-4 tracking-tight" style={{ fontSize: 'clamp(1.9rem, 3.4vw, 2.75rem)' }}>Elige tu plan.</h2>
-                    <p className="text-fg/55 text-lg">Solicita acceso y nuestro equipo te ayudará a configurar el plan adecuado para tu negocio.</p>
+                    <p className="text-fg/55 text-lg">Crea tu cuenta en minutos y comienza con 30 días de prueba.</p>
                 </div>
 
                 <div className="flex justify-center mb-12">
@@ -78,7 +78,7 @@ export default function Pricing1() {
                             ) : (
                                 <p className="text-fg/40 text-xs mt-1">o ${formatCLP(plan.annualTotal)}/año ({discountPct}% dto.)</p>
                             )}
-                            <p className="text-fg/40 text-xs mt-1">Activación asistida, sin costos ocultos.</p>
+                            <p className="text-fg/40 text-xs mt-1">Registro inmediato, sin costos ocultos.</p>
                         </div>
                         <div className="border-t border-tint/10 mb-6" />
                         <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
@@ -92,8 +92,8 @@ export default function Pricing1() {
                         <div className="mt-8">
                             <Link href="/registro"
                                 className="block text-center font-bold py-3.5 rounded-xl transition-all hover:-translate-y-0.5 bg-brand-1 text-ink hover:brightness-90 focus:outline-none focus:ring-2 focus:ring-brand-3 focus:ring-offset-2 focus:ring-offset-canvas-3"
-                                aria-label="Solicitar acceso a Logify">
-                                Solicitar acceso
+                                aria-label="Crear cuenta en Logify">
+                                Crear mi cuenta
                                 <svg className="w-4 h-4 inline ml-2" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                             </Link>
                         </div>

@@ -25,7 +25,7 @@ export default function Cta1() {
                         <div className="flex flex-col items-start lg:items-end gap-3 shrink-0">
                             <Link href="/registro" className="inline-flex items-center gap-2.5 bg-brand-1 text-ink font-bold px-8 py-4 rounded-xl hover:brightness-90 hover:-translate-y-1 transition-all shadow-[0_15px_40px_-10px_rgba(143,171,212,0.5)]">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                                Solicitar acceso
+                                Crear mi cuenta
                             </Link>
                             <p className="text-white/60 text-sm flex items-center gap-1.5">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>

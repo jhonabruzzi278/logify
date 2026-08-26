@@ -407,11 +407,11 @@ Software propietario — todos los derechos reservados. Ver
 ## Arquitectura multi-tenant
 
 El sistema opera como SaaS multi-tenant con aislamiento por `tenant_id`
-derivado del JWT. `app.logify.cl/login` es la única entrada pública para los
-clientes migrados y nuevos: Clerk identifica la empresa mediante la
-Organization activa. Los subdominios `<empresa>.logify.cl` se conservan como
-compatibilidad temporal para tenants antiguos. Los propietarios de tenants
-nuevos completan un onboarding de tres pasos en su primer ingreso. Ver
+derivado del JWT. Toda cuenta nueva se crea desde `logify.cl/registro`: el
+onboarding aprovisiona el tenant, su Organization de Clerk y el usuario
+propietario. `app.logify.cl/login` es la única entrada al sistema y Clerk
+identifica la empresa mediante la Organization activa; no existen accesos por
+subdominio. Ver
 [wiki/Multi-Tenant.md](wiki/Multi-Tenant.md).
 
 ---

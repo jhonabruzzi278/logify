@@ -4,6 +4,19 @@ jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
 jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
+const mockClerk = {
+  organizations: {
+    createOrganization: jest.fn().mockResolvedValue({ id: 'org_signup' }),
+    createOrganizationMembership: jest.fn().mockResolvedValue({ id: 'orgmem_signup' }),
+    updateOrganizationMembershipMetadata: jest.fn().mockResolvedValue({}),
+    deleteOrganization: jest.fn().mockResolvedValue({}),
+  },
+  users: {
+    createUser: jest.fn().mockResolvedValue({ id: 'user_signup' }),
+    deleteUser: jest.fn().mockResolvedValue({}),
+  },
+};
+jest.mock('@clerk/backend', () => ({ createClerkClient: jest.fn(() => mockClerk) }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt-token'),
   verifyToken: jest.fn().mockReturnValue({ sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
@@ -20,6 +33,7 @@ const { createPool } = require('../shared/db');
 
 process.env.DB_RUNTIME_URL = 'postgres://test-runtime';
 process.env.SIGNUP_RATE_LIMIT_MAX = '1000'; // el rate limit real es 5/15min, muy bajo para correr toda la suite
+process.env.CLERK_SECRET_KEY = 'sk_test_signup';
 
 const mockQuery = jest.fn();
 const mockClientQuery = jest.fn((text, ...rest) => {
@@ -49,9 +63,15 @@ describe('POST /api/signup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockQuery.mockResolvedValue({ rows: [] });
+    mockClerk.organizations.createOrganization.mockResolvedValue({ id: 'org_signup' });
+    mockClerk.organizations.createOrganizationMembership.mockResolvedValue({ id: 'orgmem_signup' });
+    mockClerk.organizations.updateOrganizationMembershipMetadata.mockResolvedValue({});
+    mockClerk.organizations.deleteOrganization.mockResolvedValue({});
+    mockClerk.users.createUser.mockResolvedValue({ id: 'user_signup' });
+    mockClerk.users.deleteUser.mockResolvedValue({});
   });
 
-  it('crea tenant + owner y responde 201 con la URL del tenant', async () => {
+  it('crea tenant, identidad central y responde 201 con la URL única', async () => {
     const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
     mockQuery
       .mockResolvedValueOnce({ rows: [] }) // slug disponible
@@ -61,10 +81,35 @@ describe('POST /api/signup', () => {
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
 
     expect(res.status).toBe(201);
-    expect(res.body.tenantSlug).toBe('acme');
-    expect(res.body.appUrl).toBe('https://acme.logify.cl');
+    expect(res.body.tenantSlug).toBeUndefined();
+    expect(res.body.appUrl).toBe('https://app.logify.cl');
     expect(res.body.ownerUsername).toBe('ana.contreras');
     expect(res.body.trialEndsAt).toBe(trialEndsAt);
+    expect(mockClerk.organizations.createOrganization).toHaveBeenCalledWith({
+      name: 'Acme Distribuciones',
+      slug: 'acme',
+      publicMetadata: { tenant_id: 2, tenant_slug: 'acme' },
+    });
+    expect(mockClerk.users.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      emailAddress: ['contacto@acme.cl'], username: 'ana.contreras', firstName: 'Ana', lastName: 'Contreras',
+    }));
+    expect(mockClerk.organizations.createOrganizationMembership).toHaveBeenCalledWith({
+      organizationId: 'org_signup', userId: 'user_signup', role: 'org:admin',
+    });
+    expect(mockQuery).toHaveBeenCalledWith('UPDATE tenants SET clerk_org_id=$1 WHERE id=$2', ['org_signup', 2]);
+    expect(mockQuery).toHaveBeenCalledWith('UPDATE users SET clerk_user_id=$1 WHERE id=$2', ['user_signup', 10]);
+  });
+
+  it('responde 503 antes de escribir si la identidad central no está configurada', async () => {
+    delete process.env.CLERK_SECRET_KEY;
+    try {
+      const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+      expect(res.status).toBe(503);
+      expect(res.body.code).toBe('SIGNUP_AUTH_UNAVAILABLE');
+      expect(mockQuery).not.toHaveBeenCalled();
+    } finally {
+      process.env.CLERK_SECRET_KEY = 'sk_test_signup';
+    }
   });
 
   it('responde 503 sin escribir cuando SIGNUP_ENABLED=false', async () => {
@@ -83,6 +128,27 @@ describe('POST /api/signup', () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // slug ya existe
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
     expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TENANT_SLUG_TAKEN');
+  });
+
+  it('revierte Postgres y elimina la organización Clerk si el correo ya existe', async () => {
+    const clerkConflict = Object.assign(new Error('identifier exists'), {
+      status: 422,
+      errors: [{ code: 'form_identifier_exists' }],
+    });
+    mockClerk.users.createUser.mockRejectedValueOnce(clerkConflict);
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: new Date().toISOString() }] })
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'ana.contreras', name: 'Ana Contreras', role: 'owner' }] });
+
+    const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('ACCOUNT_EXISTS');
+    expect(mockClientQuery).toHaveBeenCalledWith('ROLLBACK');
+    expect(mockClerk.organizations.deleteOrganization).toHaveBeenCalledWith('org_signup');
+    expect(mockClerk.users.deleteUser).not.toHaveBeenCalled();
   });
 
   it('rechaza slug reservado → 400', async () => {
@@ -112,14 +178,16 @@ describe('POST /api/signup', () => {
       .mockResolvedValueOnce({ rows: [{ id: 5, code: 'BIENVENIDA90', extra_trial_days: 90, max_redemptions: null, redemptions_count: 0 }] }) // cupón válido
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] }) // insert tenant
       .mockResolvedValueOnce({ rows: [{ id: 10, username: 'ana.contreras', name: 'Ana Contreras', role: 'owner' }] }) // insert user
+      .mockResolvedValueOnce({ rows: [] }) // vincula organization
+      .mockResolvedValueOnce({ rows: [] }) // vincula usuario
       .mockResolvedValueOnce({ rows: [] }) // update coupons redemptions_count
       .mockResolvedValueOnce({ rows: [] }); // insert coupon_redemptions
 
     const res = await request(app).post('/api/signup').send({ ...VALID_SIGNUP_BODY, couponCode: 'bienvenida90' });
 
     expect(res.status).toBe(201);
-    expect(mockQuery).toHaveBeenNthCalledWith(5, expect.stringContaining('UPDATE coupons SET redemptions_count'), [5]);
-    expect(mockQuery).toHaveBeenNthCalledWith(6, expect.stringContaining('INSERT INTO coupon_redemptions'), [2, 5]);
+    expect(mockQuery).toHaveBeenNthCalledWith(7, expect.stringContaining('UPDATE coupons SET redemptions_count'), [5]);
+    expect(mockQuery).toHaveBeenNthCalledWith(8, expect.stringContaining('INSERT INTO coupon_redemptions'), [2, 5]);
   });
 
   it('cupón inválido, expirado o agotado → 400', async () => {
