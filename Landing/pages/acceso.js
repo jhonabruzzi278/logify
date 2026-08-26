@@ -44,7 +44,7 @@ export default function Acceso() {
                                 <span className="inline-flex items-center px-3 border-2 border-grey-300 rounded-r-xl bg-grey-200 text-grey-500 text-sm whitespace-nowrap">.logify.cl</span>
                             </div>
                             <p className="text-xs text-grey-500 mt-1.5">
-                                Es el mismo subdominio que te dimos al crear tu cuenta.
+                                Es el subdominio que te asignamos al activar tu cuenta.
                             </p>
 
                             <button type="submit"
@@ -54,7 +54,7 @@ export default function Acceso() {
                                 Ir a mi panel
                             </button>
                             <p className="text-center text-xs text-grey-500 mt-4">
-                                ¿Todavía no tienes cuenta? <Link href="/registro" className="text-brand-3 font-semibold">Crea tu cuenta gratis</Link>
+                                ¿Todavía no tienes acceso? <Link href="/registro" className="text-brand-3 font-semibold">Solicítalo aquí</Link>
                             </p>
                         </form>
                     </div>
