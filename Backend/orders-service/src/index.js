@@ -627,9 +627,11 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
       publicMetadata: { tenant_id: tenant.id, tenant_slug: tenant.slug },
     });
     const nameParts = ownerName.trim().split(/\s+/);
+    // El correo es la credencial universal del acceso central. No enviamos
+    // `username` a Clerk porque ese identificador es opcional por instancia;
+    // el username interno sigue viajando en metadata para permisos y UI.
     createdClerkUser = await centralClerk.users.createUser({
       emailAddress: [contactEmail.trim().toLowerCase()],
-      username: usernameNorm,
       password: ownerPassword,
       firstName: nameParts.shift(),
       lastName: nameParts.join(' ') || undefined,
@@ -658,6 +660,7 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
     const welcomeEmail = buildWelcomeEmail({
       ownerName: ownerName.trim(),
       companyName: companyName.trim(),
+      contactEmail: contactEmail.trim().toLowerCase(),
       ownerUsername: owner.username,
       trialEndsAt: tenant.trial_ends_at,
       supportWhatsappUrl: SUPPORT_WHATSAPP_URL

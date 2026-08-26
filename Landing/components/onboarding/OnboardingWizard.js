@@ -157,7 +157,7 @@ export default function OnboardingWizard() {
                 </div>
                 <h2 className="text-white font-extrabold text-2xl mb-3">Tu cuenta está lista</h2>
                 <p className="text-white/80 mb-4">
-                    Ya puedes ingresar con <strong className="text-brand-1">{answers.contactEmail}</strong> o con tu usuario <strong className="text-brand-1">{success.ownerUsername}</strong>.
+                    Ya puedes ingresar con <strong className="text-brand-1">{answers.contactEmail}</strong> y la contraseña que acabas de crear.
                 </p>
                 <div className="bg-white/10 border-2 border-brand-1/30 rounded-xl px-5 py-4 mb-6 text-left">
                     <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">Un solo acceso para todos</p>

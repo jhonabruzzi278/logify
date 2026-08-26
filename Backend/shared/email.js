@@ -349,7 +349,7 @@ function buildShipmentDeliveredEmail({ customerName, orderId, clientCode, tracki
 }
 
 // ── EMAIL 4: Bienvenida (signup) ───────────────────────────────────────────────
-function buildWelcomeEmail({ ownerName, companyName, ownerUsername, trialEndsAt, supportWhatsappUrl }) {
+function buildWelcomeEmail({ ownerName, companyName, contactEmail, ownerUsername, trialEndsAt, supportWhatsappUrl }) {
   const loginUrl = 'https://app.logify.cl/login';
   const firstName = escapeHtml(ownerName ? ownerName.split(' ')[0] : 'Hola');
   const trialDate = trialEndsAt ? new Date(trialEndsAt).toLocaleDateString('es-CL') : '';
@@ -375,16 +375,16 @@ function buildWelcomeEmail({ ownerName, companyName, ownerUsername, trialEndsAt,
 
           <!-- Credencial de acceso central -->
           ${codeBlock({
-            label: 'Tu usuario de acceso es',
-            code: ownerUsername,
-            description: 'También puedes iniciar sesión con el correo usado durante el registro.',
+            label: 'Tu correo de acceso es',
+            code: contactEmail,
+            description: 'Úsalo para iniciar sesión en el acceso central de Logify.',
             color: '#2563EB',
             bgColor: '#EFF6FF'
           })}
 
           <table width="100%" cellpadding="0" cellspacing="0">
             ${infoRow('Tu panel', 'app.logify.cl')}
-            ${infoRow('Usuario', ownerUsername)}
+            ${infoRow('Usuario interno', ownerUsername)}
             ${trialDate ? infoRow('Tu prueba gratuita vence', trialDate) : ''}
           </table>
 
