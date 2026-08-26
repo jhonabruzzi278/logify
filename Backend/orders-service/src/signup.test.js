@@ -151,6 +151,21 @@ describe('POST /api/signup', () => {
     expect(mockClerk.users.deleteUser).not.toHaveBeenCalled();
   });
 
+  it('elimina usuario y organización Clerk si falla la membership', async () => {
+    mockClerk.organizations.createOrganizationMembership.mockRejectedValueOnce(new Error('membership failed'));
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: new Date().toISOString() }] })
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'ana.contreras', name: 'Ana Contreras', role: 'owner' }] });
+
+    const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+
+    expect(res.status).toBe(500);
+    expect(mockClientQuery).toHaveBeenCalledWith('ROLLBACK');
+    expect(mockClerk.users.deleteUser).toHaveBeenCalledWith('user_signup');
+    expect(mockClerk.organizations.deleteOrganization).toHaveBeenCalledWith('org_signup');
+  });
+
   it('rechaza slug reservado → 400', async () => {
     const res = await request(app).post('/api/signup').send({ ...VALID_SIGNUP_BODY, slug: 'admin' });
     expect(res.status).toBe(400);
