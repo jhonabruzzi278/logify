@@ -68,13 +68,58 @@ describe("ApiClient", () => {
 
   it("refresh token en 401 con handler", async () => {
     const handler = vi.fn().mockResolvedValue("tk-refreshed");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     client.setAuthRefreshHandler(handler);
     globalThis.fetch = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "expired" }), { status: 401 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "expired" }), { status: 401, headers: { "x-request-id": "req-first" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json", "x-request-id": "req-retry" } }));
     const r = await client.fetch("/api/test");
     expect(handler).toHaveBeenCalledOnce();
     expect(r).toEqual({ ok: true });
+    expect(warn).toHaveBeenCalledWith("[ApiClient.auth] solicitud rechazada; renovando token", {
+      path: "/api/test",
+      status: 401,
+      requestId: "req-first",
+    });
+    expect(info).toHaveBeenCalledWith("[ApiClient.auth] reintento completado", {
+      path: "/api/test",
+      status: 200,
+      requestId: "req-retry",
+    });
+  });
+
+  it("incluye request-id en el error final", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: "Token invalido" }), {
+        status: 401,
+        headers: { "x-request-id": "req-denied" },
+      }),
+    );
+
+    await expect(client.fetch("/api/test")).rejects.toMatchObject({
+      status: 401,
+      requestId: "req-denied",
+      message: "Token invalido",
+    });
+  });
+
+  it("diagnostica cuando Clerk no entrega un token renovado", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    client.setAuthRefreshHandler(vi.fn().mockResolvedValue(null));
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: "Token invalido" }), {
+        status: 401,
+        headers: { "x-request-id": "req-no-refresh" },
+      }),
+    );
+
+    await expect(client.fetch("/api/test")).rejects.toThrow("Token invalido");
+    expect(warn).toHaveBeenLastCalledWith("[ApiClient.auth] Clerk no entregó un token renovado", {
+      path: "/api/test",
+      status: 401,
+      requestId: "req-no-refresh",
+    });
   });
 
   it("no intenta refresh sin handler", async () => {

@@ -1,6 +1,7 @@
 import type { CognitoAuthResult } from "@/lib/cognito-auth";
 import { decodeJwtPayload } from "@/lib/cognito-auth";
 import { readApiConfig } from "@/lib/api-config";
+import { apiFetch, ApiRequestError } from "@/lib/api-client";
 
 function apiUrl(path: string): string {
   const { baseUrl } = readApiConfig();
@@ -71,24 +72,34 @@ export async function registerUser(
 }
 
 export async function inviteUser(
-  token: string,
+  _token: string,
   data: { email: string; role: string }
 ): Promise<{ id: number; email: string; role: string; status: string; expires_at: string }> {
-  const response = await fetch(apiUrl("/api/auth/invite"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ error: "Error al invitar" })) as { error?: string };
-    throw new Error(body.error || "Error al invitar usuario");
+  try {
+    // Usa el cliente compartido para que un token Clerk vencido se renueve y
+    // la solicitud se reintente una vez, igual que el resto de la aplicación.
+    return await apiFetch<{ id: number; email: string; role: string; status: string; expires_at: string }>(
+      "/api/auth/invite",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    );
+  } catch (error) {
+    // Diagnóstico seguro: no registrar token, correo ni el body de la petición.
+    if (error instanceof ApiRequestError) {
+      console.error("[inviteUser] invitación rechazada", {
+        status: error.status,
+        message: error.message,
+        requestId: error.requestId,
+      });
+    } else {
+      console.error("[inviteUser] fallo de red al enviar invitación", {
+        errorType: error instanceof Error ? error.name : typeof error,
+      });
+    }
+    throw error;
   }
-
-  return response.json() as Promise<{ id: number; email: string; role: string; status: string; expires_at: string }>;
 }
 
 export async function acceptInvite(
