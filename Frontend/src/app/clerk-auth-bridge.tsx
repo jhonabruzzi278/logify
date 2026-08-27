@@ -79,7 +79,21 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
     }
     let cancelled = false;
     void (async () => {
-      const token = await getToken({ template: CLERK_JWT_TEMPLATE, skipCache: true });
+      // Mismo problema que en login() (ver PR #92): sin organizationId
+      // explicito, el token puede salir con tenant_id vacio si la sesion de
+      // Clerk (cookies) no tiene todavia una organizacion activa en este tab
+      // -- requireTenant lo rechaza con "Sesion invalida, inicia sesion de
+      // nuevo" pese a que la sesion es valida.
+      const sessionId = clerk.session?.id;
+      const organizationId = sessionId
+        ? await activateFirstOrganizationMembership(clerk, setActive, sessionId)
+        : null;
+      if (cancelled) return;
+      const token = await getToken({
+        template: CLERK_JWT_TEMPLATE,
+        organizationId: organizationId ?? undefined,
+        skipCache: true,
+      });
       if (cancelled) return;
       if (token) {
         const next = sessionFromClerkToken(token);
@@ -91,7 +105,7 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [authLoaded, isSignedIn, getToken]);
+  }, [authLoaded, isSignedIn, getToken, clerk, setActive]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
