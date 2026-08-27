@@ -17,10 +17,28 @@ let clerkUser: { organizationMemberships: Array<{ organization: { id: string } }
   organizationMemberships: [{ organization: { id: "org_1" } }],
   reload: mockUserReload,
 };
+// Sesion activa de Clerk restaurada desde cookies al cargar la pagina --
+// null simula el caso "Clerk todavia no expone session.id en este tick".
+let clerkSessionId: string | null = "sess_restore";
+
+// El objeto que devuelve useClerk() debe tener identidad ESTABLE entre
+// renders (igual que el cliente real de Clerk, un singleton) -- clerk-auth-bridge.tsx
+// lo lista como dependencia de un useEffect, y un objeto nuevo en cada
+// render (como devolvia este mock antes) dispara un loop infinito de
+// render/effect en el test.
+const mockClerkClient = {
+  signOut: mockSignOut,
+  get user() {
+    return clerkUser;
+  },
+  get session() {
+    return clerkSessionId ? { id: clerkSessionId } : undefined;
+  },
+};
 
 vi.mock("@clerk/react", () => ({
   useAuth: () => ({ ...clerkAuthState, getToken: mockGetToken }),
-  useClerk: () => ({ signOut: mockSignOut, user: clerkUser }),
+  useClerk: () => mockClerkClient,
 }));
 
 vi.mock("@clerk/react/legacy", () => ({
@@ -62,6 +80,7 @@ describe("ClerkBridgedAuthProvider", () => {
     vi.clearAllMocks();
     clerkAuthState = { isLoaded: true, isSignedIn: false };
     clerkUser = { organizationMemberships: [{ organization: { id: "org_1" } }], reload: mockUserReload };
+    clerkSessionId = "sess_restore";
     mockUserReload.mockResolvedValue(undefined);
   });
 
@@ -78,6 +97,7 @@ describe("ClerkBridgedAuthProvider", () => {
 
   it("restaura la sesion desde el token de Clerk cuando ya hay una sesion activa al cargar", async () => {
     clerkAuthState = { isLoaded: true, isSignedIn: true };
+    mockSetActive.mockResolvedValue(undefined);
     mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
 
     render(
@@ -89,6 +109,36 @@ describe("ClerkBridgedAuthProvider", () => {
     await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
     expect(screen.getByTestId("session-role")).toHaveTextContent("owner");
     expect(mockUpdateApiToken).toHaveBeenCalledWith(expect.stringContaining("."));
+    // Regresion: sin esto, la restauracion de sesion (page load con cookie
+    // de Clerk ya activa) pedia el token sin organizationId -- el JWT salia
+    // con tenant_id vacio y el backend lo rechazaba con "Sesion invalida,
+    // inicia sesion de nuevo" pese a que la sesion era valida.
+    expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_restore", organization: "org_1" });
+    expect(mockGetToken).toHaveBeenCalledWith({
+      template: "logify-api",
+      organizationId: "org_1",
+      skipCache: true,
+    });
+  });
+
+  it("restaura la sesion sin organizationId si Clerk todavia no expone un session.id en este tick", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    clerkSessionId = null;
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
+    expect(mockSetActive).not.toHaveBeenCalled();
+    expect(mockGetToken).toHaveBeenCalledWith({
+      template: "logify-api",
+      organizationId: undefined,
+      skipCache: true,
+    });
   });
 
   it("login() completa el sign-in de Clerk, activa la sesion y arma el Session de la app", async () => {
