@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { useAuth as useClerkAuth, useClerk } from "@clerk/react";
 import { useSignIn } from "@clerk/react/legacy";
+import { isClerkAPIResponseError } from "@clerk/react/errors";
 import { setApiAuthErrorListener, setApiAuthRefreshHandler, updateApiToken } from "@/lib/api-client";
 import { decodeJwtPayload, parseRole, type Session } from "@/lib/auth-service";
 import { AuthContext, type AuthContextValue } from "@/app/auth";
@@ -142,6 +143,18 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           setSession(next);
           return next;
         } catch (err) {
+          // Diagnostico temporal (401/400 en produccion, ver PR #92): el
+          // sign_ins de Clerk devuelve el motivo real dentro de err.errors
+          // (code/longMessage) -- err.message por si solo suele ser generico.
+          if (isClerkAPIResponseError(err)) {
+            console.error("[ClerkBridgedAuthProvider.login] Clerk API error", {
+              status: err.status,
+              clerkTraceId: err.clerkTraceId,
+              errors: err.errors.map((e) => ({ code: e.code, message: e.message, longMessage: e.longMessage, meta: e.meta })),
+            });
+          } else {
+            console.error("[ClerkBridgedAuthProvider.login] login failed", err);
+          }
           const message = err instanceof Error ? err.message : "No se pudo iniciar sesión.";
           setError(message);
           throw err;
