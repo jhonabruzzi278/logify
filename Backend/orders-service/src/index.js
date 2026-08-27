@@ -19,6 +19,10 @@ const SHIPPING_URL = process.env.SHIPPING_SERVICE_URL || 'http://shipping-servic
 // SHIPPING_URL arriba, que ya usan http:// sin TLS por el mismo motivo.
 const NOTIFICATION_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8085'; // NOSONAR
 const DEFAULT_TENANT_SLUG = 'logify';
+// Las invitaciones se aceptan en el portal de la aplicación. APP_URL también
+// se usa para enlaces de la landing y puede apuntar a logify.cl, por eso no se
+// reutiliza aquí: un enlace de invitación en la landing termina en 404.
+const INVITE_APP_URL = process.env.INVITE_APP_URL || 'https://app.logify.cl';
 
 // Identificadores internos reservados para infraestructura. Aunque ya no son
 // subdominios de clientes, el slug sigue siendo una clave estable del tenant.
@@ -1356,7 +1360,7 @@ app.post('/api/auth/invite', authMiddleware, requireTenant, withTenantDb, requir
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, email, role, status, expires_at`,
       [req.tenantId, email.trim().toLowerCase(), role.toLowerCase(), token, req.user?.sub || req.user?.name || null, expiresAt])).rows[0];
 
-    const acceptUrl = `${process.env.APP_URL || 'https://app.logify.cl'}/invite/${token}`;
+    const acceptUrl = `${INVITE_APP_URL}/invite/${token}`;
     sendEmail({
       to: invitation.email,
       subject: 'Te invitaron a unirte a Logify',
