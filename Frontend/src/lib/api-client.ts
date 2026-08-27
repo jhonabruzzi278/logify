@@ -161,11 +161,6 @@ export class ApiClient {
       }
 
       if (response.status === 401 || response.status === 403) {
-        // Diagnostico temporal (ver PR #93): el mensaje real que devuelve
-        // authMiddleware ("Token invalido" / "Token expirado" / "Token
-        // requerido", ver Backend/shared/auth.js) se perdia -- solo llegaba
-        // al usuario como "Tu sesion expiro", sin distinguir la causa.
-        console.error(`[ApiClient] auth error ${JSON.stringify({ url: response.url, status: response.status, message })}`);
         this.onAuthError?.(response.status);
       }
 

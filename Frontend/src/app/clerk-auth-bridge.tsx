@@ -20,8 +20,6 @@ import type { ApiLoginRequest } from "@/types/api";
 // template especifico.
 const CLERK_JWT_TEMPLATE = "logify-api";
 
-type ClerkClient = ReturnType<typeof useClerk>;
-
 interface ClerkAppClaims {
   username?: string;
   name?: string;
@@ -37,37 +35,6 @@ function sessionFromClerkToken(token: string): Session {
     role: parseRole(claims.role),
     expiresAt: claims.exp ? claims.exp * 1000 : Date.now() + 60_000,
   };
-}
-
-// Diagnostico temporal (seguimiento de #92/#95, el 401 en /api/onboarding
-// persiste tras activar la primera membership): loguea TODAS las
-// Organization Memberships del usuario, no solo la [0] que se activa --
-// hipotesis a confirmar/descartar es que este usuario tiene mas de una
-// Organization (ej. restos de un signup fallido anterior a #86/#87/#88, que
-// arreglaron el signup) y la que se activa no es la que tiene tenant_id en
-// publicMetadata.
-function logOrganizationDiagnostics(clerk: ClerkClient, token: string | null | undefined, label: string) {
-  const memberships = clerk.user?.organizationMemberships ?? [];
-  const claims = token ? decodeJwtPayload(token) as Record<string, unknown> : null;
-  // El visor remoto de consola aplana los objetos como "Object". Serializar
-  // solo los campos de autorizacion permite diagnosticar produccion sin
-  // registrar el JWT completo ni otros datos de la sesion.
-  console.error(`[ClerkBridgedAuthProvider.${label}] diagnostico de organizacion ${JSON.stringify({
-    membershipCount: memberships.length,
-    memberships: memberships.map((m) => ({
-      organizationId: m.organization.id,
-      organizationSlug: m.organization.slug,
-      organizationPublicMetadata: m.organization.publicMetadata,
-      membershipPublicMetadata: m.publicMetadata,
-    })),
-    decodedTokenClaims: claims ? {
-      username: claims.username,
-      role: claims.role,
-      tenant_id: claims.tenant_id,
-      tenant_slug: claims.tenant_slug,
-      iss: claims.iss,
-    } : null,
-  })}`);
 }
 
 export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
@@ -128,7 +95,6 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
         skipCache: true,
       });
       if (cancelled) return;
-      logOrganizationDiagnostics(clerk, token, "restore");
       if (token) {
         const next = sessionFromClerkToken(token);
         updateApiToken(token);
@@ -183,7 +149,6 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
             organizationId,
             skipCache: true,
           });
-          logOrganizationDiagnostics(clerk, token, "login");
           if (!token) {
             throw new Error("No se pudo obtener el token de sesión.");
           }
