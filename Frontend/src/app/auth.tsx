@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { shouldActivateClerk } from "@/lib/clerk-config";
 import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
 import { getDefaultPathForRole, isPathAllowedForRole } from "@/app/access";
+import { PageLoader } from "@/components/common/page-loader";
 import { setApiAuthErrorListener, setApiAuthRefreshHandler, updateApiToken } from "@/lib/api-client";
 import { loginWithBackend, type Session } from "@/lib/auth-service";
 import type { ApiLoginRequest } from "@/types/api";
@@ -117,7 +118,7 @@ export function useAuth() {
 }
 
 export function RequireAuth() {
-  const { session } = useAuth();
+  const { session, loading } = useAuth();
   const location = useLocation();
 
   // Sin Clerk activo en este host (modelo viejo de JWT por subdominio),
@@ -128,6 +129,13 @@ export function RequireAuth() {
   // del 2026-08-19 en clerk-config.ts.
   if (typeof window !== "undefined" && isPlatformPortalHostname(window.location.hostname) && !shouldActivateClerk(window.location.hostname)) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Clerk restaura la sesion desde su cookie de forma asincrona. Durante ese
+  // breve intervalo session es null, pero no significa que haya expirado.
+  // Esperar evita navegar a /login y volver al panel en cada refresh.
+  if (loading) {
+    return <PageLoader />;
   }
 
   if (!session) {

@@ -65,6 +65,21 @@ describe("RequireAuth", () => {
     expect(screen.getByText("Panel protegido")).toBeInTheDocument();
   });
 
+  it("no muestra el login mientras Clerk restaura la sesion despues de un refresh", () => {
+    vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "fake-publishable-key-for-tests");
+    setHostname("app.logify.cl");
+
+    renderRequireAuth({
+      ...BASE_AUTH_VALUE,
+      session: null,
+      loading: true,
+    });
+
+    expect(screen.getByRole("status", { name: "Cargando página" })).toBeInTheDocument();
+    expect(screen.queryByText("Pagina de login")).not.toBeInTheDocument();
+    expect(screen.queryByText("Panel protegido")).not.toBeInTheDocument();
+  });
+
   it("redirige a /login en un subdominio de tenant cuando no hay sesion", () => {
     vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "");
     setHostname("minimarketelsol.logify.cl");
