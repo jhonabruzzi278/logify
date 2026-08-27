@@ -155,6 +155,53 @@ describe("ClerkBridgedAuthProvider", () => {
     });
   });
 
+  it("recupera la Organization al renovar si Clerk publica session.id despues de restaurar", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    clerkSessionId = null;
+    mockSetActive.mockResolvedValue(undefined);
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
+    // Clerk puede publicar el identificador un tick despues de isSignedIn.
+    // El refresh debe recuperar entonces la membership y no emitir un JWT
+    // sin tenant_id/tenant_slug.
+    clerkSessionId = "sess_late";
+    mockGetToken.mockClear();
+
+    await registeredAuthRefreshHandler?.();
+
+    expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_late", organization: "org_1" });
+    expect(mockGetToken).toHaveBeenCalledWith({
+      template: "logify-api",
+      organizationId: "org_1",
+      skipCache: true,
+    });
+  });
+
+  it("no emite un token de API sin Organization durante una renovacion", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    clerkSessionId = null;
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
+    mockGetToken.mockClear();
+
+    await expect(registeredAuthRefreshHandler?.()).resolves.toBeNull();
+    expect(mockGetToken).not.toHaveBeenCalled();
+  });
+
   it("conserva la sesion local ante un 401 aislado si Clerk sigue autenticado", async () => {
     clerkAuthState = { isLoaded: true, isSignedIn: true };
     mockSetActive.mockResolvedValue(undefined);
