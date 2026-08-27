@@ -6,7 +6,7 @@ const TOKEN_KEY = "logify-api-token";
 // ser subdominio de tenant porque ya tienen un uso reservado en la
 // plataforma (marketing, API, panel de super-admin, etc).
 const PLATFORM_DOMAIN = "logify.cl";
-const RESERVED_TENANT_SLUGS = new Set(["www", "api", "app", "admin", "mail", "logify", "static", "landing"]);
+const RESERVED_TENANT_SLUGS = new Set(["www", "api", "app", "gestion", "admin", "mail", "logify", "static", "landing"]);
 
 export function getTenantSlugFromHostname(hostname: string): string | null {
   const suffix = `.${PLATFORM_DOMAIN}`;

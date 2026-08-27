@@ -14,6 +14,7 @@ Reverse proxy que enruta las peticiones HTTP entrantes al microservicio correspo
 | `/api/orders` | orders-service | 8081 |
 | `/api/customers` | orders-service | 8081 |
 | `/api/onboarding` | orders-service | 8081 |
+| `/api/platform` | orders-service | 8081 |
 | `/api/inventory` | inventory-service | 8082 |
 | `/api/sales` | inventory-service | 8082 |
 | `/api/shipments` | shipping-service | 8084 |

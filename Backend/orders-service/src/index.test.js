@@ -4,6 +4,9 @@ jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
 jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
+jest.mock('../shared/platform-auth', () => ({
+  requirePlatformAdmin: (req, _res, next) => { req.platformAdmin = { clerkUserId: 'user_admin' }; next(); },
+}));
 jest.mock('@clerk/backend/webhooks', () => ({ verifyWebhook: jest.fn() }));
 const mockUpdateOrganization = jest.fn();
 jest.mock('@clerk/backend', () => ({
@@ -89,6 +92,61 @@ describe('orders-service', () => {
       const res = await request(app).get('/api/orders/test');
       expect(res.status).toBe(200);
       expect(res.text).toMatch(/orders-service UP/i);
+    });
+  });
+
+  describe('platform management API', () => {
+    it('retorna métricas normalizadas del conjunto de tenants', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{
+        total_tenants: '12', trialing_tenants: '4', active_tenants: '7',
+        attention_tenants: '1', active_mrr_clp: '349930',
+      }] });
+
+      const res = await request(app).get('/api/platform/overview');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        totalTenants: 12,
+        trialingTenants: 4,
+        activeTenants: 7,
+        attentionTenants: 1,
+        activeMrrClp: 349930,
+      });
+    });
+
+    it('lista organizaciones sin exponer identificadores internos de pago', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{
+        id: 7, slug: 'acme', name: 'Acme', status: 'active', plan: 'pro',
+        contact_email: 'admin@acme.cl', subscription_status: 'active',
+        plan_price_clp: '29990', billing_provider: 'flow', trial_ends_at: null,
+        created_at: '2026-08-27T12:00:00.000Z',
+      }] });
+
+      const res = await request(app).get('/api/platform/tenants');
+
+      expect(res.status).toBe(200);
+      expect(res.body[0]).toMatchObject({
+        id: 7, slug: 'acme', subscriptionStatus: 'active',
+        planPriceClp: 29990, billingProvider: 'flow',
+      });
+      expect(res.body[0]).not.toHaveProperty('billingCustomerId');
+    });
+
+    it('solo informa si las credenciales están configuradas, nunca sus valores', async () => {
+      process.env.BILLING_DEFAULT_PROVIDER = 'flow';
+      process.env.FLOW_API_KEY = 'flow-key';
+      process.env.FLOW_SECRET_KEY = 'flow-secret';
+
+      const res = await request(app).get('/api/platform/billing/providers');
+
+      expect(res.status).toBe(200);
+      expect(res.body.defaultProvider).toBe('flow');
+      expect(res.body.providers.find((provider) => provider.id === 'flow')).toMatchObject({ configured: true, active: true });
+      expect(JSON.stringify(res.body)).not.toContain('flow-secret');
+
+      delete process.env.BILLING_DEFAULT_PROVIDER;
+      delete process.env.FLOW_API_KEY;
+      delete process.env.FLOW_SECRET_KEY;
     });
   });
 

@@ -47,6 +47,11 @@ describe("clerk-config", () => {
       expect(shouldActivateClerk("app.logify.cl")).toBe(true);
     });
 
+    it("retorna true en gestion.logify.cl con la variable definida", () => {
+      vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "fake-publishable-key-for-tests");
+      expect(shouldActivateClerk("gestion.logify.cl")).toBe(true);
+    });
+
     it("retorna true en localhost/127.0.0.1 con la variable definida (para poder probar /login-clerk)", () => {
       vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "fake-publishable-key-for-tests");
       expect(shouldActivateClerk("localhost")).toBe(true);

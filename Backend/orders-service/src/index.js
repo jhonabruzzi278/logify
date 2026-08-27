@@ -5,6 +5,7 @@ const { signToken, authMiddleware, requireRole, requireTenant, extractRoleFromRe
 const { attachTenantDb } = require('../shared/rls');
 const { registerSecurityModule, validatePasswordStrength } = require('./security-module');
 const { requireAdminKey } = require('../shared/admin');
+const { requirePlatformAdmin } = require('../shared/platform-auth');
 const log = require('../shared/logger');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
@@ -26,10 +27,30 @@ const INVITE_APP_URL = process.env.INVITE_APP_URL || 'https://app.logify.cl';
 
 // Identificadores internos reservados para infraestructura. Aunque ya no son
 // subdominios de clientes, el slug sigue siendo una clave estable del tenant.
-const RESERVED_TENANT_SLUGS = new Set(['www', 'api', 'app', 'admin', 'mail', 'logify', 'static', 'landing', 'demo', 'status']);
+const RESERVED_TENANT_SLUGS = new Set(['www', 'api', 'app', 'gestion', 'admin', 'mail', 'logify', 'static', 'landing', 'demo', 'status']);
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 const TRIAL_DAYS = 30;
 const SUPPORT_WHATSAPP_URL = process.env.SUPPORT_WHATSAPP_URL || 'https://wa.me/56938980598';
+
+function configuredBillingProviders() {
+  return [
+    {
+      id: 'flow',
+      name: 'Flow',
+      configured: Boolean(process.env.FLOW_API_KEY && process.env.FLOW_SECRET_KEY),
+    },
+    {
+      id: 'mercado_pago',
+      name: 'Mercado Pago',
+      configured: Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN),
+    },
+    {
+      id: 'paddle',
+      name: 'Paddle',
+      configured: Boolean(process.env.PADDLE_API_KEY && process.env.PADDLE_WEBHOOK_SECRET),
+    },
+  ];
+}
 
 let bcrypt;
 
@@ -1397,6 +1418,80 @@ app.post('/api/auth/invite/:token/accept', async (req, res) => {
     await pool.query(`UPDATE user_invitations SET status='accepted' WHERE id=$1`, [invitation.id]);
     res.status(201).json({ ...user, tenantSlug: invitation.tenant_slug });
   } catch (err) { sendError(res, 500, 'Failed to accept invitation', err); }
+});
+
+// ═══ GESTIÓN DE PLATAFORMA ════════════════════════════════════════════════════════
+// Superficie exclusiva de gestion.logify.cl. A diferencia de /api/admin, que
+// conserva PLATFORM_ADMIN_KEY para automatizaciones server-to-server, estas
+// rutas aceptan únicamente sesiones Clerk de usuarios globales allowlisted.
+app.get('/api/platform/overview', requirePlatformAdmin, async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total_tenants,
+        COUNT(*) FILTER (WHERE subscription_status = 'trialing')::int AS trialing_tenants,
+        COUNT(*) FILTER (WHERE subscription_status = 'active')::int AS active_tenants,
+        COUNT(*) FILTER (WHERE subscription_status IN ('past_due', 'suspended'))::int AS attention_tenants,
+        COALESCE(SUM(plan_price_clp) FILTER (WHERE subscription_status = 'active'), 0)::bigint AS active_mrr_clp
+      FROM tenants
+    `);
+    const stats = result.rows[0] || {};
+    res.json({
+      totalTenants: Number(stats.total_tenants || 0),
+      trialingTenants: Number(stats.trialing_tenants || 0),
+      activeTenants: Number(stats.active_tenants || 0),
+      attentionTenants: Number(stats.attention_tenants || 0),
+      activeMrrClp: Number(stats.active_mrr_clp || 0),
+    });
+  } catch (err) {
+    sendError(res, 500, 'Failed to load platform overview', err);
+  }
+});
+
+app.get('/api/platform/tenants', requirePlatformAdmin, async (req, res) => {
+  try {
+    const search = (req.query.search || '').toString().trim();
+    const values = [];
+    let where = '';
+    if (search) {
+      values.push(`%${search}%`);
+      where = 'WHERE name ILIKE $1 OR slug ILIKE $1 OR contact_email ILIKE $1';
+    }
+    const result = await pool.query(`
+      SELECT id, slug, name, status, plan, contact_email, subscription_status,
+        plan_price_clp, billing_provider, trial_ends_at, created_at
+      FROM tenants
+      ${where}
+      ORDER BY created_at DESC
+      LIMIT 200
+    `, values);
+    res.json(result.rows.map((tenant) => ({
+      id: tenant.id,
+      slug: tenant.slug,
+      name: tenant.name,
+      status: tenant.status,
+      plan: tenant.plan,
+      contactEmail: tenant.contact_email,
+      subscriptionStatus: tenant.subscription_status,
+      planPriceClp: tenant.plan_price_clp == null ? null : Number(tenant.plan_price_clp),
+      billingProvider: tenant.billing_provider,
+      trialEndsAt: tenant.trial_ends_at,
+      createdAt: tenant.created_at,
+    })));
+  } catch (err) {
+    sendError(res, 500, 'Failed to load platform tenants', err);
+  }
+});
+
+app.get('/api/platform/billing/providers', requirePlatformAdmin, (_req, res) => {
+  const defaultProvider = process.env.BILLING_DEFAULT_PROVIDER || 'none';
+  res.json({
+    defaultProvider,
+    providers: configuredBillingProviders().map((provider) => ({
+      ...provider,
+      active: provider.id === defaultProvider,
+    })),
+  });
 });
 
 // ═══ ADMIN DE CUPONES (Fase 4E) ═══════════════════════════════════════════════════
