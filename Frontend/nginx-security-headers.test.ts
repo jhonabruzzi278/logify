@@ -13,6 +13,10 @@ const CONF_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "nginx.prod.conf",
 );
+const VERCEL_CONFIG_PATH = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "vercel.json",
+);
 
 const REQUIRED_HEADERS = [
   "X-Content-Type-Options",
@@ -104,5 +108,14 @@ describe("Frontend/nginx.prod.conf - headers de seguridad", () => {
     for (const line of headerLines) {
       expect(line).toMatch(/always;\s*$/);
     }
+  });
+
+  it("permite la camara al propio portal para el lector de codigos del POS", () => {
+    const vercelConfig = readFileSync(VERCEL_CONFIG_PATH, "utf-8");
+
+    expect(conf).toContain('Permissions-Policy "camera=(self), microphone=(), geolocation=()"');
+    expect(vercelConfig).toContain('"value": "camera=(self), microphone=(), geolocation=()"');
+    expect(conf).not.toContain('Permissions-Policy "camera=(),');
+    expect(vercelConfig).not.toContain('"value": "camera=(),');
   });
 });
