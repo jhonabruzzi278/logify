@@ -48,7 +48,11 @@ function sessionFromClerkToken(token: string): Session {
 // publicMetadata.
 function logOrganizationDiagnostics(clerk: ClerkClient, token: string | null | undefined, label: string) {
   const memberships = clerk.user?.organizationMemberships ?? [];
-  console.error(`[ClerkBridgedAuthProvider.${label}] diagnostico de organizacion`, {
+  const claims = token ? decodeJwtPayload(token) as Record<string, unknown> : null;
+  // El visor remoto de consola aplana los objetos como "Object". Serializar
+  // solo los campos de autorizacion permite diagnosticar produccion sin
+  // registrar el JWT completo ni otros datos de la sesion.
+  console.error(`[ClerkBridgedAuthProvider.${label}] diagnostico de organizacion ${JSON.stringify({
     membershipCount: memberships.length,
     memberships: memberships.map((m) => ({
       organizationId: m.organization.id,
@@ -56,8 +60,14 @@ function logOrganizationDiagnostics(clerk: ClerkClient, token: string | null | u
       organizationPublicMetadata: m.organization.publicMetadata,
       membershipPublicMetadata: m.publicMetadata,
     })),
-    decodedTokenClaims: token ? decodeJwtPayload(token) : null,
-  });
+    decodedTokenClaims: claims ? {
+      username: claims.username,
+      role: claims.role,
+      tenant_id: claims.tenant_id,
+      tenant_slug: claims.tenant_slug,
+      iss: claims.iss,
+    } : null,
+  })}`);
 }
 
 export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {

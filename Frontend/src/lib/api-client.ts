@@ -165,7 +165,7 @@ export class ApiClient {
         // authMiddleware ("Token invalido" / "Token expirado" / "Token
         // requerido", ver Backend/shared/auth.js) se perdia -- solo llegaba
         // al usuario como "Tu sesion expiro", sin distinguir la causa.
-        console.error("[ApiClient] auth error", { url: response.url, status: response.status, message });
+        console.error(`[ApiClient] auth error ${JSON.stringify({ url: response.url, status: response.status, message })}`);
         this.onAuthError?.(response.status);
       }
 
