@@ -104,6 +104,24 @@ describe("ApiClient", () => {
     });
   });
 
+  it("diagnostica cuando Clerk no entrega un token renovado", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    client.setAuthRefreshHandler(vi.fn().mockResolvedValue(null));
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: "Token invalido" }), {
+        status: 401,
+        headers: { "x-request-id": "req-no-refresh" },
+      }),
+    );
+
+    await expect(client.fetch("/api/test")).rejects.toThrow("Token invalido");
+    expect(warn).toHaveBeenLastCalledWith("[ApiClient.auth] Clerk no entregó un token renovado", {
+      path: "/api/test",
+      status: 401,
+      requestId: "req-no-refresh",
+    });
+  });
+
   it("no intenta refresh sin handler", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 })

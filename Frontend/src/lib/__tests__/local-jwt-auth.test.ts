@@ -50,4 +50,20 @@ describe("inviteUser", () => {
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain("secreto-que-no-debe-aparecer");
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain("privado@empresa.test");
   });
+
+  it("diagnostica un fallo de red sin exponer los datos de la invitación", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(apiFetch).mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(inviteUser("otro-secreto", {
+      email: "otro@empresa.test",
+      role: "warehouse",
+    })).rejects.toThrow("Failed to fetch");
+
+    expect(consoleError).toHaveBeenCalledWith("[inviteUser] fallo de red al enviar invitación", {
+      errorType: "TypeError",
+    });
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("otro-secreto");
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("otro@empresa.test");
+  });
 });
