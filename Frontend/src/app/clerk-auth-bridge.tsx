@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
 import { useAuth as useClerkAuth, useClerk } from "@clerk/react";
 import { useSignIn } from "@clerk/react/legacy";
 import { isClerkAPIResponseError } from "@clerk/react/errors";
@@ -47,33 +47,71 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [restoringSession, setRestoringSession] = useState(true);
+  const organizationIdRef = useRef<string | null>(null);
+  const authVersionRef = useRef(0);
 
   const refreshToken = useCallback(async () => {
-    // Los claims dependen de la Organization activa. Forzar un token nuevo
-    // evita reutilizar durante 60 s uno emitido antes de setActive({ organization }).
-    return getToken({ template: CLERK_JWT_TEMPLATE, skipCache: true });
-  }, [getToken]);
+    // Los claims tenant_id/tenant_slug dependen de la Organization. No basta
+    // con que Clerk tenga una Organization activa: durante la propagacion de
+    // estado entre tabs puede emitir un JWT sin esos claims si organizationId
+    // no se pasa explicitamente. Ese JWT es valido para Clerk, pero requireTenant
+    // lo rechaza con 401 y antes provocaba el salto momentaneo al login.
+    const authVersion = authVersionRef.current;
+    let organizationId = organizationIdRef.current;
+    const sessionId = clerk.session?.id;
+    if (!organizationId && sessionId) {
+      organizationId = await activateFirstOrganizationMembership(clerk, setActive, sessionId);
+      organizationIdRef.current = organizationId;
+    }
+    if (!organizationId) return null;
+
+    const token = await getToken({
+      template: CLERK_JWT_TEMPLATE,
+      organizationId,
+      skipCache: true,
+    });
+    if (token && authVersion === authVersionRef.current) {
+      updateApiToken(token);
+      setSession(sessionFromClerkToken(token));
+      setError(null);
+    }
+    return token;
+  }, [clerk, getToken, setActive]);
 
   useEffect(() => {
     setApiAuthErrorListener((status) => {
       if (status === 401) {
-        setSession(null);
-        updateApiToken(null);
-        setError("Tu sesión expiró. Vuelve a iniciar sesión.");
+        // Un 401 del API no prueba que la sesion de Clerk haya terminado:
+        // tambien puede deberse a propagacion de claims o a una instancia del
+        // backend desactualizada. Mantener la sesion evita login -> app mientras
+        // Clerk conserva una cookie valida. Clerk es la fuente de verdad.
+        if (isSignedIn === false) {
+          organizationIdRef.current = null;
+          setSession(null);
+          updateApiToken(null);
+          setError("Tu sesión expiró. Vuelve a iniciar sesión.");
+        } else {
+          setError("No pudimos validar tu sesión con el servidor. Reintentaremos automáticamente.");
+        }
       }
     });
     setApiAuthRefreshHandler(refreshToken);
 
     return () => {
       setApiAuthErrorListener(null);
+      setApiAuthRefreshHandler(null);
     };
-  }, [refreshToken]);
+  }, [isSignedIn, refreshToken]);
 
   // Restaura la sesion desde la sesion de Clerk ya activa (cookies), en vez
   // de localStorage -- Clerk gestiona su propia persistencia.
   useEffect(() => {
     if (!authLoaded) return;
     if (!isSignedIn) {
+      authVersionRef.current += 1;
+      organizationIdRef.current = null;
+      updateApiToken(null);
+      setSession(null);
       setRestoringSession(false);
       return;
     }
@@ -89,6 +127,7 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
         ? await activateFirstOrganizationMembership(clerk, setActive, sessionId)
         : null;
       if (cancelled) return;
+      organizationIdRef.current = organizationId;
       const token = await getToken({
         template: CLERK_JWT_TEMPLATE,
         organizationId: organizationId ?? undefined,
@@ -106,6 +145,30 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
       cancelled = true;
     };
   }, [authLoaded, isSignedIn, getToken, clerk, setActive]);
+
+  // apiClient conserva el JWT que se le entrego al iniciar/restaurar sesion.
+  // Renovarlo poco antes de expirar evita que las consultas en segundo plano
+  // tengan que descubrir la expiracion mediante una rafaga de respuestas 401.
+  useEffect(() => {
+    if (!session || !isSignedIn) return;
+    const refreshAheadMs = 15_000;
+    const maxTimerMs = 2_147_000_000;
+    const delay = Math.min(maxTimerMs, Math.max(0, session.expiresAt - Date.now() - refreshAheadMs));
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void refreshToken()
+        .then(() => undefined)
+        .catch((refreshError) => {
+          if (cancelled) return;
+          console.warn("[ClerkBridgedAuthProvider] renovación preventiva falló", refreshError);
+        });
+    }, delay);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isSignedIn, refreshToken, session]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -141,6 +204,7 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
             await signOut();
             throw new Error("Tu cuenta no está asociada a ninguna empresa en Logify. Contacta a soporte.");
           }
+          organizationIdRef.current = organizationId;
           // Pasar organizationId evita depender de la propagación asíncrona
           // del estado activo de Clerk y garantiza que se interpolen los
           // shortcodes organization/org_membership del template logify-api.
@@ -177,6 +241,10 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
         }
       },
       async logout() {
+        // Invalida cualquier renovacion que ya estuviera esperando respuesta;
+        // de otro modo podria volver a poblar la sesion despues de signOut().
+        authVersionRef.current += 1;
+        organizationIdRef.current = null;
         try {
           await signOut();
         } finally {

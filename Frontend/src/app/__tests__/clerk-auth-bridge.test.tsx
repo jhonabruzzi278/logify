@@ -10,6 +10,8 @@ const mockSignOut = vi.fn();
 const mockSetApiAuthErrorListener = vi.fn();
 const mockSetApiAuthRefreshHandler = vi.fn();
 const mockUpdateApiToken = vi.fn();
+let registeredAuthErrorListener: ((status: number) => void) | null = null;
+let registeredAuthRefreshHandler: (() => Promise<string | null>) | null = null;
 
 let clerkAuthState: { isLoaded: boolean; isSignedIn: boolean } = { isLoaded: true, isSignedIn: false };
 const mockUserReload = vi.fn().mockResolvedValue(undefined);
@@ -78,6 +80,14 @@ function AuthConsumer() {
 describe("ClerkBridgedAuthProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    registeredAuthErrorListener = null;
+    registeredAuthRefreshHandler = null;
+    mockSetApiAuthErrorListener.mockImplementation((listener) => {
+      registeredAuthErrorListener = listener;
+    });
+    mockSetApiAuthRefreshHandler.mockImplementation((handler) => {
+      registeredAuthRefreshHandler = handler;
+    });
     clerkAuthState = { isLoaded: true, isSignedIn: false };
     clerkUser = { organizationMemberships: [{ organization: { id: "org_1" } }], reload: mockUserReload };
     clerkSessionId = "sess_restore";
@@ -119,6 +129,98 @@ describe("ClerkBridgedAuthProvider", () => {
       organizationId: "org_1",
       skipCache: true,
     });
+  });
+
+  it("renueva el token del API ligado explicitamente a la misma Organization", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    mockSetActive.mockResolvedValue(undefined);
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
+    expect(registeredAuthRefreshHandler).not.toBeNull();
+    mockGetToken.mockClear();
+
+    await registeredAuthRefreshHandler?.();
+
+    expect(mockGetToken).toHaveBeenCalledWith({
+      template: "logify-api",
+      organizationId: "org_1",
+      skipCache: true,
+    });
+  });
+
+  it("recupera la Organization al renovar si Clerk publica session.id despues de restaurar", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    clerkSessionId = null;
+    mockSetActive.mockResolvedValue(undefined);
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
+    // Clerk puede publicar el identificador un tick despues de isSignedIn.
+    // El refresh debe recuperar entonces la membership y no emitir un JWT
+    // sin tenant_id/tenant_slug.
+    clerkSessionId = "sess_late";
+    mockGetToken.mockClear();
+
+    await registeredAuthRefreshHandler?.();
+
+    expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_late", organization: "org_1" });
+    expect(mockGetToken).toHaveBeenCalledWith({
+      template: "logify-api",
+      organizationId: "org_1",
+      skipCache: true,
+    });
+  });
+
+  it("no emite un token de API sin Organization durante una renovacion", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    clerkSessionId = null;
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
+    mockGetToken.mockClear();
+
+    await expect(registeredAuthRefreshHandler?.()).resolves.toBeNull();
+    expect(mockGetToken).not.toHaveBeenCalled();
+  });
+
+  it("conserva la sesion local ante un 401 aislado si Clerk sigue autenticado", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    mockSetActive.mockResolvedValue(undefined);
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
+    expect(registeredAuthErrorListener).not.toBeNull();
+
+    registeredAuthErrorListener?.(401);
+
+    await waitFor(() => expect(screen.getByTestId("error")).toHaveTextContent("Reintentaremos automáticamente"));
+    expect(screen.getByTestId("session-username")).toHaveTextContent("admin");
+    expect(mockUpdateApiToken).not.toHaveBeenCalledWith(null);
   });
 
   it("restaura la sesion sin organizationId si Clerk todavia no expone un session.id en este tick", async () => {
