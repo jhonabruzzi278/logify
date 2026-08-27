@@ -15,7 +15,11 @@ interface ApiClientDeps {
 }
 
 export class ApiRequestError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly requestId?: string,
+  ) {
     super(message);
     this.name = "ApiRequestError";
   }
@@ -91,10 +95,26 @@ export class ApiClient {
     let response = await this.executeWithTimeout(url, init);
 
     if ((response.status === 401 || response.status === 403) && this.onAuthRefresh) {
+      console.warn("[ApiClient.auth] solicitud rechazada; renovando token", {
+        path,
+        status: response.status,
+        requestId: response.headers.get("x-request-id") ?? undefined,
+      });
       const refreshed = await this.dedupeRefresh();
       if (refreshed) {
         this.token = refreshed;
         response = await this.executeWithTimeout(url, init);
+        console.info("[ApiClient.auth] reintento completado", {
+          path,
+          status: response.status,
+          requestId: response.headers.get("x-request-id") ?? undefined,
+        });
+      } else {
+        console.warn("[ApiClient.auth] Clerk no entregó un token renovado", {
+          path,
+          status: response.status,
+          requestId: response.headers.get("x-request-id") ?? undefined,
+        });
       }
     }
 
@@ -164,7 +184,11 @@ export class ApiClient {
         this.onAuthError?.(response.status);
       }
 
-      throw new ApiRequestError(message, response.status);
+      throw new ApiRequestError(
+        message,
+        response.status,
+        response.headers.get("x-request-id") ?? undefined,
+      );
     }
     if (response.status === 204 || response.headers.get("content-length") === "0") {
       return undefined as T;
