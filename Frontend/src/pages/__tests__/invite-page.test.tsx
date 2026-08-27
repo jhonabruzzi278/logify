@@ -34,7 +34,7 @@ describe("InvitePage", () => {
     mockAcceptInvite.mockReset();
   });
 
-  it("navega al subdominio del tenant cuando el slug es valido", async () => {
+  it("navega al portal centralizado para cualquier tenant", async () => {
     mockAcceptInvite.mockResolvedValue({ tenantSlug: "lapercha" });
     const assignMock = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign: assignMock });
@@ -43,14 +43,11 @@ describe("InvitePage", () => {
     await acceptInvite();
     fireEvent.click(screen.getByRole("button", { name: /ir a iniciar sesión/i }));
 
-    expect(assignMock).toHaveBeenCalledWith("https://lapercha.logify.cl/login");
+    expect(assignMock).toHaveBeenCalledWith("https://app.logify.cl/login");
     vi.unstubAllGlobals();
   });
 
-  // Regresion: buildTenantUrl() lanza para slugs reservados (ej. "logify",
-  // que vive en app.logify.cl sin subdominio propio) -- antes del fix esto
-  // era un throw sin capturar dentro de un onClick.
-  it("navega al portal /login sin lanzar cuando el tenant es un slug reservado", async () => {
+  it("navega al portal centralizado incluso si recibe un slug legado", async () => {
     mockAcceptInvite.mockResolvedValue({ tenantSlug: "logify" });
     const assignMock = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign: assignMock });
@@ -59,8 +56,7 @@ describe("InvitePage", () => {
     await acceptInvite();
 
     expect(() => fireEvent.click(screen.getByRole("button", { name: /ir a iniciar sesión/i }))).not.toThrow();
-    expect(await screen.findByText("Pagina de login")).toBeInTheDocument();
-    expect(assignMock).not.toHaveBeenCalled();
+    expect(assignMock).toHaveBeenCalledWith("https://app.logify.cl/login");
     vi.unstubAllGlobals();
   });
 });
