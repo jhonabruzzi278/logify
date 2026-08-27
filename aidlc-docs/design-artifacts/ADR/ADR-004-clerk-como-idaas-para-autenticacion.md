@@ -2,6 +2,12 @@
 
 **Status:** Propuesto — groundwork aditivo implementado (2026-08-17). Aplicación de Clerk creada y vinculada al repo vía Clerk CLI (`app_3I21C3d2vw2s9YgINhbbYFp1VJh`, instancia de desarrollo; `clerk doctor` en verde), `.env.local` de `Frontend/` con las claves de desarrollo (ignorado por git). Paquete de React confirmado como **`@clerk/react`** (no `@clerk/clerk-react`, que se había usado en la primera pasada del groundwork) — es lo que la propia Clerk CLI instala hoy para un proyecto React sin framework, e incluye `OrganizationSwitcher` nativo.
 
+> **Actualización 2026-08-27:** el corte de login central con Clerk está activo
+> en producción. El onboarding y la restauración de sesión fueron verificados
+> de punta a punta en `app.logify.cl`. Durante el corte se detectó y corrigió un
+> error en los shortcodes de Organization del JWT Template; ver el
+> [post-mortem](../../operations/POST_MORTEMS/2026-08-27-clerk-jwt-shortcodes-organizacion.md).
+
 **Avance de la instancia de desarrollo (2026-08-17, vía dashboard de Clerk):**
 - ✅ Organizations ya estaba activo por defecto en esta instancia — sin toggle que prender.
 - ✅ JWT Template creado, nombre **`logify-api`** (id `jtmp_3I25Kx5bc9lKTPn0GZH9VNo7k3d`), con los 5 claims exactos descritos abajo. El frontend deberá pedir el token con `getToken({ template: 'logify-api' })` (o el nombre equivalente en `@clerk/react`) para que `shared/clerk-auth.js` reciba esos claims — el token de sesión default de Clerk no los trae.
@@ -76,10 +82,15 @@ El sistema tiene tenants reales en producción desde 2026-08-06 (aunque en etapa
      "username": "{{org_membership.public_metadata.username}}",
      "name": "{{user.first_name}} {{user.last_name}}",
      "role": "{{org_membership.public_metadata.role}}",
-     "tenant_id": "{{organization.public_metadata.tenant_id}}",
-     "tenant_slug": "{{organization.public_metadata.tenant_slug}}"
+     "tenant_id": "{{org.public_metadata.tenant_id}}",
+     "tenant_slug": "{{org.public_metadata.tenant_slug}}"
    }
    ```
+   **Importante:** `organization.public_metadata` no es un alias válido en
+   este template. Clerk conserva la expresión como texto literal; el prefijo
+   correcto es `org`. Después de activar/cambiar la Organization, solicitar un
+   token nuevo con `getToken({ template: 'logify-api', organizationId,
+   skipCache: true })`.
 4. Configurar el endpoint de webhook: `https://api.logify.cl/api/webhooks/clerk`, suscrito a `organization.created`, `organizationMembership.created`, `organizationMembership.updated`, `organizationMembership.deleted`. Copiar el **signing secret** (`whsec_...`).
 5. Variables de entorno a setear (GitHub Secrets para CI/CD del VPS, `.env` local, Vercel para el Frontend):
    - Backend (los 4 servicios, o al menos `orders-service` que además necesita el signing secret del webhook): `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`.
