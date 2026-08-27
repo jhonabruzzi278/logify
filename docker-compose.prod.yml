@@ -52,7 +52,10 @@ services:
       - INVENTORY_SERVICE_URL=http://inventory-service:8082
       - SHIPPING_SERVICE_URL=http://shipping-service:8084
       - NOTIFICATION_SERVICE_URL=http://notification-service:8085
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend}
+      # El portal global vive fuera de los dominios tenant y solo consume
+      # /api/platform. Se agrega aquí de forma declarativa para no depender de
+      # una edición manual del .env durante cada despliegue.
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?Definí ALLOWED_ORIGINS en tu .env con los dominios reales del frontend},https://gestion.logify.cl
       - PORT=8081
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
@@ -65,6 +68,13 @@ services:
       - JWT_SECRET_PREVIOUS=${JWT_SECRET_PREVIOUS:-}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-8h}
       - PLATFORM_ADMIN_KEY=${PLATFORM_ADMIN_KEY:-}
+      - PLATFORM_ADMIN_CLERK_USER_IDS=${PLATFORM_ADMIN_CLERK_USER_IDS:-}
+      - BILLING_DEFAULT_PROVIDER=${BILLING_DEFAULT_PROVIDER:-none}
+      - FLOW_API_KEY=${FLOW_API_KEY:-}
+      - FLOW_SECRET_KEY=${FLOW_SECRET_KEY:-}
+      - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN:-}
+      - PADDLE_API_KEY=${PADDLE_API_KEY:-}
+      - PADDLE_WEBHOOK_SECRET=${PADDLE_WEBHOOK_SECRET:-}
       - SIGNUP_RATE_LIMIT_MAX=${SIGNUP_RATE_LIMIT_MAX:-5}
       # Única vía pública de alta: onboarding central + Organization de Clerk.
       - SIGNUP_ENABLED=${SIGNUP_ENABLED:-true}

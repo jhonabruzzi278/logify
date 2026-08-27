@@ -10,6 +10,8 @@ import { ErrorBoundary } from "@/components/common/error-boundary";
 import { ToastProvider } from "@/components/common/toast-provider";
 import { BusinessModeProvider } from "@/hooks/use-business-mode";
 import { shouldActivateClerk } from "@/lib/clerk-config";
+import { isManagementPortalHostname } from "@/lib/tenant-navigation";
+import { ManagementPortal } from "@/management/management-portal";
 import "@/styles/index.css";
 
 const isLocalEnvironment = ["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -50,7 +52,11 @@ updateServiceWorker = registerSW({
 // resto de la app no cambian. En cualquier otro caso (sin la env var, o en un
 // subdominio de tenant todavia no migrado a Clerk) el arbol es identico al de
 // antes de que Clerk existiera en el proyecto.
-const authTree = shouldActivateClerk(window.location.hostname) ? (
+const authTree = isManagementPortalHostname(window.location.hostname) ? (
+  <ClerkAuthProvider>
+    <ManagementPortal />
+  </ClerkAuthProvider>
+) : shouldActivateClerk(window.location.hostname) ? (
   <ClerkAuthProvider>
     <ClerkBridgedAuthProvider>
       <BusinessModeProvider>

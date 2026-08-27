@@ -1,4 +1,4 @@
-import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
+import { isManagementPortalHostname, isPlatformPortalHostname } from "@/lib/tenant-navigation";
 
 // Groundwork Clerk (ver aidlc-docs/design-artifacts/ADR/ADR-004-clerk-como-idaas-para-autenticacion.md).
 // Sin VITE_CLERK_PUBLISHABLE_KEY configurada, todo lo relacionado a Clerk
@@ -28,5 +28,5 @@ const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1"]);
 // probando /login-clerk).
 export function shouldActivateClerk(hostname: string): boolean {
   if (!isClerkConfigured()) return false;
-  return isPlatformPortalHostname(hostname) || LOCAL_HOSTNAMES.has(hostname.toLowerCase());
+  return isPlatformPortalHostname(hostname) || isManagementPortalHostname(hostname) || LOCAL_HOSTNAMES.has(hostname.toLowerCase());
 }

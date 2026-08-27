@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTenantUrl, isPlatformPortalHostname, normalizeTenantSlug } from "@/lib/tenant-navigation";
+import { buildTenantUrl, isManagementPortalHostname, isPlatformPortalHostname, normalizeTenantSlug } from "@/lib/tenant-navigation";
 
 describe("tenant navigation", () => {
   it("normaliza slug y URL completa del tenant", () => {
@@ -9,6 +9,7 @@ describe("tenant navigation", () => {
 
   it("rechaza dominios reservados y entradas inválidas", () => {
     expect(normalizeTenantSlug("app.logify.cl")).toBeNull();
+    expect(normalizeTenantSlug("gestion.logify.cl")).toBeNull();
     expect(normalizeTenantSlug("empresa_con_guion_bajo")).toBeNull();
   });
 
@@ -19,5 +20,10 @@ describe("tenant navigation", () => {
   it("reconoce exclusivamente el portal central", () => {
     expect(isPlatformPortalHostname("app.logify.cl")).toBe(true);
     expect(isPlatformPortalHostname("lapercha.logify.cl")).toBe(false);
+  });
+
+  it("distingue el portal de gestión del portal de clientes", () => {
+    expect(isManagementPortalHostname("gestion.logify.cl")).toBe(true);
+    expect(isManagementPortalHostname("app.logify.cl")).toBe(false);
   });
 });

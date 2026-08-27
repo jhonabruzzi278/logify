@@ -44,6 +44,13 @@ jobs:
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           CLERK_WEBHOOK_SIGNING_SECRET: ${{ secrets.CLERK_WEBHOOK_SIGNING_SECRET }}
+          PLATFORM_ADMIN_CLERK_USER_IDS: ${{ secrets.PLATFORM_ADMIN_CLERK_USER_IDS }}
+          BILLING_DEFAULT_PROVIDER: ${{ secrets.BILLING_DEFAULT_PROVIDER }}
+          FLOW_API_KEY: ${{ secrets.FLOW_API_KEY }}
+          FLOW_SECRET_KEY: ${{ secrets.FLOW_SECRET_KEY }}
+          MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
+          PADDLE_API_KEY: ${{ secrets.PADDLE_API_KEY }}
+          PADDLE_WEBHOOK_SECRET: ${{ secrets.PADDLE_WEBHOOK_SECRET }}
           # El onboarding central ya aprovisiona Clerk y termina en app.logify.cl.
           # Se sincroniza explícitamente para reemplazar cualquier false legado
           # que haya quedado guardado en el .env del VPS.
@@ -54,7 +61,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 15m
-          envs: SYNC_ENV_FROM_CI,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASS,SMTP_FROM,SMTP_REPLY_TO,SUPPORT_WHATSAPP_URL,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY,VAPID_SUBJECT,CLERK_SECRET_KEY,CLERK_WEBHOOK_SIGNING_SECRET,SIGNUP_ENABLED
+          envs: SYNC_ENV_FROM_CI,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASS,SMTP_FROM,SMTP_REPLY_TO,SUPPORT_WHATSAPP_URL,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY,VAPID_SUBJECT,CLERK_SECRET_KEY,CLERK_WEBHOOK_SIGNING_SECRET,PLATFORM_ADMIN_CLERK_USER_IDS,BILLING_DEFAULT_PROVIDER,FLOW_API_KEY,FLOW_SECRET_KEY,MERCADOPAGO_ACCESS_TOKEN,PADDLE_API_KEY,PADDLE_WEBHOOK_SECRET,SIGNUP_ENABLED
           script: |
             cd ~/logify
             bash Backend/scripts/02-vps-deploy.sh

@@ -69,6 +69,13 @@ sync_env_from_ci() {
   sync_env_var VAPID_SUBJECT "${VAPID_SUBJECT:-}"
   sync_env_var CLERK_SECRET_KEY "${CLERK_SECRET_KEY:-}"
   sync_env_var CLERK_WEBHOOK_SIGNING_SECRET "${CLERK_WEBHOOK_SIGNING_SECRET:-}"
+  sync_env_var PLATFORM_ADMIN_CLERK_USER_IDS "${PLATFORM_ADMIN_CLERK_USER_IDS:-}"
+  sync_env_var BILLING_DEFAULT_PROVIDER "${BILLING_DEFAULT_PROVIDER:-}"
+  sync_env_var FLOW_API_KEY "${FLOW_API_KEY:-}"
+  sync_env_var FLOW_SECRET_KEY "${FLOW_SECRET_KEY:-}"
+  sync_env_var MERCADOPAGO_ACCESS_TOKEN "${MERCADOPAGO_ACCESS_TOKEN:-}"
+  sync_env_var PADDLE_API_KEY "${PADDLE_API_KEY:-}"
+  sync_env_var PADDLE_WEBHOOK_SECRET "${PADDLE_WEBHOOK_SECRET:-}"
   sync_env_var SIGNUP_ENABLED "${SIGNUP_ENABLED:-}"
   if [ "$before" != "$(sha256sum .env 2>/dev/null || true)" ]; then
     echo "==> .env cambio -- se forzara redeploy aunque el commit no haya cambiado."
