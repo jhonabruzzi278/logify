@@ -29,7 +29,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Deploy vía SSH (Backend/scripts/02-vps-deploy.sh)
-        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           SYNC_ENV_FROM_CI: "1"
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
