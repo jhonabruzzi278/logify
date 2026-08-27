@@ -1,17 +1,15 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { CheckCircle2, KeyRound, Lock, User } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { acceptInvite } from "@/lib/local-jwt-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
-import { buildTenantUrl, normalizeTenantSlug } from "@/lib/tenant-navigation";
 import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
 import { Logo } from "@/components/common/logo";
 
 export function InvitePage() {
   useDocumentMeta({ title: "Aceptar invitación" });
-  const navigate = useNavigate();
   const { token } = useParams<{ token: string }>();
 
   const [username, setUsername] = useState("");
@@ -21,18 +19,11 @@ export function InvitePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const tenantSlugRef = useRef("");
-
   function handleGoToLogin() {
-    // buildTenantUrl() lanza para slugs reservados (ej. "logify", el tenant
-    // que ya vive en app.logify.cl sin subdominio propio) -- ahi el destino
-    // correcto es el portal, no un subdominio que nunca existio.
-    const slug = tenantSlugRef.current;
-    if (slug && normalizeTenantSlug(slug)) {
-      window.location.assign(buildTenantUrl(slug));
-      return;
-    }
-    navigate("/login", { replace: true });
+    // La aplicación ya no usa subdominios por cliente. Todas las cuentas,
+    // incluidas las creadas desde una invitación, inician sesión en el portal
+    // centralizado para que no terminen en un deployment inexistente.
+    window.location.assign("https://app.logify.cl/login");
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -50,8 +41,7 @@ export function InvitePage() {
 
     setBusy(true);
     try {
-      const result = await acceptInvite(token, { username: username.trim(), password, name: name.trim() });
-      tenantSlugRef.current = result.tenantSlug;
+      await acceptInvite(token, { username: username.trim(), password, name: name.trim() });
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo aceptar la invitación.");
