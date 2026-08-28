@@ -73,8 +73,6 @@ services:
       - FLOW_API_KEY=${FLOW_API_KEY:-}
       - FLOW_SECRET_KEY=${FLOW_SECRET_KEY:-}
       - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN:-}
-      - PADDLE_API_KEY=${PADDLE_API_KEY:-}
-      - PADDLE_WEBHOOK_SECRET=${PADDLE_WEBHOOK_SECRET:-}
       - SIGNUP_RATE_LIMIT_MAX=${SIGNUP_RATE_LIMIT_MAX:-5}
       # Única vía pública de alta: onboarding central + Organization de Clerk.
       - SIGNUP_ENABLED=${SIGNUP_ENABLED:-true}
