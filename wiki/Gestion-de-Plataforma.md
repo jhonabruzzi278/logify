@@ -30,8 +30,7 @@ navegador.
 
 - Resumen de organizaciones, pruebas, suscripciones activas y MRR registrado.
 - Búsqueda y estado de organizaciones.
-- Diagnóstico de configuración de Flow, Mercado Pago y Paddle sin exponer
-  secretos.
+- Diagnóstico de configuración de Flow y Mercado Pago sin exponer secretos.
 
 La selección editable del proveedor se habilita cuando el billing service y
 al menos un adaptador real estén disponibles. Cambiar el proveedor por defecto

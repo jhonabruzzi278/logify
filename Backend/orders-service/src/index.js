@@ -44,11 +44,6 @@ function configuredBillingProviders() {
       name: 'Mercado Pago',
       configured: Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN),
     },
-    {
-      id: 'paddle',
-      name: 'Paddle',
-      configured: Boolean(process.env.PADDLE_API_KEY && process.env.PADDLE_WEBHOOK_SECRET),
-    },
   ];
 }
 
