@@ -1,0 +1,58 @@
+{
+  "name": "billing-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API central y adaptadores de facturacion de Logify",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "cd .. && node billing-service/node_modules/jest/bin/jest.js --config billing-service/package.json --coverage",
+    "test:watch": "jest --watch"
+  },
+  "dependencies": {
+    "@clerk/backend": "^3.16.6",
+    "cors": "^2.8.5",
+    "express": "^4.22.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.2.2"
+  },
+  "jest": {
+    "rootDir": "..",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/billing-service/src"
+    ],
+    "testMatch": [
+      "**/billing-service/src/**/*.test.js"
+    ],
+    "modulePaths": [
+      "<rootDir>/billing-service/node_modules"
+    ],
+    "moduleNameMapper": {
+      "^\\.\\./\\.\\./shared/(.*)$": "<rootDir>/shared/$1",
+      "^\\.\\./shared/(.*)$": "<rootDir>/shared/$1"
+    },
+    "coverageDirectory": "<rootDir>/billing-service/coverage",
+    "coverageReporters": ["text", "html", "lcov"],
+    "collectCoverageFrom": [
+      "billing-service/src/**/*.js",
+      "!billing-service/src/**/*.test.js",
+      "!billing-service/src/testing/**",
+      "!billing-service/src/index.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 85,
+        "lines": 85,
+        "statements": 85
+      }
+    }
+  }
+}
