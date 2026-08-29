@@ -32,6 +32,21 @@ umask 077
 chmod 600 "$ENV_FILE"
 
 compose=(docker compose --project-name "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE")
+response_file=""
+headers_file=""
+
+on_exit() {
+  exit_code=$?
+  [[ -z "$response_file" ]] || rm -f "$response_file"
+  [[ -z "$headers_file" ]] || rm -f "$headers_file"
+  if [[ $exit_code -ne 0 ]]; then
+    echo "==> Diagnostico del stack tras el fallo..." >&2
+    "${compose[@]}" ps >&2 || true
+    "${compose[@]}" logs --tail=100 billing-service billing-api-gateway >&2 || true
+  fi
+  exit "$exit_code"
+}
+trap on_exit EXIT
 
 echo "==> Construyendo y levantando billing sandbox..."
 "${compose[@]}" up -d --build --remove-orphans
@@ -59,7 +74,6 @@ other_tenant_token=$("${compose[@]}" exec -T billing-service node -e \
 idempotency_key="deploy-${SANDBOX_DEPLOY_SHA:-manual}"
 response_file=$(mktemp)
 headers_file=$(mktemp)
-trap 'rm -f "$response_file" "$headers_file"' EXIT
 
 create_status=$(curl --silent --show-error --output "$response_file" --dump-header "$headers_file" --write-out '%{http_code}' \
   --request POST http://127.0.0.1:8087/api/billing/v1/subscriptions \
