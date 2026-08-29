@@ -1,6 +1,6 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { BillingError } = require('../domain/billing');
 
 function mapSubscription(row) {

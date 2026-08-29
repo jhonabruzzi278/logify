@@ -11,6 +11,7 @@ class MemoryRepository {
     this.subscriptions = new Map();
     this.audits = [];
     this.outbox = [];
+    this.resources = [];
   }
   key(tenantId, operation, key) { return `${tenantId}:${operation}:${key}`; }
   async getPlan(_db, planId, provider) {
@@ -53,7 +54,7 @@ class MemoryRepository {
     if (!item) return null;
     item.status = 'canceled'; item.canceledAt = value.canceledAt; return item;
   }
-  async addProviderResource() {}
+  async addProviderResource(_db, value) { this.resources.push(value); }
   async appendAudit(_db, value) { this.audits.push(value); }
   async enqueueOutbox(_db, value) { this.outbox.push(value); }
 }

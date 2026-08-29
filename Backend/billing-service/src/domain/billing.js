@@ -24,7 +24,7 @@ function normalizeEmail(value) {
   const email = String(value || '').trim().toLowerCase();
   const at = email.indexOf('@');
   const domain = at >= 0 ? email.slice(at + 1) : '';
-  const hasUnsafeWhitespace = [...email].some((character) => character.charCodeAt(0) <= 32);
+  const hasUnsafeWhitespace = [...email].some((character) => character.codePointAt(0) <= 32);
   const invalid = email.length < 3 || email.length > 254 || hasUnsafeWhitespace ||
     at <= 0 || at !== email.lastIndexOf('@') || domain.length < 3 ||
     domain.startsWith('.') || domain.endsWith('.') || !domain.includes('.');

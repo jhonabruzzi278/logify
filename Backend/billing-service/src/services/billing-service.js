@@ -1,6 +1,6 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const {
   BillingError, TERMINAL_SUBSCRIPTION_STATES, normalizeEmail, requireId,
 } = require('../domain/billing');

@@ -43,8 +43,7 @@
     "collectCoverageFrom": [
       "billing-service/src/**/*.js",
       "!billing-service/src/**/*.test.js",
-      "!billing-service/src/testing/**",
-      "!billing-service/src/index.js"
+      "!billing-service/src/testing/**"
     ],
     "coverageThreshold": {
       "global": {

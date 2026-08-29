@@ -201,7 +201,7 @@ async function ensureRuntimeRole(pool, { password, databaseName = 'billing_db' }
     log.warn('DB_RUNTIME_PASSWORD no configurada; billing-service no habilitara acceso runtime');
     return false;
   }
-  const escapedPassword = password.replace(/'/g, "''");
+  const escapedPassword = password.replaceAll("'", "''");
   const exists = await pool.query("SELECT 1 FROM pg_roles WHERE rolname='app_runtime'");
   if (exists.rows.length) await pool.query(`ALTER ROLE app_runtime WITH PASSWORD '${escapedPassword}'`);
   else await pool.query(`CREATE ROLE app_runtime WITH LOGIN PASSWORD '${escapedPassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`);

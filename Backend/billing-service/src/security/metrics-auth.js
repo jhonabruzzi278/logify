@@ -1,6 +1,6 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 
 function safeEqual(left, right) {
   const a = Buffer.from(String(left || ''));

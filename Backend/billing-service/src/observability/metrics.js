@@ -3,7 +3,14 @@
 const ALLOWED_LABELS = new Set(['provider', 'operation', 'status', 'environment']);
 
 function escapeLabel(value) {
-  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+  let escaped = '';
+  for (const character of String(value)) {
+    if (character === '\\') escaped += '\\\\';
+    else if (character === '"') escaped += '\\"';
+    else if (character === '\n') escaped += '\\n';
+    else escaped += character;
+  }
+  return escaped;
 }
 
 class MetricsRegistry {
@@ -25,7 +32,8 @@ class MetricsRegistry {
     const lines = [];
     for (const { name, labels, value } of this.counters.values()) {
       const pairs = Object.entries(labels).map(([key, val]) => `${key}="${escapeLabel(val)}"`);
-      lines.push(`${name}${pairs.length ? `{${pairs.join(',')}}` : ''} ${value}`);
+      const renderedLabels = pairs.length ? `{${pairs.join(',')}}` : '';
+      lines.push(`${name}${renderedLabels} ${value}`);
     }
     return `${lines.join('\n')}${lines.length ? '\n' : ''}`;
   }

@@ -1,6 +1,6 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { BillingProvider } = require('./billing-provider');
 
 function stableId(prefix, idempotencyKey) {
