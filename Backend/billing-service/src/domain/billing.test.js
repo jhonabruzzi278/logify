@@ -28,6 +28,10 @@ describe('billing domain', () => {
     expect(generic).toMatchObject({ code: 'billing_error', status: 400 });
     expect(() => normalizeEmail('')).toThrow('correo');
     expect(() => normalizeEmail(`${'a'.repeat(250)}@x.cl`)).toThrow('correo');
+    expect(() => normalizeEmail('a@@example.cl')).toThrow('correo');
+    expect(() => normalizeEmail('a@.example.cl')).toThrow('correo');
+    expect(() => normalizeEmail('a@example.cl.')).toThrow('correo');
+    expect(() => normalizeEmail('a @example.cl')).toThrow('correo');
     expect(() => requireId('', 'id')).toThrow('id');
   });
 });

@@ -22,7 +22,13 @@ class BillingError extends Error {
 
 function normalizeEmail(value) {
   const email = String(value || '').trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+  const at = email.indexOf('@');
+  const domain = at >= 0 ? email.slice(at + 1) : '';
+  const hasUnsafeWhitespace = [...email].some((character) => character.charCodeAt(0) <= 32);
+  const invalid = email.length < 3 || email.length > 254 || hasUnsafeWhitespace ||
+    at <= 0 || at !== email.lastIndexOf('@') || domain.length < 3 ||
+    domain.startsWith('.') || domain.endsWith('.') || !domain.includes('.');
+  if (invalid) {
     throw new BillingError('El correo del cliente no es valido', { code: 'invalid_customer_email' });
   }
   return email;
