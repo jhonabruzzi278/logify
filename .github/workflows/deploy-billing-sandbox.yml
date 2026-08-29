@@ -34,13 +34,14 @@ jobs:
           PLATFORM_ADMIN_CLERK_USER_IDS: ${{ secrets.PLATFORM_ADMIN_CLERK_USER_IDS }}
           ALLOWED_ORIGINS: https://gestion.logify.cl
           BILLING_FAKE_CHECKOUT_URL: https://gestion-sandbox.logify.cl/billing/fake
+          PUBLISH_SANDBOX_EDGE: "1"
         with:
           host: ${{ secrets.VPS_HOST }}
           port: ${{ secrets.VPS_PORT }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 15m
-          envs: SANDBOX_DEPLOY_SHA,POSTGRES_PASSWORD,DB_RUNTIME_PASSWORD,JWT_SECRET,BILLING_METRICS_TOKEN,CLERK_SECRET_KEY,PLATFORM_ADMIN_CLERK_USER_IDS,ALLOWED_ORIGINS,BILLING_FAKE_CHECKOUT_URL
+          envs: SANDBOX_DEPLOY_SHA,POSTGRES_PASSWORD,DB_RUNTIME_PASSWORD,JWT_SECRET,BILLING_METRICS_TOKEN,CLERK_SECRET_KEY,PLATFORM_ADMIN_CLERK_USER_IDS,ALLOWED_ORIGINS,BILLING_FAKE_CHECKOUT_URL,PUBLISH_SANDBOX_EDGE
           script: |
             set -euo pipefail
             sandbox_root="$HOME/logify-billing-sandbox"

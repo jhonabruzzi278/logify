@@ -43,7 +43,10 @@ Environment de GitHub `sandbox`, un checkout separado en el VPS y el proyecto
 Docker `logify-billing-sandbox`; no modifica el checkout ni el compose de
 produccion.
 
-Hasta que el edge TLS de `api-sandbox.logify.cl` este validado, el gateway queda
-ligado exclusivamente a `127.0.0.1:8087`. El deploy prueba salud con PostgreSQL,
-creacion y replay idempotente, y aislamiento entre tenants mediante RLS. Las
-metricas no se publican a traves del gateway.
+El gateway queda ligado exclusivamente a `127.0.0.1:8087` y se conecta a Caddy
+por una red Docker dedicada; ni billing-service ni PostgreSQL se conectan a esa
+red. Antes de recargar Caddy, el deploy valida su configuracion y la salud de
+produccion. Si la publicacion o las comprobaciones posteriores fallan, restaura
+la configuracion montada de produccion. El deploy tambien prueba salud con
+PostgreSQL, creacion y replay idempotente, y aislamiento entre tenants mediante
+RLS. Las metricas no se publican a traves del gateway.

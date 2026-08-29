@@ -7,6 +7,12 @@ COMPOSE_PROJECT_NAME="logify-billing-sandbox"
 COMPOSE_FILE="docker-compose.billing-sandbox.yml"
 ENV_FILE="${SANDBOX_ENV_FILE:-$HOME/logify-billing-sandbox/shared/billing.env}"
 HEALTH_URL="http://127.0.0.1:8087/healthz"
+PUBLIC_HEALTH_URL="https://api-sandbox.logify.cl/healthz"
+PRODUCTION_HEALTH_URL="https://api.logify.cl/healthz"
+EDGE_NETWORK="logify-sandbox-edge"
+CADDY_CONTAINER="logify-caddy"
+CADDY_CANDIDATE="/tmp/Caddyfile.billing-sandbox"
+edge_reloaded=false
 
 required=(POSTGRES_PASSWORD DB_RUNTIME_PASSWORD JWT_SECRET BILLING_METRICS_TOKEN)
 for variable_name in "${required[@]}"; do
@@ -43,6 +49,11 @@ on_exit() {
     echo "==> Diagnostico del stack tras el fallo..." >&2
     "${compose[@]}" ps >&2 || true
     "${compose[@]}" logs --tail=100 billing-service billing-api-gateway >&2 || true
+    if [[ "$edge_reloaded" == true ]]; then
+      echo "==> Revirtiendo Caddy a la configuracion montada de produccion..." >&2
+      docker exec "$CADDY_CONTAINER" caddy reload \
+        --config /etc/caddy/Caddyfile --adapter caddyfile >&2 || true
+    fi
   fi
   exit "$exit_code"
 }
@@ -107,5 +118,46 @@ metrics_status=$(curl --silent --show-error --output /dev/null --write-out '%{ht
   http://127.0.0.1:8087/metrics --header "Authorization: Bearer $BILLING_METRICS_TOKEN")
 [[ "$metrics_status" == "404" ]] || { echo "Metrics no debe publicarse por el gateway sandbox" >&2; exit 1; }
 
+if [[ "${PUBLISH_SANDBOX_EDGE:-0}" == "1" ]]; then
+  echo "==> Validando salud de produccion antes de tocar el edge..."
+  curl --fail --silent --show-error "$PRODUCTION_HEALTH_URL" >/dev/null
+  docker inspect "$CADDY_CONTAINER" >/dev/null
+
+  if ! docker network inspect "$EDGE_NETWORK" >/dev/null 2>&1; then
+    docker network create "$EDGE_NETWORK" >/dev/null
+  fi
+  gateway_container=$("${compose[@]}" ps -q billing-api-gateway)
+  [[ -n "$gateway_container" ]] || { echo "No se encontro el gateway sandbox" >&2; exit 1; }
+  gateway_name=$(docker inspect --format '{{.Name}}' "$gateway_container" | sed 's#^/##')
+  if ! docker network inspect --format '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}' "$EDGE_NETWORK" \
+    | grep -Fxq "$gateway_name"; then
+    docker network connect --alias billing-sandbox-gateway "$EDGE_NETWORK" "$gateway_container"
+  fi
+  if ! docker network inspect --format '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}' "$EDGE_NETWORK" \
+    | grep -Fxq "$CADDY_CONTAINER"; then
+    docker network connect "$EDGE_NETWORK" "$CADDY_CONTAINER"
+  fi
+
+  echo "==> Validando y recargando Caddy sin reiniciar produccion..."
+  docker cp Backend/Caddyfile "$CADDY_CONTAINER:$CADDY_CANDIDATE"
+  docker exec "$CADDY_CONTAINER" caddy validate --config "$CADDY_CANDIDATE" --adapter caddyfile
+  docker exec "$CADDY_CONTAINER" caddy reload --config "$CADDY_CANDIDATE" --adapter caddyfile
+  edge_reloaded=true
+
+  public_healthy=false
+  for _attempt in $(seq 1 45); do
+    if curl --fail --silent --show-error \
+      --resolve api-sandbox.logify.cl:443:127.0.0.1 "$PUBLIC_HEALTH_URL" >/dev/null; then
+      public_healthy=true
+      break
+    fi
+    sleep 2
+  done
+  [[ "$public_healthy" == true ]] || { echo "El HTTPS publico del sandbox no quedo sano" >&2; exit 1; }
+  curl --fail --silent --show-error "$PRODUCTION_HEALTH_URL" >/dev/null
+  edge_reloaded=false
+  echo "==> Edge HTTPS sano y produccion verificada."
+fi
+
 "${compose[@]}" ps
-echo "==> Billing sandbox sano; API aun accesible solo desde localhost:8087."
+echo "==> Billing sandbox sano."

@@ -28,3 +28,19 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 	}
 }
+
+# Entrada publica exclusiva para la API central de facturacion en sandbox.
+# Caddy comparte con el gateway una red Docker dedicada; billing-service y su
+# PostgreSQL permanecen en la red privada del compose sandbox.
+api-sandbox.logify.cl {
+	reverse_proxy billing-sandbox-gateway:80
+
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}
