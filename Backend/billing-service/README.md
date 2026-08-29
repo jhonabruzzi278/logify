@@ -34,3 +34,16 @@ BILLING_METRICS_TOKEN=...
 
 El proceso se niega a iniciar si falta `DB_RUNTIME_URL` o el rol restringido.
 El proveedor `fake` se rechaza expresamente cuando `BILLING_ENVIRONMENT=production`.
+
+## Sandbox remoto
+
+El workflow `Deploy Billing Sandbox` solo acepta el PR de la rama
+`feat/billing-core-sandbox` y exige la etiqueta `deploy-sandbox`. Usa el
+Environment de GitHub `sandbox`, un checkout separado en el VPS y el proyecto
+Docker `logify-billing-sandbox`; no modifica el checkout ni el compose de
+produccion.
+
+Hasta que el edge TLS de `api-sandbox.logify.cl` este validado, el gateway queda
+ligado exclusivamente a `127.0.0.1:8087`. El deploy prueba salud con PostgreSQL,
+creacion y replay idempotente, y aislamiento entre tenants mediante RLS. Las
+metricas no se publican a traves del gateway.
