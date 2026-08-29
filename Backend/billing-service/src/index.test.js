@@ -16,7 +16,7 @@ jest.mock('./db/migrations', () => ({
 const { createApp } = require('../shared/app');
 const { registerBillingRoutes } = require('./http/routes');
 const migrations = require('./db/migrations');
-const { buildProviders, buildRuntime, bootstrap } = require('./index');
+const { buildProviders, buildRuntime, bootstrap, isMainModule } = require('./index');
 
 describe('billing bootstrap wiring', () => {
   beforeEach(() => {
@@ -37,6 +37,12 @@ describe('billing bootstrap wiring', () => {
       BILLING_ENVIRONMENT: 'production', BILLING_FAKE_PROVIDER_ENABLED: 'true',
     })).toThrow('no puede habilitarse');
     expect(buildProviders({ BILLING_ENVIRONMENT: 'sandbox' }).describe()).toEqual([]);
+  });
+
+  test('detecta de forma portable si el archivo es el entrypoint', () => {
+    expect(isMainModule(['node', require.resolve('./index')])).toBe(true);
+    expect(isMainModule(['node', require.resolve('./index.test')])).toBe(false);
+    expect(isMainModule(['node'])).toBe(false);
   });
 
   test('construye runtime con RLS obligatorio y registra rutas', () => {

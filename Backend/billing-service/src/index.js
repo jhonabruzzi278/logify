@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('node:path');
 const { createApp } = require('../shared/app');
 const { authMiddleware, requireTenant } = require('../shared/auth');
 const { requirePlatformAdmin } = require('../shared/platform-auth');
@@ -62,11 +63,15 @@ async function bootstrap(runtime = buildRuntime()) {
   return runtime;
 }
 
-if (require.main === module) {
+function isMainModule(argv = process.argv) {
+  return Boolean(argv[1]) && path.resolve(argv[1]) === __filename;
+}
+
+if (isMainModule()) {
   bootstrap().catch((err) => {
     log.error('billing-service startup failed', { error: err.message });
     process.exit(1);
   });
 }
 
-module.exports = { buildProviders, buildRuntime, bootstrap, BillingProvider };
+module.exports = { buildProviders, buildRuntime, bootstrap, isMainModule, BillingProvider };

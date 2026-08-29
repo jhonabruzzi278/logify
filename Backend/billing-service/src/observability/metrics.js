@@ -1,13 +1,16 @@
 'use strict';
 
 const ALLOWED_LABELS = new Set(['provider', 'operation', 'status', 'environment']);
+const ESCAPED_BACKSLASH = String.raw`\\`;
+const ESCAPED_QUOTE = String.raw`\"`;
+const ESCAPED_NEWLINE = String.raw`\n`;
 
 function escapeLabel(value) {
   let escaped = '';
   for (const character of String(value)) {
-    if (character === '\\') escaped += '\\\\';
-    else if (character === '"') escaped += '\\"';
-    else if (character === '\n') escaped += '\\n';
+    if (character === '\\') escaped += ESCAPED_BACKSLASH;
+    else if (character === '"') escaped += ESCAPED_QUOTE;
+    else if (character === '\n') escaped += ESCAPED_NEWLINE;
     else escaped += character;
   }
   return escaped;
