@@ -11,6 +11,7 @@ export type ShipmentStage = "en_preparacion" | "en_reparto" | "entregado" | "can
 export interface Product {
   id: string;
   sku: string;
+  barcode?: string | null;
   name: string;
   stock: number;
   price: number;

@@ -1,4 +1,3 @@
-const QRCode = require('qrcode');
 const { createApp } = require('../shared/app');
 const { validateInventoryBody, validateSaleBody } = require('../shared/validate');
 const { authMiddleware, requireTenant, requireRole } = require('../shared/auth');
@@ -20,6 +19,7 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS cost INTEGER DEFAULT 0`).catch(() => {});
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS category VARCHAR(30) DEFAULT 'otros'`).catch(() => {});
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_url TEXT`).catch(() => {});
+  await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS barcode VARCHAR(100)`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS sale_group VARCHAR(50)`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20)`).catch(() => {});
   await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS vendor_id VARCHAR(100)`).catch(() => {});
@@ -75,6 +75,7 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS variant_label VARCHAR(100)`).catch(() => {});
 
   await ensureTenantColumns();
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_tenant_barcode ON inventory (tenant_id, barcode) WHERE barcode IS NOT NULL`).catch(() => {});
 }
 
 // Fase 4A del roadmap multi-tenant (ver wiki/Multi-Tenant.md): backfill al
@@ -321,14 +322,17 @@ app.post('/api/inventory', authMiddleware, requireTenant, requireRole('owner', '
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
     if ((await pool.query('SELECT 1 FROM inventory WHERE sku=$1 AND tenant_id=$2', [req.body.sku, req.tenantId])).rows.length)
       return res.status(409).json({ error: 'SKU ya existe' });
+    const barcode = typeof req.body.barcode === 'string' ? req.body.barcode.trim() || null : null;
+    if (barcode && (await pool.query('SELECT 1 FROM inventory WHERE barcode=$1 AND tenant_id=$2', [barcode, req.tenantId])).rows.length)
+      return res.status(409).json({ error: 'Código de barras ya existe' });
     const result = await pool.query(
       `INSERT INTO inventory (sku, stock, name, price, cost, category, image_url, tenant_id,
-        supplier_id, unit_of_measure, tax_rate, price_includes_tax, active, parent_sku, variant_label)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+        supplier_id, unit_of_measure, tax_rate, price_includes_tax, active, parent_sku, variant_label, barcode)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
       [req.body.sku, req.body.stock || 0, req.body.name || null, req.body.price || 0, req.body.cost || 0,
        req.body.category || 'otros', req.body.imageUrl || null, req.tenantId,
        req.body.supplierId || null, req.body.unitOfMeasure || 'unidad', req.body.taxRate || 0,
-       req.body.priceIncludesTax !== false, req.body.active !== false, req.body.parentSku || null, req.body.variantLabel || null]);
+       req.body.priceIncludesTax !== false, req.body.active !== false, req.body.parentSku || null, req.body.variantLabel || null, barcode]);
     res.status(201).json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to create inventory', err); }
 });
@@ -348,14 +352,17 @@ app.put('/api/inventory/:sku', authMiddleware, requireTenant, requireRole('owner
 app.put('/api/inventory/:sku/details', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
   try {
     const { name, category, price, cost, supplierId, unitOfMeasure, taxRate, priceIncludesTax, active } = req.body;
+    const barcode = typeof req.body.barcode === 'string' ? req.body.barcode.trim() || null : null;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    if (barcode && (await pool.query('SELECT 1 FROM inventory WHERE barcode=$1 AND tenant_id=$2 AND sku<>$3', [barcode, req.tenantId, req.params.sku])).rows.length)
+      return res.status(409).json({ error: 'Código de barras ya existe' });
     const r = await pool.query(
       `UPDATE inventory SET name=$1, category=$2, price=$3, cost=$4, supplier_id=$5,
-        unit_of_measure=$6, tax_rate=$7, price_includes_tax=$8, active=$9
-       WHERE sku=$10 AND tenant_id=$11 RETURNING *`,
+        unit_of_measure=$6, tax_rate=$7, price_includes_tax=$8, active=$9, barcode=$10
+       WHERE sku=$11 AND tenant_id=$12 RETURNING *`,
       [name.trim(), category || 'otros', price || 0, cost || 0, supplierId || null,
        unitOfMeasure || 'unidad', taxRate || 0, priceIncludesTax !== false, active !== false,
-       req.params.sku, req.tenantId]);
+       barcode, req.params.sku, req.tenantId]);
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
     res.json(r.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to update product details', err); }
@@ -367,28 +374,6 @@ app.delete('/api/inventory/:sku', authMiddleware, requireTenant, requireRole('ow
     if (!r.rows.length) return res.status(404).json({ error: 'SKU no encontrado' });
     res.json({ deleted: true, sku: req.params.sku });
   } catch (err) { sendError(res, 500, 'Failed to delete', err); }
-});
-
-// El QR codifica solo el tipo y el SKU (no el resto del producto): un payload
-// corto escanea de forma confiable a tamaño de etiqueta impresa, y evita que
-// el código quede desactualizado si el precio/stock cambian después de imprimir.
-// Se genera localmente con `qrcode` (sin depender de un servicio externo).
-app.get('/api/inventory/:sku/qr', authMiddleware, requireTenant, async (req, res) => {
-  try {
-    const { sku } = req.params;
-    const product = (await pool.query(
-      'SELECT sku FROM inventory WHERE sku=$1 AND tenant_id=$2',
-      [sku, req.tenantId]
-    )).rows[0];
-    if (!product) return res.status(404).json({ error: 'SKU no encontrado' });
-    const requestedSize = Number.parseInt(req.query.size, 10);
-    const size = Number.isFinite(requestedSize) ? Math.min(Math.max(requestedSize, 100), 1000) : 300;
-    const payload = JSON.stringify({ t: 'logify_product', sku: product.sku });
-    const png = await QRCode.toBuffer(payload, { type: 'png', width: size, margin: 2, errorCorrectionLevel: 'M' });
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'no-store');
-    res.send(png);
-  } catch (err) { sendError(res, 500, 'QR failed', err); }
 });
 
 app.post('/api/inventory/:sku/adjust', authMiddleware, requireTenant, requireRole('owner', 'ops', 'warehouse'), async (req, res) => {

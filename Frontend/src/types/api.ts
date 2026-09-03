@@ -143,6 +143,7 @@ export interface ApiCreateOrderResponse {
 export interface ApiInventory {
   id: number;
   sku: string;
+  barcode?: string | null;
   name: string;
   stock: number;
   price: number;

@@ -191,6 +191,7 @@ export function adaptInventory(apiInventory: ApiInventory): Product {
   return {
     id: String(inv.id),
     sku: inv.sku,
+    barcode: (inv.barcode as string) || null,
     name,
     stock: inv.stock,
     price,

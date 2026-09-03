@@ -4,7 +4,6 @@ jest.mock('../shared/db', () => ({ createPool: jest.fn() }));
 jest.mock('../shared/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), runWithRequestId: (id, fn) => fn(), currentRequestId: jest.fn() }));
 jest.mock('../shared/security', () => ({ applySecurity: jest.fn() }));
 jest.mock('../shared/shutdown', () => ({ gracefulShutdown: jest.fn() }));
-jest.mock('qrcode', () => ({ toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-png')) }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt'),
   verifyToken: jest.fn().mockReturnValue({ sub: 'admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
@@ -17,7 +16,6 @@ jest.mock('../shared/auth', () => ({
 
 const request = require('supertest');
 const { createPool } = require('../shared/db');
-const QRCode = require('qrcode');
 
 const mockQuery = jest.fn();
 const mockClientRelease = jest.fn();
@@ -212,6 +210,30 @@ describe('inventory-service', () => {
       expect(params).toContain(3);
       expect(params).toContain('Talla M');
     });
+
+    it('guarda un código de barras único al crear el producto', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ ...mockProduct, barcode: '7801234567890' }] });
+      const res = await request(app).post('/api/inventory').send({
+        sku: 'COCA-2L', stock: 50, barcode: ' 7801234567890 '
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.barcode).toBe('7801234567890');
+      expect(mockQuery.mock.calls[2][1]).toContain('7801234567890');
+    });
+
+    it('rechaza un código de barras ya usado por otro producto', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ id: 2 }] });
+      const res = await request(app).post('/api/inventory').send({
+        sku: 'NUEVO', stock: 1, barcode: '7801234567890'
+      });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/código de barras ya existe/i);
+    });
   });
 
   describe('PUT /api/inventory/:sku/details', () => {
@@ -235,6 +257,18 @@ describe('inventory-service', () => {
     it('rechaza sin nombre → 400', async () => {
       const res = await request(app).put('/api/inventory/COCA-2L/details').send({ category: 'bebidas' });
       expect(res.status).toBe(400);
+    });
+
+    it('actualiza el código de barras cuando no pertenece a otro producto', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ ...mockProduct, barcode: '7809876543210' }] });
+      const res = await request(app).put('/api/inventory/COCA-2L/details').send({
+        name: 'Coca Cola 2L', barcode: '7809876543210'
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.barcode).toBe('7809876543210');
+      expect(mockQuery.mock.calls[1][1]).toContain('7809876543210');
     });
   });
 
@@ -1051,34 +1085,6 @@ describe('inventory-service', () => {
     it('retorna 500 si BD falla', async () => {
       mockQuery.mockRejectedValueOnce(new Error('DB down'));
       const res = await request(app).put('/api/inventory/COCA-2L/image').send({ imageUrl: 'http://x/img.jpg' });
-      expect(res.status).toBe(500);
-    });
-  });
-
-  // ─── GET /api/inventory/:sku/qr ──────────────────────────────────────────────
-
-  describe('GET /api/inventory/:sku/qr', () => {
-    it('retorna imagen png con el SKU codificado', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L' }] });
-      const res = await request(app).get('/api/inventory/COCA-2L/qr');
-      expect(res.status).toBe(200);
-      expect(res.headers['content-type']).toBe('image/png');
-      expect(QRCode.toBuffer).toHaveBeenCalledWith(
-        JSON.stringify({ t: 'logify_product', sku: 'COCA-2L' }),
-        expect.objectContaining({ type: 'png' })
-      );
-    });
-
-    it('retorna 404 si el SKU no existe', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
-      const res = await request(app).get('/api/inventory/NOEXISTE/qr');
-      expect(res.status).toBe(404);
-    });
-
-    it('retorna 500 si falla la generacion del QR', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [{ sku: 'COCA-2L' }] });
-      QRCode.toBuffer.mockRejectedValueOnce(new Error('boom'));
-      const res = await request(app).get('/api/inventory/COCA-2L/qr');
       expect(res.status).toBe(500);
     });
   });

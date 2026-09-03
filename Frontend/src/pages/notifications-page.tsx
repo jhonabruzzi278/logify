@@ -1,12 +1,8 @@
 ﻿import { useEffect, useState, useMemo } from "react";
-import { Clock, Cloud, CloudRain, Download, Inbox, Package, QrCode, Search, Trash2, Truck, User, X } from "lucide-react";
+import { Clock, Cloud, CloudRain, Download, Inbox, Package, Search, Trash2, Truck, User, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { managedUsers } from "@/app/user-directory";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { useAuthImage } from "@/hooks/use-auth-image";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
@@ -54,14 +50,9 @@ export function NotificationsPage() {
   const [weatherAlert, setWeatherAlert] = useState<WeatherAlertResult | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [qrDialogOpen, setQrDialogOpen] = useState(false);
-  const [qrText, setQrText] = useState("");
-  const [qrGenerated, setQrGenerated] = useState<string | null>(null);
   const { can } = usePermissions();
   const canViewAlerts = can("alerts.view");
   const canManageNotifications = can("notifications.manage");
-
-  const qrImage = useAuthImage(qrGenerated ? `/api/notifications/qr?text=${encodeURIComponent(qrGenerated)}` : null);
 
   async function checkWeatherAlert() {
     setWeatherLoading(true);
@@ -250,35 +241,6 @@ export function NotificationsPage() {
               >
                 <Download className="h-3 w-3" /> {pdfLoading ? "Generando..." : "PDF"}
               </button>
-              <Dialog open={qrDialogOpen} onOpenChange={(open) => { setQrDialogOpen(open); if (!open) { setQrText(""); setQrGenerated(null); } }}>
-                <DialogTrigger render={
-                  <button type="button" className="rounded border border-[#E2E8F0] px-3 py-1.5 text-xs font-semibold text-[#64748B] hover:text-[#172554] flex items-center gap-1">
-                    <QrCode className="h-3 w-3" /> Generar QR
-                  </button>
-                } />
-                <DialogContent showCloseButton={false}>
-                  <DialogHeader>
-                    <DialogTitle>Generador de códigos QR</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <label htmlFor="notifications-page-f265" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Texto a codificar</label>
-                      <Input id="notifications-page-f265" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="LOGIFY-TRACK123" className="h-9 text-sm" />
-                    </div>
-                    {qrGenerated && (
-                      <div className="flex flex-col items-center gap-2 py-2">
-                        {qrImage.loading && <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#2563EB] border-t-transparent" />}
-                        {qrImage.error && <p className="text-xs text-red-500">{qrImage.error}</p>}
-                        {qrImage.url && <img src={qrImage.url} alt={`QR de ${qrGenerated}`} className="h-40 w-40 rounded border border-[#E2E8F0]" />}
-                      </div>
-                    )}
-                    <div className="flex justify-end gap-2 pt-1">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setQrDialogOpen(false)}>Cerrar</Button>
-                      <Button type="button" size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={!qrText.trim()} onClick={() => setQrGenerated(qrText.trim())}>Generar</Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
             </>
           )}
           {canManageNotifications && (

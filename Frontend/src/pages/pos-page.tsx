@@ -90,7 +90,7 @@ export function PosPage() {
     if (category !== "all") list = list.filter((p) => p.category === category);
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter((p) => `${p.name} ${p.sku}`.toLowerCase().includes(q));
+      list = list.filter((p) => `${p.name} ${p.sku} ${p.barcode ?? ""}`.toLowerCase().includes(q));
     }
     return list;
   }, [operationalInventory, category, search]);
@@ -180,7 +180,7 @@ export function PosPage() {
     if (e.key !== "Enter" || !search.trim()) return;
     e.preventDefault();
     const q = search.trim().toLowerCase();
-    const exactSku = filteredProducts.find((p) => p.sku.toLowerCase() === q);
+    const exactSku = filteredProducts.find((p) => p.sku.toLowerCase() === q || p.barcode?.toLowerCase() === q);
     const target = exactSku ?? (filteredProducts.length === 1 ? filteredProducts[0] : null);
     if (target) {
       handleQuickAdd(target);
@@ -208,7 +208,9 @@ export function PosPage() {
 
   function handleBarcodeDetected(code: string) {
     setScannerOpen(false);
-    const product = operationalInventory.find((p) => p.sku.toLowerCase() === code.toLowerCase());
+    const product = operationalInventory.find((p) =>
+      p.sku.toLowerCase() === code.toLowerCase() || p.barcode?.toLowerCase() === code.toLowerCase()
+    );
     if (product) {
       handleQuickAdd(product);
     } else {
