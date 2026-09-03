@@ -21,6 +21,7 @@ export function AppShell() {
   const visibleItems = useMemo(() => (session ? getVisibleNavItems(session.role, mode) : []), [session, mode]);
 
   const currentTitle = useMemo(() => {
+    if (pathname.startsWith("/scan")) return "Escanear código";
     return visibleItems.find((item) => pathname.startsWith(item.path))?.title ?? "Dashboard";
   }, [pathname, visibleItems]);
 

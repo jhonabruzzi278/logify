@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileText, ImageOff, Minus, PackagePlus, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { Download, FileText, ImageOff, Minus, PackagePlus, Plus, ScanLine, Search, Trash2, Upload, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -28,7 +28,7 @@ export function InventoryPage() {
   const [filter, setFilter] = useState<"all" | "critical" | "warning" | "healthy">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    sku: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0,
+    sku: "", barcode: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0,
     supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true,
   });
   const [formError, setFormError] = useState("");
@@ -67,6 +67,7 @@ export function InventoryPage() {
 
   async function handleAdd(data: {
     sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory;
+    barcode?: string | null;
     supplierId?: number | null; unitOfMeasure?: string; taxRate?: number; active?: boolean;
   }) {
     await addProduct(data);
@@ -138,7 +139,7 @@ export function InventoryPage() {
     if (filter !== "all") list = list.filter((p) => p.status === filter);
     if (query) {
       const q = query.toLowerCase();
-      list = list.filter((p) => `${p.sku} ${p.name}`.toLowerCase().includes(q));
+      list = list.filter((p) => `${p.sku} ${p.barcode ?? ""} ${p.name}`.toLowerCase().includes(q));
     }
     return list;
   }, [operationalInventory, filter, query]);
@@ -174,7 +175,10 @@ export function InventoryPage() {
           <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Inventario</p>
           <h1 className="text-xl font-bold text-[#172554]">Control de stock</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/scan" className="flex h-9 items-center gap-1.5 rounded bg-[#2563EB] px-3 text-xs font-semibold text-white transition hover:bg-[#1D4ED8] active:scale-[0.98]">
+            <ScanLine className="h-4 w-4" /><span className="hidden sm:inline">Escanear</span>
+          </Link>
           <button type="button"
             onClick={() => exportInventoryCSV(operationalInventory.map(p => ({ sku: String(p.sku), stock: p.stock, status: String(p.status), updatedAt: p.updatedAt })))}
             className="flex items-center gap-1 rounded border border-border bg-white px-3 py-1.5 text-xs font-semibold text-[#64748B] hover:text-[#172554]"
@@ -251,12 +255,13 @@ export function InventoryPage() {
                 if (form.stock < 0 || form.price < 0 || form.cost < 0) { setFormError("Stock, Precio y Costo no pueden ser negativos"); return; }
                 await handleAdd({
                   sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost,
+                  barcode: form.barcode || null,
                   supplierId: form.supplierId ? Number(form.supplierId) : null, unitOfMeasure: form.unitOfMeasure, taxRate: form.taxRate, active: form.active,
                 });
-                setForm({ sku: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true });
+                setForm({ sku: "", barcode: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true });
                 setDialogOpen(false);
               }} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
                   <div className="space-y-1">
                     <label htmlFor="inventory-page-f287" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">SKU</label>
                     <Input id="inventory-page-f287" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="COCA-COLA-2L" className="h-9 text-sm" />
@@ -278,14 +283,18 @@ export function InventoryPage() {
                   <label htmlFor="inventory-page-f304" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nombre</label>
                   <Input id="inventory-page-f304" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Coca-Cola 2L" className="h-9 text-sm" />
                 </div>
+                <div className="space-y-1">
+                  <label htmlFor="inventory-page-barcode" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código de barras</label>
+                  <Input id="inventory-page-barcode" inputMode="numeric" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="78006027 (opcional)" className="h-9 text-sm" />
+                </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3">
                   <div className="space-y-1">
                     <label htmlFor="inventory-page-f310" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Proveedor</label>
-                    <Select value={form.supplierId || "none"} onValueChange={(v) => setForm({ ...form, supplierId: v === "none" ? "" : v })}>
+                    <Select value={form.supplierId || "sin-proveedor"} onValueChange={(v) => setForm({ ...form, supplierId: v === "sin-proveedor" ? "" : v })}>
                       <SelectTrigger id="inventory-page-f310" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Sin proveedor</SelectItem>
+                        <SelectItem value="sin-proveedor">Sin proveedor</SelectItem>
                         {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -313,7 +322,7 @@ export function InventoryPage() {
                   Producto activo
                 </label>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3">
                   <div className="space-y-1">
                     <label htmlFor="inventory-page-f407" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Stock</label>
                     <Input id="inventory-page-f407" type="number" min={0} value={form.stock} onChange={(e) => setForm({ ...form, stock: parseInt(e.target.value) || 0 })} className="h-9 text-sm" />
@@ -376,11 +385,11 @@ export function InventoryPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar SKU..."
+            placeholder="Buscar por nombre, SKU o código de barras..."
             className="h-10 w-full rounded border border-input bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="flex gap-1 rounded border border-border bg-card p-0.5 overflow-x-auto scroll-x">
+        <div className="grid grid-cols-2 gap-1 rounded border border-border bg-card p-0.5 sm:flex">
           {(["all", "critical", "warning", "healthy"] as const).map((f) => (
             <button type="button"
               key={f}
@@ -396,7 +405,39 @@ export function InventoryPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded border border-border bg-card">
+      <div className="grid gap-3 sm:hidden">
+        {filtered.map((product) => (
+          <article key={product.sku} className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <Link to={`/inventory/${product.sku}`} className="min-w-0 flex-1">
+                <p className="break-words text-sm font-bold text-[#172554]">{product.name}</p>
+                <p className="mt-1 break-all font-mono text-xs text-[#64748B]">SKU {product.sku}</p>
+                {product.barcode && <p className="mt-0.5 break-all font-mono text-xs text-[#64748B]">Código {product.barcode}</p>}
+              </Link>
+              {isOwner && (
+                <button type="button" onClick={() => setDeleteConfirm({ sku: product.sku, name: product.name })} aria-label={`Eliminar ${product.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Stock</p>
+                <p className={cn("text-2xl font-bold", product.stock <= 5 ? "text-red-500" : "text-[#172554]")}>{product.stock}</p>
+              </div>
+              {canAdjust && (
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => handleAdjust(product, -1, "Reserva manual")} aria-label={`Restar stock de ${product.name}`} className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-red-500 active:scale-95"><Minus className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => handleAdjust(product, 1, "Reposición rápida")} aria-label={`Agregar stock de ${product.name}`} className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#2563EB] text-white active:scale-95"><Plus className="h-4 w-4" /></button>
+                </div>
+              )}
+            </div>
+          </article>
+        ))}
+        {filtered.length === 0 && <p className="rounded-xl border border-border bg-card px-4 py-10 text-center text-xs text-[#64748B]">Sin productos que coincidan con el filtro</p>}
+      </div>
+
+      <div className="hidden overflow-hidden rounded border border-border bg-card sm:block">
         <div className="overflow-x-auto scroll-x">
           <table className="w-full text-left text-sm">
             <thead>

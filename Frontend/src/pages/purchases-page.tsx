@@ -152,10 +152,10 @@ export function PurchasesPage() {
 
                 <div className="space-y-1">
                   <label htmlFor="purchases-page-f154" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Proveedor</label>
-                  <Select value={form.supplierId || "none"} onValueChange={(v) => setForm({ ...form, supplierId: v === "none" ? "" : v })}>
+                  <Select value={form.supplierId || "sin-proveedor"} onValueChange={(v) => setForm({ ...form, supplierId: v === "sin-proveedor" ? "" : v })}>
                     <SelectTrigger id="purchases-page-f154" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sin proveedor</SelectItem>
+                      <SelectItem value="sin-proveedor">Sin proveedor</SelectItem>
                       {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                     </SelectContent>
                   </Select>

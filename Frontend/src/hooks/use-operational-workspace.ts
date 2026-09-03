@@ -107,12 +107,14 @@ export function useOperationalWorkspace({
 
   async function addProduct(data: {
     sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory; imageUrl?: string;
+    barcode?: string | null;
     supplierId?: number | null; unitOfMeasure?: string; taxRate?: number; active?: boolean;
   }) {
     const response = await apiFetch("/api/inventory", {
       method: "POST",
       body: JSON.stringify({
         sku: data.sku.trim().toUpperCase().replace(/\s+/g, "-"),
+        barcode: data.barcode?.trim() || null,
         name: data.name.trim(),
         stock: data.stock,
         price: data.price,

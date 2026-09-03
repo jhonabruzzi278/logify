@@ -33,13 +33,14 @@ export interface RoleAccessProfile {
 }
 
 const basePaths = ["/access-denied", "/profile", "/billing", "/notifications", "/calendar", "/reports", "/pos"];
+const inventoryPaths = ["/inventory", "/scan"];
 
 export const roleProfiles: Record<Role, RoleAccessProfile> = {
   owner: {
     label: "Administrador",
     summary: "Control completo de la operacion, seguimiento transversal y gestion de usuarios del negocio.",
     defaultPath: "/dashboard",
-    paths: ["/dashboard", "/onboarding", "/inventory", "/orders", "/customers", "/shipments", "/deliveries", "/alerts", "/users", "/settings", "/suppliers", "/purchases", ...basePaths],
+    paths: ["/dashboard", "/onboarding", ...inventoryPaths, "/orders", "/customers", "/shipments", "/deliveries", "/alerts", "/users", "/settings", "/suppliers", "/purchases", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",
@@ -69,7 +70,7 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
     label: "Operaciones",
     summary: "Gestiona el flujo diario: crea pedidos, revisa incidencias y coordina despacho.",
     defaultPath: "/orders",
-    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/shipments", "/deliveries", "/alerts", ...basePaths],
+    paths: ["/dashboard", ...inventoryPaths, "/orders", "/customers", "/shipments", "/deliveries", "/alerts", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",
@@ -89,7 +90,7 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
     label: "Bodega",
     summary: "Controla stock, confirma disponibilidad y responde a quiebres o ajustes de inventario.",
     defaultPath: "/inventory",
-    paths: ["/dashboard", "/inventory", "/orders", "/customers", "/alerts", "/suppliers", "/purchases", ...basePaths],
+    paths: ["/dashboard", ...inventoryPaths, "/orders", "/customers", "/alerts", "/suppliers", "/purchases", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",
@@ -139,7 +140,7 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
     label: "Vendedor",
     summary: "Registra ventas en caja, revisa stock disponible y consulta sus propias ventas del dia.",
     defaultPath: "/pos",
-    paths: ["/dashboard", "/inventory", "/pos", ...basePaths],
+    paths: ["/dashboard", ...inventoryPaths, "/pos", ...basePaths],
     permissions: [
       "dashboard.view",
       "inventory.view",

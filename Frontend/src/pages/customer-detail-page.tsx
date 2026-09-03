@@ -117,19 +117,19 @@ export function CustomerDetailPage() {
             {customer.phone && (
               <div className="flex items-center gap-2 text-sm text-[#64748B]">
                 <Phone className="h-4 w-4 text-[#2563EB]" />
-                <span>{customer.phone}</span>
+                <span className="min-w-0 break-words">{customer.phone}</span>
               </div>
             )}
             {customer.email && (
               <div className="flex items-center gap-2 text-sm text-[#64748B]">
                 <Mail className="h-4 w-4 text-[#2563EB]" />
-                <span>{customer.email}</span>
+                <span className="min-w-0 break-all">{customer.email}</span>
               </div>
             )}
             {customer.address && (
               <div className="flex items-center gap-2 text-sm text-[#64748B]">
                 <MapPin className="h-4 w-4 text-[#2563EB]" />
-                <span>{customer.address}{customer.province ? `, ${customer.province}` : ""}</span>
+                <span className="min-w-0 break-words">{customer.address}{customer.province ? `, ${customer.province}` : ""}</span>
               </div>
             )}
           </div>

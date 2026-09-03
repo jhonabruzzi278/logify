@@ -66,6 +66,8 @@
 }
 
 html {
+  max-width: 100%;
+  overflow-x: hidden;
   font-family: var(--font-sans);
   background: hsl(var(--background));
   -webkit-text-size-adjust: 100%;
@@ -90,12 +92,15 @@ html {
 
 body {
   @apply min-h-screen bg-background text-foreground antialiased;
+  max-width: 100%;
   overflow-x: hidden;
   line-height: 1.5;
 }
 
 #root {
   @apply min-h-screen;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 ::selection {
@@ -193,29 +198,31 @@ body {
   }
 }
 
-/* Etiqueta de producto: oculta toda la app y muestra solo #product-label-print al
-   imprimir. La grilla (columnas/filas) la elige el usuario y se pasa via las
-   custom properties --print-cols/--print-rows en el propio elemento. */
-@media print {
-  body * {
-    visibility: hidden;
-  }
+@keyframes barcode-sweep {
+  0%, 100% { transform: translateY(-72px); opacity: 0.35; }
+  50% { transform: translateY(72px); opacity: 1; }
+}
 
-  #product-label-print,
-  #product-label-print * {
-    visibility: visible;
-  }
+@keyframes scan-result-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-  #product-label-print {
-    position: absolute;
-    inset: 0;
-    display: grid !important;
-    grid-template-columns: repeat(var(--print-cols, 1), 1fr);
-    grid-template-rows: repeat(var(--print-rows, 1), 1fr);
-  }
+.barcode-scan-line {
+  animation: barcode-sweep 2.2s ease-in-out infinite;
+}
 
-  #product-label-print .print-label {
-    display: flex;
-    break-inside: avoid;
+.scan-entry {
+  background-image: radial-gradient(circle at 50% 38%, rgba(219, 234, 254, 0.62), transparent 43%);
+}
+
+.scan-result-in {
+  animation: scan-result-enter 260ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barcode-scan-line,
+  .scan-result-in {
+    animation: none;
   }
 }

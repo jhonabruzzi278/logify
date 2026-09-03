@@ -469,7 +469,7 @@ export function ReportsPage() {
   }, [allSales, period, periodDays, filterQuery, now]);
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 max-w-full space-y-5 overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -477,15 +477,15 @@ export function ReportsPage() {
           <h1 className="text-xl font-bold text-[#172554]">Analytics operacional</h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           {/* Period selector */}
-          <div className="flex rounded border border-[#E2E8F0] bg-white p-0.5">
+          <div className="grid min-w-0 flex-1 grid-cols-3 rounded border border-[#E2E8F0] bg-white p-0.5 sm:flex sm:flex-none">
             {PERIODS.map((p) => (
               <button type="button"
                 key={p.value}
                 onClick={() => { setPeriod(p.value); setSelectedBar(null); }}
                 className={cn(
-                  "rounded px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                  "min-w-0 rounded px-2 py-1 text-[11px] font-semibold transition-colors sm:px-2.5",
                   period === p.value ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:text-[#172554]"
                 )}
               >
@@ -575,13 +575,13 @@ export function ReportsPage() {
       )}
 
       {/* Tab switcher */}
-      <div className="flex gap-1 rounded border border-[#E2E8F0] bg-white p-1 w-fit">
+      <div className="grid w-full grid-cols-2 gap-1 rounded border border-[#E2E8F0] bg-white p-1 sm:flex sm:w-fit">
         {visibleTabs.map((tab) => (
           <button type="button"
             key={tab.value}
             onClick={() => { setActiveTab(tab.value); setSelectedBar(null); }}
             className={cn(
-              "flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold transition-colors",
+              "flex min-w-0 items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors",
               activeTab === tab.value ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:text-[#172554]"
             )}
           >
@@ -593,7 +593,7 @@ export function ReportsPage() {
 
       {activeTab === "cash" ? (
         <div className="overflow-hidden rounded border border-[#E2E8F0] bg-white">
-          <div className="overflow-x-auto">
+          <div className="max-w-full overflow-x-auto overscroll-x-contain">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E2E8F0] text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">
@@ -758,19 +758,19 @@ export function ReportsPage() {
       ) : (
         /* Table view */
         <div className="overflow-hidden rounded border border-[#E2E8F0] bg-white">
-          <div className="flex items-center gap-2 border-b border-[#E2E8F0] px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2 border-b border-[#E2E8F0] px-4 py-3">
             <Search className="h-4 w-4 text-[#64748B]" />
             <input
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
               placeholder="Filtrar resultados..."
-              className="flex-1 bg-transparent text-sm text-[#172554] outline-none placeholder:text-[#64748B]"
+              className="min-w-[140px] flex-1 bg-transparent text-sm text-[#172554] outline-none placeholder:text-[#64748B]"
             />
-            <span className="text-xs text-[#64748B]">
+            <span className="ml-auto whitespace-nowrap text-xs text-[#64748B]">
               {activeTab === "sales" ? salesReport.filteredSales.length : activeTab === "orders" ? filteredOrders.length : activeTab === "shipments" ? filteredShipments.length : inventory?.length ?? 0} resultados
             </span>
           </div>
-          <div className="overflow-x-auto">
+          <div className="max-w-full overflow-x-auto overscroll-x-contain">
             {activeTab === "sales" ? (
               <table className="w-full text-left text-sm">
                 <thead>

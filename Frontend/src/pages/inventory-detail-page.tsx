@@ -1,8 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Box, Check, Edit2, ImageOff, ImagePlus, Package, Printer, QrCode, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeft, Box, Check, Edit2, ImageOff, ImagePlus, Package, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { useAuthImage } from "@/hooks/use-auth-image";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useOperationalWorkspace, type OperationalProduct } from "@/hooks/use-operational-workspace";
@@ -22,28 +21,16 @@ interface ImageResult {
   url: string;
 }
 
-const LABEL_GRID_PRESETS = [
-  { key: "1x1", cols: 1, rows: 1, label: "1 por hoja (grande)" },
-  { key: "2x2", cols: 2, rows: 2, label: "4 por hoja (2x2)" },
-  { key: "3x3", cols: 3, rows: 3, label: "9 por hoja (3x3)" },
-  { key: "4x4", cols: 4, rows: 4, label: "16 por hoja (4x4)" },
-  { key: "4x6", cols: 4, rows: 6, label: "24 por hoja (4x6)" },
-  { key: "4x10", cols: 4, rows: 10, label: "40 por hoja (4x10, etiquetas chicas)" },
-] as const;
-
 export function InventoryDetailPage() {
   const { productId } = useParams();
   const decodedId = decodeURIComponent(productId ?? "");
-  const [qrRequested, setQrRequested] = useState(false);
-  const [qrVersion, setQrVersion] = useState(0);
-  const [labelGridKey, setLabelGridKey] = useState<(typeof LABEL_GRID_PRESETS)[number]["key"]>("1x1");
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const [imageQuery, setImageQuery] = useState("");
   const [imageResults, setImageResults] = useState<ImageResult[]>([]);
   const [imageSearching, setImageSearching] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", category: "otros", price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 0, active: true });
+  const [editForm, setEditForm] = useState({ name: "", barcode: "", category: "otros", price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 0, active: true });
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const { can } = usePermissions();
@@ -61,8 +48,6 @@ export function InventoryDetailPage() {
   const { operationalInventory, operationalOrders } = useOperationalWorkspace({ inventory: product ? [product] : [], orders });
   const resolvedProduct = useMemo(() => operationalInventory[0] ?? product, [operationalInventory, product]);
   const relatedOrders = useMemo(() => resolvedProduct ? operationalOrders.filter((o) => o.sku === resolvedProduct.sku) : [], [operationalOrders, resolvedProduct]);
-
-  const qrImage = useAuthImage(qrRequested && resolvedProduct ? `/api/inventory/${encodeURIComponent(resolvedProduct.sku)}/qr?size=512&v=${qrVersion}` : null);
 
   const debouncedImageQuery = useDebounce(imageQuery, 500);
 
@@ -82,6 +67,7 @@ export function InventoryDetailPage() {
     if (!resolvedProduct) return;
     setEditForm({
       name: resolvedProduct.name,
+      barcode: resolvedProduct.barcode ?? "",
       category: resolvedProduct.category,
       price: resolvedProduct.price,
       cost: resolvedProduct.cost,
@@ -104,7 +90,7 @@ export function InventoryDetailPage() {
       await apiFetch(`/api/inventory/${encodeURIComponent(resolvedProduct.sku)}/details`, {
         method: "PUT",
         body: JSON.stringify({
-          name: editForm.name, category: editForm.category, price: editForm.price, cost: editForm.cost,
+          name: editForm.name, barcode: editForm.barcode || null, category: editForm.category, price: editForm.price, cost: editForm.cost,
           supplierId: editForm.supplierId ? Number(editForm.supplierId) : null,
           unitOfMeasure: editForm.unitOfMeasure, taxRate: editForm.taxRate, active: editForm.active,
         }),
@@ -172,6 +158,7 @@ export function InventoryDetailPage() {
             <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Producto</p>
             <h1 className="text-xl font-bold text-[#172554]">SKU {resolvedProduct.sku}</h1>
             <p className="text-sm text-[#64748B]">{resolvedProduct.name}</p>
+            {resolvedProduct.barcode && <p className="text-xs font-mono text-[#64748B]">Código {resolvedProduct.barcode}</p>}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -203,6 +190,10 @@ export function InventoryDetailPage() {
               <Input id="inventory-detail-page-f201" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
+              <label htmlFor="inventory-detail-barcode" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código de barras</label>
+              <Input id="inventory-detail-barcode" inputMode="numeric" value={editForm.barcode} onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })} placeholder="Opcional" className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
               <label htmlFor="inventory-detail-page-f205" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Categoría</label>
               <Select value={editForm.category} onValueChange={(v) => setEditForm({ ...editForm, category: v })}>
                 <SelectTrigger id="inventory-detail-page-f205" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
@@ -224,10 +215,10 @@ export function InventoryDetailPage() {
             </div>
             <div className="space-y-1">
               <label htmlFor="inventory-detail-page-f225" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Proveedor</label>
-              <Select value={editForm.supplierId || "none"} onValueChange={(v) => setEditForm({ ...editForm, supplierId: v === "none" ? "" : v })}>
+              <Select value={editForm.supplierId || "sin-proveedor"} onValueChange={(v) => setEditForm({ ...editForm, supplierId: v === "sin-proveedor" ? "" : v })}>
                 <SelectTrigger id="inventory-detail-page-f225" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sin proveedor</SelectItem>
+                  <SelectItem value="sin-proveedor">Sin proveedor</SelectItem>
                   {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -409,103 +400,6 @@ export function InventoryDetailPage() {
         )}
       </div>
 
-      {/* QR code */}
-      <div className="rounded border border-[#E2E8F0] bg-white p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <QrCode className="h-4 w-4 text-[#2563EB]" />
-            <p className="text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código QR del producto</p>
-          </div>
-          {qrRequested && qrImage.url && (
-            <div className="flex items-center gap-2">
-              <Select value={labelGridKey} onValueChange={(v) => setLabelGridKey(v as typeof labelGridKey)}>
-                <SelectTrigger className="h-8 w-[220px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {LABEL_GRID_PRESETS.map((preset) => (
-                    <SelectItem key={preset.key} value={preset.key}>{preset.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <button type="button"
-                onClick={() => window.print()}
-                className="flex items-center gap-1.5 rounded border border-[#2563EB]/30 bg-[#2563EB]/5 px-3 py-1.5 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10"
-              >
-                <Printer className="h-3.5 w-3.5" /> Imprimir QR
-              </button>
-            </div>
-          )}
-        </div>
-
-        {!qrRequested && (
-          <button type="button"
-            onClick={() => { setQrVersion((version) => version + 1); setQrRequested(true); }}
-            className="flex items-center gap-1.5 rounded border border-[#2563EB]/30 bg-[#2563EB]/5 px-3 py-2 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10"
-          >
-            <QrCode className="h-3.5 w-3.5" /> Generar QR para {resolvedProduct.sku}
-          </button>
-        )}
-
-        {qrRequested && qrImage.loading && (
-          <div className="flex items-center gap-2 text-xs text-[#64748B]">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#2563EB] border-t-transparent" />
-            Generando código QR...
-          </div>
-        )}
-
-        {qrRequested && qrImage.error && (
-          <div className="flex items-center gap-3">
-            <p className="text-xs text-red-500">{qrImage.error}</p>
-            <button type="button" onClick={() => setQrVersion((version) => version + 1)} className="text-xs font-semibold text-[#2563EB] hover:underline">Reintentar</button>
-          </div>
-        )}
-
-        {qrRequested && qrImage.url && (
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[#2563EB] p-4">
-              <img src={qrImage.url} alt={`QR de ${resolvedProduct.sku}`} className="h-40 w-40" />
-              <div className="w-full max-w-[220px] space-y-0.5 border-t border-[#E2E8F0] pt-2 text-center">
-                <p className="text-sm font-bold text-[#172554]">{resolvedProduct.name}</p>
-                <p className="font-mono text-xs text-[#64748B]">SKU {resolvedProduct.sku}</p>
-                <p className="text-sm font-bold text-[#2563EB]">{formatCurrency(resolvedProduct.price)}</p>
-                <p className="text-[10px] uppercase tracking-wide text-[#64748B]">{resolvedProduct.category} · Stock {resolvedProduct.stock}</p>
-              </div>
-            </div>
-            <p className="text-xs text-[#64748B]">
-              El QR identifica el SKU del producto — se puede escanear con la cámara de cualquier celular o, a futuro, con un lector dedicado.
-            </p>
-            <a
-              href={qrImage.url}
-              download={`qr-${resolvedProduct.sku}.png`}
-              className="text-xs font-semibold text-[#2563EB] hover:underline"
-            >
-              Descargar QR en PNG
-            </a>
-          </div>
-        )}
-      </div>
-
-      {/* Nodo aislado solo visible al imprimir (ver @media print en styles/index.css).
-          Repite la etiqueta cols*rows veces segun la grilla elegida arriba. */}
-      {qrRequested && qrImage.url && (() => {
-        const grid = LABEL_GRID_PRESETS.find((p) => p.key === labelGridKey) ?? LABEL_GRID_PRESETS[0];
-        return (
-          <div
-            id="product-label-print"
-            className="hidden"
-            style={{ "--print-cols": grid.cols, "--print-rows": grid.rows } as React.CSSProperties}
-          >
-            {Array.from({ length: grid.cols * grid.rows }).map((_, i) => (
-              <div key={i} className="print-label flex-col items-center justify-center gap-2 p-3 text-center">
-                <img src={qrImage.url} alt={`QR de ${resolvedProduct.sku}`} className="h-32 w-32" />
-                <p className="text-sm font-bold text-black">{resolvedProduct.name}</p>
-                <p className="font-mono text-xs text-black">SKU {resolvedProduct.sku}</p>
-                <p className="text-base font-bold text-black">{formatCurrency(resolvedProduct.price)}</p>
-                <p className="text-[10px] uppercase tracking-wide text-black">{resolvedProduct.category} · Stock {resolvedProduct.stock}</p>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
     </div>
   );
 }
