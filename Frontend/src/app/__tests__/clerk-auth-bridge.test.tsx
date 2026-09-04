@@ -70,6 +70,7 @@ function AuthConsumer() {
   return (
     <div>
       <span data-testid="session-username">{session?.username ?? "sin-sesion"}</span>
+      <span data-testid="session-name">{session?.name ?? ""}</span>
       <span data-testid="session-role">{session?.role ?? ""}</span>
       <span data-testid="error">{error ?? ""}</span>
       <span data-testid="org-options">{(organizationOptions ?? []).map((o) => o.id).join(",")}</span>
@@ -113,6 +114,27 @@ describe("ClerkBridgedAuthProvider", () => {
 
     await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("sin-sesion"));
     expect(mockGetToken).not.toHaveBeenCalled();
+  });
+
+  // Bug real de produccion: el JWT Template de Clerk arma `name` concatenando
+  // first_name + last_name, y cuando la persona no tiene apellido cargado
+  // (ej. "Agregar usuario" solo pide un nombre) el claim sale literalmente
+  // "Jonathan null" en vez de solo "Jonathan" -- se veia asi en el perfil y
+  // en el saludo de toda la app.
+  it("sanea el sufijo 'null' que deja el JWT Template cuando la persona no tiene apellido", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    mockSetActive.mockResolvedValue(undefined);
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "jonathant6", name: "Jonathan null", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("jonathant6"));
+    expect(screen.getByTestId("session-name")).toHaveTextContent("Jonathan");
+    expect(screen.getByTestId("session-name")).not.toHaveTextContent("null");
   });
 
   it("restaura la sesion desde el token de Clerk cuando ya hay una sesion activa al cargar", async () => {
