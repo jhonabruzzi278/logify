@@ -2,12 +2,10 @@
 import { AlertTriangle, Check, ChevronDown, Edit2, Search, Trash2, UserPlus, X } from "lucide-react";
 import { getRoleProfile } from "@/app/access";
 import { useAuth } from "@/app/auth";
-import { checkEmailExists, fetchUsers, registerUser, updateUser, deleteUser } from "@/lib/local-jwt-auth";
-import { useDebounce } from "@/hooks/use-debounce";
+import { fetchUsers, registerUser, updateUser, deleteUser } from "@/lib/local-jwt-auth";
+import { useEmailAvailabilityCheck } from "@/hooks/use-email-availability-check";
 import { cn, onActivateKey } from "@/lib/utils";
 import type { Role } from "@/types/domain";
-
-type EmailCheckStatus = "idle" | "checking" | "existing" | "new";
 
 const ROLES: Role[] = ["owner", "ops", "warehouse", "support", "customer", "shipper", "vendor"];
 
@@ -35,8 +33,7 @@ export function UsersPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "ops" as Role });
-  const [emailCheck, setEmailCheck] = useState<EmailCheckStatus>("idle");
-  const debouncedNewUserEmail = useDebounce(newUser.email, 500);
+  const emailCheck = useEmailAvailabilityCheck(newUser.email, token, showAdd);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -57,24 +54,6 @@ export function UsersPage() {
   }, [token]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
-
-  // Detecta si el correo ya tiene cuenta en Logify (de este tenant o de
-  // otro) mientras el owner/admin escribe -- esa persona inicia sesión de
-  // forma independiente con su propia contraseña, así que el campo de
-  // contraseña se oculta en vez de pedir una que después se ignora.
-  useEffect(() => {
-    const trimmed = debouncedNewUserEmail.trim();
-    if (!showAdd || !trimmed.includes("@")) {
-      setEmailCheck("idle");
-      return;
-    }
-    let cancelled = false;
-    setEmailCheck("checking");
-    checkEmailExists(token, trimmed)
-      .then((exists) => { if (!cancelled) setEmailCheck(exists ? "existing" : "new"); })
-      .catch(() => { if (!cancelled) setEmailCheck("idle"); });
-    return () => { cancelled = true; };
-  }, [debouncedNewUserEmail, showAdd, token]);
 
   const filtered = useMemo(() => {
     let list = users;
@@ -153,7 +132,6 @@ export function UsersPage() {
       });
       setUsers((prev) => [...prev, { ...created, role: created.role as Role, created_at: "", updated_at: "", last_login_at: null }]);
       setNewUser({ name: "", email: "", password: "", role: "ops" });
-      setEmailCheck("idle");
       setShowAdd(false);
       setFeedback(created.linkedExistingAccount ? `${created.name} ya tenía cuenta en Logify y fue agregado a tu empresa` : "Usuario creado");
     } catch (e: any) {

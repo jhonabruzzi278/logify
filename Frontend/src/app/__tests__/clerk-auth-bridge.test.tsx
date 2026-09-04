@@ -81,7 +81,13 @@ function AuthConsumer() {
         Ingresar
       </button>
       <button onClick={() => void logout()}>Salir</button>
-      <button onClick={() => void listMyOrganizations?.().then((opts) => setMyOrgs(opts.map((o) => o.id).join(",")))}>
+      <button
+        onClick={() =>
+          void listMyOrganizations?.()
+            .then((opts) => setMyOrgs(opts.map((o) => o.id).join(",")))
+            .catch(() => {})
+        }
+      >
         Listar mis organizaciones
       </button>
       {(organizationOptions ?? []).map((option) => (

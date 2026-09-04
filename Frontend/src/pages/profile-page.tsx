@@ -1,60 +1,26 @@
 ﻿import { useEffect, useState } from "react";
 import { Bell, BellOff, Boxes, Building2, Clock, MapPin, Package, Truck } from "lucide-react";
 import { useAuth } from "@/app/auth";
-import { getDefaultPathForRole, getRoleProfile } from "@/app/access";
+import { getRoleProfile } from "@/app/access";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useOrganizationSwitch } from "@/hooks/use-organization-switch";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
 import { getPushSubscription, isPushSupported, subscribeToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 import { cn } from "@/lib/utils";
 import { OrganizationSwitchDialog } from "@/components/auth/organization-switch-dialog";
-import type { OrganizationOption } from "@/app/clerk-org-activation";
 import type { ApiOrder, ApiShipment } from "@/types/api";
 import type { Order, Shipment } from "@/types/domain";
 
 type PushStatus = "checking" | "unsupported" | "subscribed" | "unsubscribed";
 
 export function ProfilePage() {
-  const { session, listMyOrganizations, selectOrganization } = useAuth();
+  const { session } = useAuth();
   const profile = session ? getRoleProfile(session.role) : null;
   const [pushStatus, setPushStatus] = useState<PushStatus>("checking");
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
 
-  const [orgDialogOpen, setOrgDialogOpen] = useState(false);
-  const [orgOptions, setOrgOptions] = useState<OrganizationOption[] | null>(null);
-  const [orgLoading, setOrgLoading] = useState(false);
-  const [orgBusy, setOrgBusy] = useState(false);
-  const [orgError, setOrgError] = useState<string | null>(null);
-
-  function handleOpenOrgSwitch() {
-    if (!listMyOrganizations) return;
-    setOrgDialogOpen(true);
-    setOrgError(null);
-    setOrgLoading(true);
-    listMyOrganizations()
-      .then((options) => setOrgOptions(options))
-      .catch(() => setOrgError("No pudimos cargar tus organizaciones."))
-      .finally(() => setOrgLoading(false));
-  }
-
-  async function handleSelectOrg(organizationId: string) {
-    if (!selectOrganization) return;
-    setOrgBusy(true);
-    setOrgError(null);
-    try {
-      const next = await selectOrganization(organizationId);
-      // Recarga completa (no navegación de React Router): las páginas ya
-      // montadas cachean datos del tenant anterior en su propio estado local
-      // (useApiQuery no invalida por cambio de token/organización), así que
-      // una transición SPA dejaría inventario/pedidos/etc. de la empresa
-      // vieja mezclados con la sesión nueva hasta que cada componente
-      // remonte por su cuenta. Un reload fuerza que todo arranque limpio.
-      window.location.assign(getDefaultPathForRole(next.role));
-    } catch (err) {
-      setOrgError(err instanceof Error ? err.message : "No se pudo cambiar de organización.");
-      setOrgBusy(false);
-    }
-  }
+  const orgSwitch = useOrganizationSwitch();
 
   useEffect(() => {
     if (!isPushSupported()) { setPushStatus("unsupported"); return; }
@@ -145,10 +111,10 @@ export function ProfilePage() {
           <h1 className="text-xl font-bold text-[#172554]">{session.name}</h1>
           <p className="text-sm text-[#64748B]">{session.username}</p>
 
-          {listMyOrganizations && (
+          {orgSwitch.supported && (
             <button
               type="button"
-              onClick={handleOpenOrgSwitch}
+              onClick={orgSwitch.open}
               className="mt-3 flex w-full items-center justify-center gap-1.5 rounded border border-[#E2E8F0] px-3 py-1.5 text-xs font-semibold text-[#172554] hover:bg-[#F8FAFC]"
             >
               <Building2 className="h-3.5 w-3.5" />
@@ -266,14 +232,14 @@ export function ProfilePage() {
       </div>
 
       <OrganizationSwitchDialog
-        open={orgDialogOpen}
-        onOpenChange={setOrgDialogOpen}
-        options={orgOptions}
-        loading={orgLoading}
-        busy={orgBusy}
-        error={orgError}
+        open={orgSwitch.dialogOpen}
+        onOpenChange={orgSwitch.setDialogOpen}
+        options={orgSwitch.options}
+        loading={orgSwitch.loading}
+        busy={orgSwitch.busy}
+        error={orgSwitch.error}
         currentSlug={session.organizationSlug}
-        onSelect={handleSelectOrg}
+        onSelect={orgSwitch.select}
       />
     </div>
   );
