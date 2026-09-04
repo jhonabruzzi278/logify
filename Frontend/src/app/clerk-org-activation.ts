@@ -11,13 +11,11 @@ type SetActiveFn = (params: { session: string; organization?: string }) => Promi
 // contraseña (forgot-password-clerk-page.tsx), que tambien necesita una
 // Organization activa para que el JWT Template resuelva tenant_id/tenant_slug.
 //
-// Activa la primera membership de forma deterministica -- Logify todavia no
-// soporta que una persona pertenezca a mas de una Organization (el webhook
-// de orders-service rechaza sincronizar una segunda membership del mismo
-// Clerk User a un tenant distinto, ver Fase 2 de la migracion a Clerk).
-// Retorna false si no hay ninguna membership, para que el llamador pueda
-// tratarlo como el error real que es en vez de dejar avanzar un login con un
-// token sin organizacion activa.
+// Atajo para el caso comun (1 sola membership): la activa directo sin pasar
+// por un selector. Retorna null si no hay ninguna, para que el llamador lo
+// trate como el error real que es en vez de dejar avanzar un login con un
+// token sin organizacion activa. Los llamadores con 2+ memberships deben
+// usar listOrganizationMemberships() y dejar que la persona elija.
 export async function activateFirstOrganizationMembership(
   clerk: ClerkClient,
   setActive: SetActiveFn,
@@ -28,4 +26,22 @@ export async function activateFirstOrganizationMembership(
   if (!membership) return null;
   await setActive({ session: sessionId, organization: membership.organization.id });
   return membership.organization.id;
+}
+
+export interface OrganizationOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+// Multi-org: lista todas las organizaciones a las que pertenece la persona,
+// para que el llamador decida (login directo si hay 1, selector si hay 2+).
+// reload() por el mismo motivo que activateFirstOrganizationMembership.
+export async function listOrganizationMemberships(clerk: ClerkClient): Promise<OrganizationOption[]> {
+  await clerk.user?.reload();
+  return (clerk.user?.organizationMemberships ?? []).map((membership) => ({
+    id: membership.organization.id,
+    name: membership.organization.name,
+    slug: membership.organization.slug,
+  }));
 }

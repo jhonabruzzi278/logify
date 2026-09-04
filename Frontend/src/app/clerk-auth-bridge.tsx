@@ -5,8 +5,13 @@ import { isClerkAPIResponseError } from "@clerk/react/errors";
 import { setApiAuthErrorListener, setApiAuthRefreshHandler, updateApiToken } from "@/lib/api-client";
 import { decodeJwtPayload, parseRole, type Session } from "@/lib/auth-service";
 import { AuthContext, type AuthContextValue } from "@/app/auth";
-import { activateFirstOrganizationMembership } from "@/app/clerk-org-activation";
+import { activateFirstOrganizationMembership, listOrganizationMemberships, type OrganizationOption } from "@/app/clerk-org-activation";
 import type { ApiLoginRequest } from "@/types/api";
+
+// Señal interna para que login() salga sin completar la sesión cuando hay
+// 2+ memberships -- el catch de más abajo la reconoce y evita pisar
+// organizationOptions con el banner de error genérico del formulario.
+class OrgSelectionPendingError extends Error {}
 
 // Fase 2 de ADR-004 (corte real): mismo AuthContext que AuthProvider
 // (auth.tsx), pero autentica contra Clerk en vez de POST /api/auth/login.
@@ -47,7 +52,11 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [restoringSession, setRestoringSession] = useState(true);
+  const [organizationOptions, setOrganizationOptions] = useState<OrganizationOption[] | null>(null);
   const organizationIdRef = useRef<string | null>(null);
+  // Sesión de Clerk ya activa (login o restauración) esperando a que la
+  // persona elija a qué organización entrar -- ver selectOrganization().
+  const pendingSessionIdRef = useRef<string | null>(null);
   const authVersionRef = useRef(0);
 
   const refreshToken = useCallback(async () => {
@@ -117,17 +126,44 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
     }
     let cancelled = false;
     void (async () => {
+      const sessionId = clerk.session?.id;
+      let organizationId: string | null = null;
+      if (sessionId) {
+        // Multi-org: lastActiveOrganizationId persiste entre recargas (es
+        // parte del recurso Session de Clerk) -- camino silencioso rapido que
+        // evita re-enumerar memberships y volver a mostrar el selector en cada
+        // reload cuando la persona ya habia elegido una organizacion antes.
+        organizationId = clerk.session?.lastActiveOrganizationId ?? null;
+        if (organizationId) {
+          await setActive({ session: sessionId, organization: organizationId });
+        } else {
+          const memberships = await listOrganizationMemberships(clerk);
+          if (cancelled) return;
+          if (memberships.length === 1) {
+            organizationId = memberships[0].id;
+            await setActive({ session: sessionId, organization: organizationId });
+          } else if (memberships.length > 1) {
+            // Sesion de Clerk activa pero sin organizacion elegida todavia --
+            // RequireAuth (app/auth.tsx) renderiza el selector mientras
+            // session sigue null.
+            pendingSessionIdRef.current = sessionId;
+            setOrganizationOptions(memberships);
+            setRestoringSession(false);
+            return;
+          }
+        }
+      }
+      // Si sessionId todavia no esta disponible (Clerk puede publicarlo un
+      // tick despues de isSignedIn, ver PR #92), organizationId queda null y
+      // se sigue pidiendo el token igual, sin organizacion -- exactamente el
+      // comportamiento previo para ese caso.
+      if (cancelled) return;
+      organizationIdRef.current = organizationId;
       // Mismo problema que en login() (ver PR #92): sin organizationId
       // explicito, el token puede salir con tenant_id vacio si la sesion de
       // Clerk (cookies) no tiene todavia una organizacion activa en este tab
       // -- requireTenant lo rechaza con "Sesion invalida, inicia sesion de
       // nuevo" pese a que la sesion es valida.
-      const sessionId = clerk.session?.id;
-      const organizationId = sessionId
-        ? await activateFirstOrganizationMembership(clerk, setActive, sessionId)
-        : null;
-      if (cancelled) return;
-      organizationIdRef.current = organizationId;
       const token = await getToken({
         template: CLERK_JWT_TEMPLATE,
         organizationId: organizationId ?? undefined,
@@ -175,6 +211,7 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
       session,
       loading: loading || restoringSession,
       error,
+      organizationOptions,
       async login(credentials: ApiLoginRequest) {
         if (!signInLoaded || !signIn || !setActive) {
           throw new Error("Clerk todavía no está listo, intenta de nuevo.");
@@ -194,8 +231,8 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           // para tenant_id/tenant_slug -- Clerk solo los interpola si la sesion
           // tiene una organizacion ACTIVA, algo que setActive({session}) solo
           // no hace.
-          const organizationId = await activateFirstOrganizationMembership(clerk, setActive, attempt.createdSessionId);
-          if (!organizationId) {
+          const memberships = await listOrganizationMemberships(clerk);
+          if (!memberships.length) {
             // Sin esto, el login "tenia exito" en silencio con un token sin
             // organizacion activa -- cada llamada a la API fallaba con 401 sin
             // que la persona entendiera por que (bug real, ver auditoria de
@@ -203,6 +240,19 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
             // un reintento parta limpio, en vez de dejarla colgada.
             await signOut();
             throw new Error("Tu cuenta no está asociada a ninguna empresa en Logify. Contacta a soporte.");
+          }
+          let organizationId: string;
+          if (memberships.length === 1) {
+            organizationId = memberships[0].id;
+            await setActive({ session: attempt.createdSessionId, organization: organizationId });
+          } else {
+            // Multi-org: la persona pertenece a 2+ organizaciones -- se deja
+            // la sesion de Clerk activa (ya autenticada) pero sin organizacion
+            // elegida todavia; RequireAuth (app/auth.tsx) renderiza el
+            // selector y termina el login via selectOrganization().
+            pendingSessionIdRef.current = attempt.createdSessionId;
+            setOrganizationOptions(memberships);
+            throw new OrgSelectionPendingError();
           }
           organizationIdRef.current = organizationId;
           // Pasar organizationId evita depender de la propagación asíncrona
@@ -221,6 +271,11 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           setSession(next);
           return next;
         } catch (err) {
+          if (err instanceof OrgSelectionPendingError) {
+            // No es un error real -- el formulario de login no debe mostrar
+            // el banner mientras se renderiza el selector de organizacion.
+            throw err;
+          }
           // Diagnostico temporal (401/400 en produccion, ver PR #92): el
           // sign_ins de Clerk devuelve el motivo real dentro de err.errors
           // (code/longMessage) -- err.message por si solo suele ser generico.
@@ -240,21 +295,55 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
           setLoading(false);
         }
       },
+      async selectOrganization(organizationId: string) {
+        const sessionId = pendingSessionIdRef.current ?? clerk.session?.id;
+        if (!sessionId || !setActive) {
+          throw new Error("Sesión inválida, vuelve a iniciar sesión.");
+        }
+        setLoading(true);
+        setError(null);
+        try {
+          await setActive({ session: sessionId, organization: organizationId });
+          organizationIdRef.current = organizationId;
+          const token = await getToken({
+            template: CLERK_JWT_TEMPLATE,
+            organizationId,
+            skipCache: true,
+          });
+          if (!token) {
+            throw new Error("No se pudo obtener el token de sesión.");
+          }
+          const next = sessionFromClerkToken(token);
+          updateApiToken(token);
+          setSession(next);
+          setOrganizationOptions(null);
+          pendingSessionIdRef.current = null;
+          return next;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "No se pudo completar el ingreso.";
+          setError(message);
+          throw err;
+        } finally {
+          setLoading(false);
+        }
+      },
       async logout() {
         // Invalida cualquier renovacion que ya estuviera esperando respuesta;
         // de otro modo podria volver a poblar la sesion despues de signOut().
         authVersionRef.current += 1;
         organizationIdRef.current = null;
+        pendingSessionIdRef.current = null;
         try {
           await signOut();
         } finally {
           setSession(null);
+          setOrganizationOptions(null);
           updateApiToken(null);
           setError(null);
         }
       },
     }),
-    [session, loading, restoringSession, error, signInLoaded, signIn, setActive, getToken, signOut, clerk],
+    [session, loading, restoringSession, error, organizationOptions, signInLoaded, signIn, setActive, getToken, signOut, clerk],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

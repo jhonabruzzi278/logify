@@ -14,6 +14,7 @@ const mockClerk = {
   users: {
     createUser: jest.fn().mockResolvedValue({ id: 'user_signup' }),
     deleteUser: jest.fn().mockResolvedValue({}),
+    getUserList: jest.fn().mockResolvedValue({ data: [] }),
   },
 };
 jest.mock('@clerk/backend', () => ({ createClerkClient: jest.fn(() => mockClerk) }));
@@ -69,12 +70,14 @@ describe('POST /api/signup', () => {
     mockClerk.organizations.deleteOrganization.mockResolvedValue({});
     mockClerk.users.createUser.mockResolvedValue({ id: 'user_signup' });
     mockClerk.users.deleteUser.mockResolvedValue({});
+    mockClerk.users.getUserList.mockResolvedValue({ data: [] });
   });
 
   it('crea tenant, identidad central y responde 201 con la URL única', async () => {
     const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
     mockQuery
       .mockResolvedValueOnce({ rows: [] }) // slug disponible
+      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] }) // insert tenant
       .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] }); // insert user
 
@@ -105,6 +108,7 @@ describe('POST /api/signup', () => {
     const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
     mockQuery
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
       .mockResolvedValueOnce({ rows: [{ id: 27, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] })
       .mockResolvedValueOnce({ rows: [{ id: 10, username: 'usuariot27', name: 'Á.', role: 'owner' }] });
 
@@ -117,6 +121,73 @@ describe('POST /api/signup', () => {
     expect(res.status).toBe(201);
     expect(res.body.ownerUsername).toBe('usuariot27');
     expect(mockClerk.users.createUser.mock.calls[0][0]).not.toHaveProperty('username');
+  });
+
+  it('multi-org: reusa la identidad de Clerk si el correo ya existe (dueño de otra empresa) en vez de crear una nueva', async () => {
+    const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
+    mockClerk.users.getUserList.mockResolvedValueOnce({ data: [{ id: 'user_existing', emailAddresses: [{ emailAddress: 'contacto@acme.cl' }] }] });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] }) // slug disponible
+      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
+      .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] }) // insert tenant
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] }); // insert user
+
+    const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+
+    expect(res.status).toBe(201);
+    expect(mockClerk.users.createUser).not.toHaveBeenCalled();
+    expect(mockClerk.organizations.createOrganizationMembership).toHaveBeenCalledWith({
+      organizationId: 'org_signup', userId: 'user_existing', role: 'org:admin',
+    });
+    expect(mockQuery).toHaveBeenCalledWith('UPDATE users SET clerk_user_id=$1 WHERE id=$2', ['user_existing', 10]);
+  });
+
+  it('multi-org: el filtro de correo de Clerk es solo un match parcial, así que solo reusa la identidad con igualdad exacta', async () => {
+    const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
+    // getUserList({emailAddress}) de Clerk hace match parcial -- este resultado
+    // NO es el mismo correo (uno contiene al otro como substring), asi que debe
+    // tratarse como "no encontrado" y crear una identidad nueva igual.
+    mockClerk.users.getUserList.mockResolvedValueOnce({ data: [{ id: 'user_other', emailAddresses: [{ emailAddress: 'contacto@acme.cl.otrodominio.com' }] }] });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] })
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] });
+
+    const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+
+    expect(res.status).toBe(201);
+    expect(mockClerk.users.createUser).toHaveBeenCalledWith(expect.objectContaining({ emailAddress: ['contacto@acme.cl'] }));
+  });
+
+  it('multi-org: rechaza el signup si el correo ya es dueño de otra empresa con suscripción realmente activa', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] }) // slug disponible
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] }); // ya es owner de un tenant con subscription_status='active'
+
+    const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('ACTIVE_SUBSCRIPTION_EXISTS');
+    expect(mockClerk.users.getUserList).not.toHaveBeenCalled();
+    expect(mockClerk.organizations.createOrganization).not.toHaveBeenCalled();
+  });
+
+  it('multi-org: no borra una identidad de Clerk reusada si Postgres falla después de vincularla', async () => {
+    const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
+    mockClerk.users.getUserList.mockResolvedValueOnce({ data: [{ id: 'user_existing', emailAddresses: [{ emailAddress: 'contacto@acme.cl' }] }] });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] })
+      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] })
+      .mockRejectedValueOnce(new Error('DB down')); // falla al vincular clerk_org_id/clerk_user_id
+
+    const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
+
+    expect(res.status).toBe(500);
+    expect(mockClerk.users.deleteUser).not.toHaveBeenCalled();
+    expect(mockClerk.organizations.deleteOrganization).toHaveBeenCalledWith('org_signup');
   });
 
   it('responde 503 antes de escribir si la identidad central no está configurada', async () => {
@@ -158,6 +229,7 @@ describe('POST /api/signup', () => {
     mockClerk.users.createUser.mockRejectedValueOnce(clerkConflict);
     mockQuery
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: new Date().toISOString() }] })
       .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] });
 
@@ -178,6 +250,7 @@ describe('POST /api/signup', () => {
     mockClerk.users.createUser.mockRejectedValueOnce(clerkValidation);
     mockQuery
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: new Date().toISOString() }] })
       .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] });
 
@@ -192,6 +265,7 @@ describe('POST /api/signup', () => {
     mockClerk.organizations.createOrganizationMembership.mockRejectedValueOnce(new Error('membership failed'));
     mockQuery
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: new Date().toISOString() }] })
       .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] });
 
@@ -228,6 +302,7 @@ describe('POST /api/signup', () => {
     const trialEndsAt = new Date(Date.now() + 180 * 86400000).toISOString();
     mockQuery
       .mockResolvedValueOnce({ rows: [] }) // slug disponible
+      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
       .mockResolvedValueOnce({ rows: [{ id: 5, code: 'BIENVENIDA90', extra_trial_days: 90, max_redemptions: null, redemptions_count: 0 }] }) // cupón válido
       .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] }) // insert tenant
       .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] }) // insert user
@@ -239,13 +314,14 @@ describe('POST /api/signup', () => {
     const res = await request(app).post('/api/signup').send({ ...VALID_SIGNUP_BODY, couponCode: 'bienvenida90' });
 
     expect(res.status).toBe(201);
-    expect(mockQuery).toHaveBeenNthCalledWith(7, expect.stringContaining('UPDATE coupons SET redemptions_count'), [5]);
-    expect(mockQuery).toHaveBeenNthCalledWith(8, expect.stringContaining('INSERT INTO coupon_redemptions'), [2, 5]);
+    expect(mockQuery).toHaveBeenNthCalledWith(8, expect.stringContaining('UPDATE coupons SET redemptions_count'), [5]);
+    expect(mockQuery).toHaveBeenNthCalledWith(9, expect.stringContaining('INSERT INTO coupon_redemptions'), [2, 5]);
   });
 
   it('cupón inválido, expirado o agotado → 400', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [] }) // slug disponible
+      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
       .mockResolvedValueOnce({ rows: [] }); // cupón no encontrado (invalido/expirado/agotado)
     const res = await request(app).post('/api/signup').send({ ...VALID_SIGNUP_BODY, couponCode: 'NOEXISTE' });
     expect(res.status).toBe(400);

@@ -20,10 +20,6 @@ const SHIPPING_URL = process.env.SHIPPING_SERVICE_URL || 'http://shipping-servic
 // SHIPPING_URL arriba, que ya usan http:// sin TLS por el mismo motivo.
 const NOTIFICATION_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:8085'; // NOSONAR
 const DEFAULT_TENANT_SLUG = 'logify';
-// Las invitaciones se aceptan en el portal de la aplicación. APP_URL también
-// se usa para enlaces de la landing y puede apuntar a logify.cl, por eso no se
-// reutiliza aquí: un enlace de invitación en la landing termina en 404.
-const INVITE_APP_URL = process.env.INVITE_APP_URL || 'https://app.logify.cl';
 
 // Identificadores internos reservados para infraestructura. Aunque ya no son
 // subdominios de clientes, el slug sigue siendo una clave estable del tenant.
@@ -120,7 +116,7 @@ async function ensureTables() {
   // (routes/webhooks.routes.js) cuando un tenant migra. password_hash deja de
   // ser obligatorio para usuarios gestionados por Clerk (Clerk guarda la
   // credencial, no Logify).
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_user_id VARCHAR(100) UNIQUE`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_user_id VARCHAR(100)`);
   await pool.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
   await pool.query(`CREATE TABLE IF NOT EXISTS user_invitations (
     id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, email VARCHAR(200) NOT NULL,
@@ -215,6 +211,11 @@ async function ensureTenantConstraints() {
   await pool.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rut_key`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uk_users_tenant_username ON users (tenant_id, username)`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uk_users_tenant_rut ON users (tenant_id, rut)`);
+  // Multi-org: clerk_user_id era unico globalmente (1 persona = 1 tenant como
+  // maximo). Logify ahora soporta que la misma identidad de Clerk pertenezca
+  // a varios tenants -- unicidad pasa a ser por tenant, igual que username/rut.
+  await pool.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_clerk_user_id_key`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uk_users_tenant_clerk_user_id ON users (tenant_id, clerk_user_id) WHERE clerk_user_id IS NOT NULL`);
 }
 
 async function seedUsers() {
@@ -490,36 +491,18 @@ app.post('/api/webhooks/clerk', async (req, res) => {
         const role = membership.public_metadata?.role || 'customer';
         const name = [membership.public_user_data.first_name, membership.public_user_data.last_name].filter(Boolean).join(' ') || membership.public_user_data.identifier;
         const username = membership.public_metadata?.username || membership.public_user_data.identifier;
-        const existingUser = (await pool.query('SELECT id, tenant_id FROM users WHERE clerk_user_id=$1', [clerkUserId])).rows[0];
-        let membershipApplied = false;
-        if (existingUser && existingUser.tenant_id !== tenant.id) {
-          // Guard de multi-org (Fase 2 de la migracion a Clerk, ver PR #67):
-          // este Clerk User ya es un usuario Logify de OTRO tenant. Sin este
-          // guard, el UPDATE de abajo reasignaria tenant_id en la fila
-          // existente y moveria en silencio el acceso de un tenant a otro --
-          // bug real encontrado en auditoria de produccion. Logify todavia no
-          // soporta que una persona pertenezca a mas de un tenant, asi que la
-          // membership nueva se ignora (200, sin reintentos de Clerk) en vez
-          // de aplicarse mal.
-          log.warn('Clerk membership webhook: el usuario ya pertenece a otro tenant, se ignora la membership nueva (multi-org no soportado todavia)', {
-            clerkUserId, existingTenantId: existingUser.tenant_id, newTenantId: tenant.id,
-          });
-        } else if (existingUser) {
+        // Multi-org: la misma persona (mismo clerk_user_id) puede tener una
+        // fila por cada tenant del que es miembro -- la busqueda va scoped al
+        // tenant de ESTE evento, nunca global, para no pisar ni ignorar la
+        // membership de otro tenant (ver uk_users_tenant_clerk_user_id).
+        const existingUser = (await pool.query('SELECT id FROM users WHERE clerk_user_id=$1 AND tenant_id=$2', [clerkUserId, tenant.id])).rows[0];
+        if (existingUser) {
           await pool.query('UPDATE users SET name=$1, role=$2, updated_at=NOW() WHERE id=$3', [name, role, existingUser.id]);
-          membershipApplied = true;
         } else {
           await pool.query(
             `INSERT INTO users (username, name, role, tenant_id, clerk_user_id) VALUES ($1,$2,$3,$4,$5)
              ON CONFLICT (tenant_id, username) DO UPDATE SET clerk_user_id=EXCLUDED.clerk_user_id, role=EXCLUDED.role, name=EXCLUDED.name`,
             [username, name, role, tenant.id, clerkUserId]
-          );
-          membershipApplied = true;
-        }
-        if (membershipApplied && membership.public_user_data.identifier) {
-          await pool.query(
-            `UPDATE user_invitations SET status='accepted'
-             WHERE tenant_id=$1 AND LOWER(email)=LOWER($2) AND status='pending'`,
-            [tenant.id, membership.public_user_data.identifier]
           );
         }
       }
@@ -528,7 +511,13 @@ app.post('/api/webhooks/clerk', async (req, res) => {
       // Desvincula en vez de borrar: un webhook duplicado/reintentado no
       // debe poder destruir la fila; el desaprovisionamiento real de un
       // usuario sigue siendo una accion manual de administracion.
-      await pool.query('UPDATE users SET clerk_user_id=NULL WHERE clerk_user_id=$1', [membership.public_user_data.user_id]);
+      // Scoped al tenant de este evento -- sin esto, sacar a una persona de
+      // la Organization del Tenant A desvincularia en silencio su fila en
+      // cualquier otro tenant del que tambien sea miembro (multi-org).
+      const tenant = (await pool.query('SELECT id FROM tenants WHERE clerk_org_id=$1', [membership.organization.id])).rows[0];
+      if (tenant) {
+        await pool.query('UPDATE users SET clerk_user_id=NULL WHERE clerk_user_id=$1 AND tenant_id=$2', [membership.public_user_data.user_id, tenant.id]);
+      }
     }
     res.status(200).json({ received: true, type: evt.type });
   } catch (err) {
@@ -572,6 +561,17 @@ function buildClerkSafeOwnerUsername(value, tenantId) {
   return `${stem.slice(0, 64 - suffix.length)}${suffix}`;
 }
 
+// clerk.users.getUserList({emailAddress}) hace match parcial case-insensitive
+// (ej. "ana" matchea "ana2@x.com") -- se re-filtra por igualdad exacta o se
+// arriesga vincular la identidad de otra persona. Usado tanto por /api/signup
+// (multi-org: reusa la identidad si el correo ya existe en Clerk) como por
+// /api/auth/register (alta directa dentro de un tenant).
+async function findClerkUserByExactEmail(clerk, email) {
+  const normalized = email.trim().toLowerCase();
+  const { data } = await clerk.users.getUserList({ emailAddress: [normalized] });
+  return data.find((u) => u.emailAddresses.some((e) => e.emailAddress.toLowerCase() === normalized)) || null;
+}
+
 app.get('/api/signup/check-slug', requireSignupEnabled, async (req, res) => {
   try {
     const slug = (req.query.slug || '').toString().trim().toLowerCase();
@@ -608,7 +608,8 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
   bcrypt = require('bcryptjs');
   const client = await pool.connect();
   let createdClerkOrganization = null;
-  let createdClerkUser = null;
+  let clerkUser = null;
+  let isNewClerkUser = false;
   let signupStage = 'database';
   try {
     await client.query('BEGIN');
@@ -617,6 +618,25 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
     if (slugTaken.rows.length) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Ese identificador ya esta en uso', code: 'TENANT_SLUG_TAKEN' });
+    }
+
+    // Multi-org: un correo puede ser dueno de varias empresas en Logify, pero
+    // solo de UNA con suscripcion realmente 'active' a la vez. Hoy ningun
+    // tenant llega a 'active' (no hay pasarela de pago conectada, todos
+    // quedan en 'trialing'), asi que este chequeo es un no-op en produccion
+    // -- queda listo para cuando el cobro real exista.
+    const activeOwnerConflict = await client.query(
+      `SELECT t.id FROM users u JOIN tenants t ON t.id = u.tenant_id
+       WHERE LOWER(u.email) = LOWER($1) AND u.role = 'owner' AND t.subscription_status = 'active'
+       LIMIT 1`,
+      [contactEmail.trim()]
+    );
+    if (activeOwnerConflict.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Ya tienes una empresa activa en Logify con este correo. Contacta a soporte si necesitas otra cuenta.',
+        code: 'ACTIVE_SUBSCRIPTION_EXISTS',
+      });
     }
 
     let extraDays = 0;
@@ -671,28 +691,38 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
     // El correo es la credencial universal del acceso central. No enviamos
     // `username` a Clerk porque ese identificador es opcional por instancia;
     // el username interno sigue viajando en metadata para permisos y UI.
+    //
+    // Multi-org: si este correo ya tiene una identidad de Clerk (dueno de
+    // otra empresa en Logify), se reusa en vez de fallar -- una persona
+    // puede ser dueno de varias empresas mientras no viole la regla de 1
+    // sola suscripcion 'active' (ya verificada arriba). Solo se crea una
+    // identidad nueva cuando el correo es realmente nuevo para Clerk.
     signupStage = 'identity';
-    createdClerkUser = await centralClerk.users.createUser({
-      emailAddress: [contactEmail.trim().toLowerCase()],
-      password: ownerPassword,
-      firstName: nameParts.shift(),
-      lastName: nameParts.join(' ') || undefined,
-    });
+    clerkUser = await findClerkUserByExactEmail(centralClerk, contactEmail);
+    if (!clerkUser) {
+      clerkUser = await centralClerk.users.createUser({
+        emailAddress: [contactEmail.trim().toLowerCase()],
+        password: ownerPassword,
+        firstName: nameParts.shift(),
+        lastName: nameParts.join(' ') || undefined,
+      });
+      isNewClerkUser = true;
+    }
     signupStage = 'membership';
     await centralClerk.organizations.createOrganizationMembership({
       organizationId: createdClerkOrganization.id,
-      userId: createdClerkUser.id,
+      userId: clerkUser.id,
       role: 'org:admin',
     });
     signupStage = 'membership_metadata';
     await centralClerk.organizations.updateOrganizationMembershipMetadata({
       organizationId: createdClerkOrganization.id,
-      userId: createdClerkUser.id,
+      userId: clerkUser.id,
       publicMetadata: { role: 'owner', username: usernameNorm },
     });
     signupStage = 'linking';
     await client.query('UPDATE tenants SET clerk_org_id=$1 WHERE id=$2', [createdClerkOrganization.id, tenant.id]);
-    await client.query('UPDATE users SET clerk_user_id=$1 WHERE id=$2', [createdClerkUser.id, owner.id]);
+    await client.query('UPDATE users SET clerk_user_id=$1 WHERE id=$2', [clerkUser.id, owner.id]);
 
     if (coupon) {
       await client.query('UPDATE coupons SET redemptions_count = redemptions_count + 1 WHERE id=$1', [coupon.id]);
@@ -717,9 +747,12 @@ app.post('/api/signup', requireSignupEnabled, signupRateLimit, async (req, res) 
     await client.query('ROLLBACK').catch(() => {});
     // Compensación exacta: si Clerk alcanzó a crear recursos pero Postgres no
     // pudo confirmar el alta, no dejamos identidades u organizaciones huérfanas.
-    if (createdClerkUser) {
-      await centralClerk.users.deleteUser(createdClerkUser.id).catch((cleanupErr) => {
-        log.error('Signup cleanup: no se pudo eliminar el usuario Clerk', { userId: createdClerkUser.id, message: cleanupErr.message });
+    // Solo se borra el Clerk User si esta request lo creó -- una identidad
+    // reusada (multi-org) puede pertenecer a otras empresas y jamás debe
+    // eliminarse aquí.
+    if (isNewClerkUser && clerkUser) {
+      await centralClerk.users.deleteUser(clerkUser.id).catch((cleanupErr) => {
+        log.error('Signup cleanup: no se pudo eliminar el usuario Clerk', { userId: clerkUser.id, message: cleanupErr.message });
       });
     }
     if (createdClerkOrganization) {
@@ -788,27 +821,71 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) { sendError(res, 500, 'Login failed', err); }
 });
 
+// Reemplaza el viejo alta por invitacion (ver A.5/git history): "Agregar
+// usuario" ahora es la unica forma de sumar gente a un tenant, con correo +
+// contrasena en vez de nombre de usuario, y consciente de Clerk/multi-org --
+// si el correo ya tiene una identidad de Clerk (de este tenant o de otro), se
+// reusa en vez de fallar, en vez de crear una credencial nueva.
 app.post('/api/auth/register', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
+    const { email, password, name, role } = req.body;
+    if (!email || !email.trim() || !password || !name || !name.trim() || !role) {
+      return res.status(400).json({ error: 'email, password, name y role son requeridos' });
+    }
+    if (!VALID_ROLES.includes(role.toLowerCase())) {
+      return res.status(400).json({ error: 'Rol invalido. Validos: ' + VALID_ROLES.join(', ') });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    const dup = await req.db.query('SELECT 1 FROM users WHERE tenant_id=$1 AND LOWER(email)=LOWER($2)', [req.tenantId, normalizedEmail]);
+    if (dup.rows.length) return res.status(409).json({ error: 'Ya existe un usuario con ese correo en tu empresa' });
+
+    const usernameNorm = buildClerkSafeOwnerUsername(normalizedEmail.split('@')[0], req.tenantId);
+    const clerk = getClerkClient();
+    const tenant = (await req.db.query('SELECT clerk_org_id FROM tenants WHERE id=$1', [req.tenantId])).rows[0];
+
+    if (clerk && tenant?.clerk_org_id) {
+      let clerkUser = await findClerkUserByExactEmail(clerk, normalizedEmail);
+      const linkedExistingAccount = Boolean(clerkUser);
+      if (!clerkUser) {
+        const passwordErrors = validatePasswordStrength(password);
+        if (passwordErrors.length) return res.status(400).json({ error: passwordErrors.join('. ') });
+        const [firstName, ...rest] = name.trim().split(/\s+/);
+        clerkUser = await clerk.users.createUser({ emailAddress: [normalizedEmail], password, firstName, lastName: rest.join(' ') || undefined });
+      }
+      try {
+        await clerk.organizations.createOrganizationMembership({ organizationId: tenant.clerk_org_id, userId: clerkUser.id, role: 'org:member' });
+      } catch (err) {
+        const codes = Array.isArray(err.errors) ? err.errors.map((e) => e.code) : [];
+        if (err.status === 422 && codes.includes('duplicate_record')) {
+          return res.status(409).json({ error: 'Esta persona ya es parte de tu equipo.' });
+        }
+        throw err;
+      }
+      await clerk.organizations.updateOrganizationMembershipMetadata({
+        organizationId: tenant.clerk_org_id, userId: clerkUser.id,
+        publicMetadata: { role: role.toLowerCase(), username: usernameNorm },
+      });
+      const created = (await req.db.query(
+        `INSERT INTO users (username, name, role, email, tenant_id, clerk_user_id) VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (tenant_id, username) DO UPDATE SET clerk_user_id=EXCLUDED.clerk_user_id, role=EXCLUDED.role, name=EXCLUDED.name
+         RETURNING id, username, name, role, email, created_at`,
+        [usernameNorm, name.trim(), role.toLowerCase(), normalizedEmail, req.tenantId, clerkUser.id]
+      )).rows[0];
+      return res.status(201).json({ ...created, linkedExistingAccount });
+    }
+
+    // Fallback local (tenant sin Clerk todavia): mismo alta con bcrypt de
+    // siempre, sin identidad multi-org.
+    const passwordErrors = validatePasswordStrength(password);
+    if (passwordErrors.length) return res.status(400).json({ error: passwordErrors.join('. ') });
     bcrypt = require('bcryptjs');
-    const { username, password, name, role, rut, email, secretQuestion, secretAnswer } = req.body;
-    if (!username || !password || !name || !role) {
-      return res.status(400).json({ error: 'username, password, name y role son requeridos' });
-    }
-    const validRoles = ['owner', 'ops', 'warehouse', 'shipper', 'vendor', 'support', 'customer'];
-    if (!validRoles.includes(role.toLowerCase())) {
-      return res.status(400).json({ error: 'Rol invalido. Validos: ' + validRoles.join(', ') });
-    }
-    const exists = await req.db.query('SELECT 1 FROM users WHERE username=$1 AND tenant_id=$2', [username.trim().toLowerCase(), req.tenantId]);
-    if (exists.rows.length) return res.status(409).json({ error: 'El usuario ya existe' });
     const hash = await bcrypt.hash(password, 10);
-    const secretAnswerHash = secretAnswer ? await bcrypt.hash(secretAnswer.trim().toLowerCase(), 10) : null;
-    const user = (await req.db.query(
-      `INSERT INTO users (username, password_hash, name, role, rut, email, secret_question, secret_answer_hash, tenant_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING id, username, name, role, rut, email, secret_question, created_at`,
-      [username.trim().toLowerCase(), hash, name.trim(), role.toLowerCase(), rut || null, email || null, secretQuestion || null, secretAnswerHash, req.tenantId])).rows[0];
-    res.status(201).json(user);
+    const created = (await req.db.query(
+      `INSERT INTO users (username, password_hash, name, role, email, tenant_id) VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING id, username, name, role, email, created_at`,
+      [usernameNorm, hash, name.trim(), role.toLowerCase(), normalizedEmail, req.tenantId]
+    )).rows[0];
+    res.status(201).json({ ...created, linkedExistingAccount: false });
   } catch (err) { sendError(res, 500, 'Register failed', err); }
 });
 
@@ -1374,93 +1451,10 @@ app.put('/api/settings/system', authMiddleware, requireTenant, withTenantDb, req
   } catch (err) { sendError(res, 500, 'Failed to update system settings', err); }
 });
 
-// ═══ INVITACIONES DE USUARIO ══════════════════════════════════════════════════
-
+// Usado por PUT /api/auth/users/:id (edicion de rol) -- las rutas de
+// invitacion que vivian en esta seccion se eliminaron (ver A.5): "Agregar
+// usuario" (POST /api/auth/register) es ahora la unica alta de usuarios.
 const VALID_ROLES = ['owner', 'ops', 'warehouse', 'shipper', 'vendor', 'support', 'customer'];
-const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
-
-function getTenantAppUrl(slug) {
-  return slug && !RESERVED_TENANT_SLUGS.has(slug) ? `https://${slug}.logify.cl` : INVITE_APP_URL;
-}
-
-app.post('/api/auth/invite', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
-  try {
-    const { email, role } = req.body;
-    if (!email || !email.trim()) return res.status(400).json({ error: 'El email es obligatorio' });
-    if (!role || !VALID_ROLES.includes(role.toLowerCase())) {
-      return res.status(400).json({ error: 'Rol inválido. Válidos: ' + VALID_ROLES.join(', ') });
-    }
-    const normalizedEmail = email.trim().toLowerCase();
-    const normalizedRole = role.toLowerCase();
-    const token = crypto.randomBytes(24).toString('hex');
-    const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_MS);
-    let clerkInvitationId = null;
-    let deliveredByClerk = false;
-    const clerk = getClerkClient();
-    const tenant = (await req.db.query(
-      'SELECT slug, clerk_org_id FROM tenants WHERE id=$1',
-      [req.tenantId]
-    )).rows[0];
-    if (!tenant) return res.status(404).json({ error: 'Empresa no encontrada' });
-
-    if (clerk && tenant.clerk_org_id) {
-      const clerkInvitation = await clerk.organizations.createOrganizationInvitation({
-        organizationId: tenant.clerk_org_id,
-        emailAddress: normalizedEmail,
-        role: 'org:member',
-        expiresInDays: 7,
-        publicMetadata: { role: normalizedRole, username: normalizedEmail },
-        redirectUrl: `${INVITE_APP_URL}/accept-invitation`,
-      });
-      clerkInvitationId = clerkInvitation.id;
-      deliveredByClerk = true;
-    }
-
-    const invitation = (await req.db.query(
-      `INSERT INTO user_invitations (tenant_id, email, role, token, invited_by, expires_at, clerk_invitation_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, email, role, status, expires_at`,
-      [req.tenantId, normalizedEmail, normalizedRole, token, req.user?.sub || req.user?.name || null, expiresAt, clerkInvitationId])).rows[0];
-
-    if (!deliveredByClerk) {
-      const acceptUrl = `${getTenantAppUrl(tenant.slug)}/invite/${token}`;
-      sendEmail({
-        to: invitation.email,
-        subject: 'Te invitaron a unirte a Logify',
-        html: `<p>Te invitaron a unirte con el rol <b>${invitation.role}</b>. Acepta la invitación aquí: <a href="${acceptUrl}">${acceptUrl}</a></p>`
-      }).catch(() => {});
-    }
-
-    res.status(201).json({ ...invitation, delivery: deliveredByClerk ? 'clerk' : 'legacy' });
-  } catch (err) { sendError(res, 500, 'No se pudo crear la invitación', err); }
-});
-
-app.post('/api/auth/invite/:token/accept', async (req, res) => {
-  try {
-    const { username, password, name } = req.body;
-    if (!username || !password || !name) {
-      return res.status(400).json({ error: 'El usuario, la contraseña y el nombre son obligatorios' });
-    }
-    const invitation = (await pool.query(
-      `SELECT i.*, t.slug AS tenant_slug FROM user_invitations i
-       JOIN tenants t ON t.id=i.tenant_id
-       WHERE i.token=$1 AND i.status='pending' AND i.expires_at > NOW()`,
-      [req.params.token])).rows[0];
-    if (!invitation) return res.status(404).json({ error: 'Invitación inválida o expirada' });
-
-    const exists = await pool.query('SELECT 1 FROM users WHERE username=$1 AND tenant_id=$2', [username.trim().toLowerCase(), invitation.tenant_id]);
-    if (exists.rows.length) return res.status(409).json({ error: 'El usuario ya existe' });
-
-    bcrypt = require('bcryptjs');
-    const hash = await bcrypt.hash(password, 10);
-    const user = (await pool.query(
-      `INSERT INTO users (username, password_hash, name, role, email, tenant_id)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, username, name, role, created_at`,
-      [username.trim().toLowerCase(), hash, name.trim(), invitation.role, invitation.email, invitation.tenant_id])).rows[0];
-
-    await pool.query(`UPDATE user_invitations SET status='accepted' WHERE id=$1`, [invitation.id]);
-    res.status(201).json({ ...user, tenantSlug: invitation.tenant_slug, loginUrl: `${getTenantAppUrl(invitation.tenant_slug)}/login` });
-  } catch (err) { sendError(res, 500, 'No se pudo aceptar la invitación', err); }
-});
 
 // ═══ GESTIÓN DE PLATAFORMA ════════════════════════════════════════════════════════
 // Superficie exclusiva de gestion.logify.cl. A diferencia de /api/admin, que
