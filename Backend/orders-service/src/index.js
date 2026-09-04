@@ -821,6 +821,23 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) { sendError(res, 500, 'Login failed', err); }
 });
 
+// Pre-chequeo para el formulario de "Agregar usuario": permite mostrar/ocultar
+// el campo de contraseña en el momento (la persona que ya tiene cuenta en
+// Logify -- de este tenant o de otro -- no necesita una nueva, inicia sesión
+// con la que ya tiene). Mismo nivel de autorización que /register: solo
+// revela si el correo existe a un owner/admin del tenant que ya podría
+// enterarse del mismo dato intentando el alta.
+app.get('/api/auth/check-email', authMiddleware, requireTenant, requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const email = (req.query.email || '').toString().trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: 'email es requerido' });
+    const clerk = getClerkClient();
+    if (!clerk) return res.json({ exists: false });
+    const clerkUser = await findClerkUserByExactEmail(clerk, email);
+    res.json({ exists: Boolean(clerkUser) });
+  } catch (err) { sendError(res, 500, 'Check email failed', err); }
+});
+
 // Reemplaza el viejo alta por invitacion (ver A.5/git history): "Agregar
 // usuario" ahora es la unica forma de sumar gente a un tenant, con correo +
 // contrasena en vez de nombre de usuario, y consciente de Clerk/multi-org --
@@ -829,8 +846,13 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/register', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
     const { email, password, name, role } = req.body;
-    if (!email || !email.trim() || !password || !name || !name.trim() || !role) {
-      return res.status(400).json({ error: 'email, password, name y role son requeridos' });
+    // password es opcional a este nivel: si el correo ya tiene una identidad
+    // de Clerk (persona que ya inicia sesion en otra organizacion), se reusa
+    // esa cuenta y cualquier password enviado se ignora -- no tiene sentido
+    // pedirlo por adelantado sin saber si hace falta. Cada rama de abajo
+    // exige password solo cuando de verdad va a crear una credencial nueva.
+    if (!email || !email.trim() || !name || !name.trim() || !role) {
+      return res.status(400).json({ error: 'email, name y role son requeridos' });
     }
     if (!VALID_ROLES.includes(role.toLowerCase())) {
       return res.status(400).json({ error: 'Rol invalido. Validos: ' + VALID_ROLES.join(', ') });
@@ -847,6 +869,12 @@ app.post('/api/auth/register', authMiddleware, requireTenant, withTenantDb, requ
       let clerkUser = await findClerkUserByExactEmail(clerk, normalizedEmail);
       const linkedExistingAccount = Boolean(clerkUser);
       if (!clerkUser) {
+        if (!password) {
+          return res.status(400).json({
+            error: 'Esta persona no tiene cuenta en Logify todavía. Define una contraseña para crear su acceso.',
+            code: 'PASSWORD_REQUIRED_NEW_ACCOUNT',
+          });
+        }
         const passwordErrors = validatePasswordStrength(password);
         if (passwordErrors.length) return res.status(400).json({ error: passwordErrors.join('. ') });
         const [firstName, ...rest] = name.trim().split(/\s+/);
@@ -880,7 +908,9 @@ app.post('/api/auth/register', authMiddleware, requireTenant, withTenantDb, requ
     }
 
     // Fallback local (tenant sin Clerk todavia): mismo alta con bcrypt de
-    // siempre, sin identidad multi-org.
+    // siempre, sin identidad multi-org -- aqui password siempre es requerido,
+    // no hay concepto de reusar una cuenta existente.
+    if (!password) return res.status(400).json({ error: 'La contraseña es requerida' });
     const passwordErrors = validatePasswordStrength(password);
     if (passwordErrors.length) return res.status(400).json({ error: passwordErrors.join('. ') });
     bcrypt = require('bcryptjs');

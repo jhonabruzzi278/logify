@@ -21,6 +21,10 @@ export interface AuthContextValue {
   // (JWT legacy, sin concepto de organizacion) nunca las puebla.
   organizationOptions?: OrganizationOption[] | null;
   selectOrganization?: (organizationId: string) => Promise<Session>;
+  // Botón "Cambiar de organización" en el perfil: lista bajo demanda todas
+  // las organizaciones de la persona (no solo las "pendientes de elegir").
+  // Solo lo provee ClerkBridgedAuthProvider.
+  listMyOrganizations?: () => Promise<OrganizationOption[]>;
 }
 
 const STORAGE_KEY = "logify-auth-v2";

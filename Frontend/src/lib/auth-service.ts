@@ -12,6 +12,11 @@ export interface Session {
   name: string;
   role: Role;
   expiresAt: number; // ms timestamp
+  // Solo lo puebla ClerkBridgedAuthProvider (claim tenant_slug del JWT
+  // template) -- identifica la organización activa para el selector de
+  // organización en el perfil. AuthProvider (JWT legacy) no tiene concepto
+  // de organización, queda undefined.
+  organizationSlug?: string;
 }
 
 const VALID_ROLES = new Set<Role>(["owner", "ops", "warehouse", "shipper", "vendor", "support", "customer"]);

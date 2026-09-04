@@ -2,9 +2,12 @@
 import { AlertTriangle, Check, ChevronDown, Edit2, Search, Trash2, UserPlus, X } from "lucide-react";
 import { getRoleProfile } from "@/app/access";
 import { useAuth } from "@/app/auth";
-import { fetchUsers, registerUser, updateUser, deleteUser } from "@/lib/local-jwt-auth";
+import { checkEmailExists, fetchUsers, registerUser, updateUser, deleteUser } from "@/lib/local-jwt-auth";
+import { useDebounce } from "@/hooks/use-debounce";
 import { cn, onActivateKey } from "@/lib/utils";
 import type { Role } from "@/types/domain";
+
+type EmailCheckStatus = "idle" | "checking" | "existing" | "new";
 
 const ROLES: Role[] = ["owner", "ops", "warehouse", "support", "customer", "shipper", "vendor"];
 
@@ -32,6 +35,8 @@ export function UsersPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "ops" as Role });
+  const [emailCheck, setEmailCheck] = useState<EmailCheckStatus>("idle");
+  const debouncedNewUserEmail = useDebounce(newUser.email, 500);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -52,6 +57,24 @@ export function UsersPage() {
   }, [token]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
+
+  // Detecta si el correo ya tiene cuenta en Logify (de este tenant o de
+  // otro) mientras el owner/admin escribe -- esa persona inicia sesión de
+  // forma independiente con su propia contraseña, así que el campo de
+  // contraseña se oculta en vez de pedir una que después se ignora.
+  useEffect(() => {
+    const trimmed = debouncedNewUserEmail.trim();
+    if (!showAdd || !trimmed.includes("@")) {
+      setEmailCheck("idle");
+      return;
+    }
+    let cancelled = false;
+    setEmailCheck("checking");
+    checkEmailExists(token, trimmed)
+      .then((exists) => { if (!cancelled) setEmailCheck(exists ? "existing" : "new"); })
+      .catch(() => { if (!cancelled) setEmailCheck("idle"); });
+    return () => { cancelled = true; };
+  }, [debouncedNewUserEmail, showAdd, token]);
 
   const filtered = useMemo(() => {
     let list = users;
@@ -115,20 +138,22 @@ export function UsersPage() {
   }
 
   async function handleAddUser() {
-    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.password) {
-      setFeedback("Nombre, correo y contraseña son requeridos");
+    const passwordRequired = emailCheck !== "existing";
+    if (!newUser.name.trim() || !newUser.email.trim() || (passwordRequired && !newUser.password)) {
+      setFeedback(passwordRequired ? "Nombre, correo y contraseña son requeridos" : "Nombre y correo son requeridos");
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
     try {
       const created = await registerUser(token, {
         email: newUser.email.trim().toLowerCase(),
-        password: newUser.password,
+        password: passwordRequired ? newUser.password : undefined,
         name: newUser.name.trim(),
         role: newUser.role,
       });
       setUsers((prev) => [...prev, { ...created, role: created.role as Role, created_at: "", updated_at: "", last_login_at: null }]);
       setNewUser({ name: "", email: "", password: "", role: "ops" });
+      setEmailCheck("idle");
       setShowAdd(false);
       setFeedback(created.linkedExistingAccount ? `${created.name} ya tenía cuenta en Logify y fue agregado a tu empresa` : "Usuario creado");
     } catch (e: any) {
@@ -195,11 +220,21 @@ export function UsersPage() {
             <div className="flex-1">
               <label htmlFor="users-page-f238" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Correo</label>
               <input id="users-page-f238" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="empleado@empresa.com" />
+              {emailCheck === "checking" && <p className="mt-1 text-[10px] text-[#64748B]">Comprobando...</p>}
+              {emailCheck === "existing" && <p className="mt-1 text-[10px] font-medium text-[#0D9488]">Ya tiene cuenta en Logify</p>}
             </div>
-            <div className="flex-1">
-              <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Contraseña</label>
-              <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="••••••" />
-            </div>
+            {emailCheck === "existing" ? (
+              <div className="flex-1">
+                <p className="mt-1 text-xs text-[#64748B] sm:mt-[22px]">
+                  Esta persona ya tiene cuenta en Logify. Se agregará a tu empresa con la contraseña que ya usa para iniciar sesión.
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1">
+                <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Contraseña</label>
+                <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="••••••" />
+              </div>
+            )}
             <div>
               <label htmlFor="users-page-f246" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Rol</label>
               <select id="users-page-f246" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })} className="h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 text-sm">

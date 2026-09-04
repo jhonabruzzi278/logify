@@ -29,6 +29,7 @@ interface ClerkAppClaims {
   username?: string;
   name?: string;
   role?: string;
+  tenant_slug?: string;
 }
 
 // El JWT Template de Clerk arma el claim `name` concatenando first_name +
@@ -50,6 +51,7 @@ function sessionFromClerkToken(token: string): Session {
     name,
     role: parseRole(claims.role),
     expiresAt: claims.exp ? claims.exp * 1000 : Date.now() + 60_000,
+    organizationSlug: claims.tenant_slug,
   };
 }
 
@@ -305,6 +307,15 @@ export function ClerkBridgedAuthProvider({ children }: PropsWithChildren) {
         } finally {
           setLoading(false);
         }
+      },
+      // Botón "Cambiar de organización" en el perfil (persona ya logueada,
+      // no la restauración/login de más arriba): lectura simple, sin tocar
+      // organizationOptions/pendingSessionIdRef -- esos son del flujo de
+      // selección pre-sesión. selectOrganization() de abajo ya funciona tal
+      // cual para completar el cambio (cae a clerk.session?.id cuando no hay
+      // pendingSessionIdRef, que es siempre el caso acá).
+      async listMyOrganizations() {
+        return listOrganizationMemberships(clerk);
       },
       async selectOrganization(organizationId: string) {
         const sessionId = pendingSessionIdRef.current ?? clerk.session?.id;
