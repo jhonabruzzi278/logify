@@ -71,6 +71,13 @@ export function LoginPage() {
   const from = (location.state as { from?: string; deniedFrom?: string } | null)?.from;
   const deniedFrom = (location.state as { from?: string; deniedFrom?: string } | null)?.deniedFrom;
 
+  // Invitaciones de organización creadas antes de que existiera la pantalla
+  // dedicada llegaban a /login con estos parámetros. Conservar el ticket al
+  // redirigir permite aceptar también esos enlaces ya enviados.
+  if (isCentralLogin && new URLSearchParams(location.search).has("__clerk_ticket")) {
+    return <Navigate to={`/accept-invitation${location.search}`} replace />;
+  }
+
   if (isPlatformPortal) return <WorkspacePortalPage />;
 
   if (session) {

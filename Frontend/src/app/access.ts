@@ -4,6 +4,7 @@ export type AppPermission =
   | "dashboard.view"
   | "inventory.view"
   | "inventory.adjust"
+  | "inventory.sessions.manage"
   | "orders.view"
   | "orders.create"
   | "orders.review"
@@ -45,6 +46,7 @@ export const roleProfiles: Record<Role, RoleAccessProfile> = {
       "dashboard.view",
       "inventory.view",
       "inventory.adjust",
+      "inventory.sessions.manage",
       "orders.view",
       "orders.create",
       "orders.review",

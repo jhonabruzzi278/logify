@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileText, ImageOff, Minus, PackagePlus, Plus, ScanLine, Search, Trash2, Upload, X } from "lucide-react";
+import { ClipboardList, Download, FileText, ImageOff, Minus, PackagePlus, Plus, ScanLine, Search, Trash2, Upload, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -176,6 +176,11 @@ export function InventoryPage() {
           <h1 className="text-xl font-bold text-[#172554]">Control de stock</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isOwner && (
+            <Link to="/inventory/history" className="flex h-9 items-center gap-1.5 rounded border border-[#BFDBFE] bg-[#EFF6FF] px-3 text-xs font-semibold text-[#1D4ED8] transition hover:bg-[#DBEAFE] active:scale-[0.98]">
+              <ClipboardList className="h-4 w-4" /><span>Historial</span>
+            </Link>
+          )}
           <Link to="/scan" className="flex h-9 items-center gap-1.5 rounded bg-[#2563EB] px-3 text-xs font-semibold text-white transition hover:bg-[#1D4ED8] active:scale-[0.98]">
             <ScanLine className="h-4 w-4" /><span className="hidden sm:inline">Escanear</span>
           </Link>

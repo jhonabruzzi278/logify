@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, KeyRound, Lock, User } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { acceptInvite } from "@/lib/local-jwt-auth";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { SupportWhatsappButton } from "@/components/layout/support-whatsapp-button";
 import { Logo } from "@/components/common/logo";
+import { buildTenantUrl } from "@/lib/tenant-navigation";
 
 export function InvitePage() {
   useDocumentMeta({ title: "Aceptar invitación" });
@@ -19,11 +20,9 @@ export function InvitePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const loginUrl = useRef("https://app.logify.cl/login");
   function handleGoToLogin() {
-    // La aplicación ya no usa subdominios por cliente. Todas las cuentas,
-    // incluidas las creadas desde una invitación, inician sesión en el portal
-    // centralizado para que no terminen en un deployment inexistente.
-    window.location.assign("https://app.logify.cl/login");
+    window.location.assign(loginUrl.current);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -41,7 +40,16 @@ export function InvitePage() {
 
     setBusy(true);
     try {
-      await acceptInvite(token, { username: username.trim(), password, name: name.trim() });
+      const result = await acceptInvite(token, { username: username.trim(), password, name: name.trim() });
+      if (result.loginUrl) {
+        loginUrl.current = result.loginUrl;
+      } else {
+        try {
+          loginUrl.current = buildTenantUrl(result.tenantSlug, "/login");
+        } catch {
+          loginUrl.current = "https://app.logify.cl/login";
+        }
+      }
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo aceptar la invitación.");

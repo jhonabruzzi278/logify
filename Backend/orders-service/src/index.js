@@ -125,7 +125,9 @@ async function ensureTables() {
   await pool.query(`CREATE TABLE IF NOT EXISTS user_invitations (
     id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, email VARCHAR(200) NOT NULL,
     role VARCHAR(50) NOT NULL, token VARCHAR(64) NOT NULL UNIQUE, status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    invited_by VARCHAR(100), expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT NOW())`);
+    invited_by VARCHAR(100), expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT NOW(),
+    clerk_invitation_id VARCHAR(100))`);
+  await pool.query(`ALTER TABLE user_invitations ADD COLUMN IF NOT EXISTS clerk_invitation_id VARCHAR(100)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_invitations_tenant ON user_invitations (tenant_id)`);
   await ensureTenants();
 }
@@ -489,6 +491,7 @@ app.post('/api/webhooks/clerk', async (req, res) => {
         const name = [membership.public_user_data.first_name, membership.public_user_data.last_name].filter(Boolean).join(' ') || membership.public_user_data.identifier;
         const username = membership.public_metadata?.username || membership.public_user_data.identifier;
         const existingUser = (await pool.query('SELECT id, tenant_id FROM users WHERE clerk_user_id=$1', [clerkUserId])).rows[0];
+        let membershipApplied = false;
         if (existingUser && existingUser.tenant_id !== tenant.id) {
           // Guard de multi-org (Fase 2 de la migracion a Clerk, ver PR #67):
           // este Clerk User ya es un usuario Logify de OTRO tenant. Sin este
@@ -503,11 +506,20 @@ app.post('/api/webhooks/clerk', async (req, res) => {
           });
         } else if (existingUser) {
           await pool.query('UPDATE users SET name=$1, role=$2, updated_at=NOW() WHERE id=$3', [name, role, existingUser.id]);
+          membershipApplied = true;
         } else {
           await pool.query(
             `INSERT INTO users (username, name, role, tenant_id, clerk_user_id) VALUES ($1,$2,$3,$4,$5)
              ON CONFLICT (tenant_id, username) DO UPDATE SET clerk_user_id=EXCLUDED.clerk_user_id, role=EXCLUDED.role, name=EXCLUDED.name`,
             [username, name, role, tenant.id, clerkUserId]
+          );
+          membershipApplied = true;
+        }
+        if (membershipApplied && membership.public_user_data.identifier) {
+          await pool.query(
+            `UPDATE user_invitations SET status='accepted'
+             WHERE tenant_id=$1 AND LOWER(email)=LOWER($2) AND status='pending'`,
+            [tenant.id, membership.public_user_data.identifier]
           );
         }
       }
@@ -1367,36 +1379,66 @@ app.put('/api/settings/system', authMiddleware, requireTenant, withTenantDb, req
 const VALID_ROLES = ['owner', 'ops', 'warehouse', 'shipper', 'vendor', 'support', 'customer'];
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
+function getTenantAppUrl(slug) {
+  return slug && !RESERVED_TENANT_SLUGS.has(slug) ? `https://${slug}.logify.cl` : INVITE_APP_URL;
+}
+
 app.post('/api/auth/invite', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
     const { email, role } = req.body;
     if (!email || !email.trim()) return res.status(400).json({ error: 'El email es obligatorio' });
     if (!role || !VALID_ROLES.includes(role.toLowerCase())) {
-      return res.status(400).json({ error: 'Rol invalido. Validos: ' + VALID_ROLES.join(', ') });
+      return res.status(400).json({ error: 'Rol inválido. Válidos: ' + VALID_ROLES.join(', ') });
     }
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedRole = role.toLowerCase();
     const token = crypto.randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_MS);
+    let clerkInvitationId = null;
+    let deliveredByClerk = false;
+    const clerk = getClerkClient();
+    const tenant = (await req.db.query(
+      'SELECT slug, clerk_org_id FROM tenants WHERE id=$1',
+      [req.tenantId]
+    )).rows[0];
+    if (!tenant) return res.status(404).json({ error: 'Empresa no encontrada' });
+
+    if (clerk && tenant.clerk_org_id) {
+      const clerkInvitation = await clerk.organizations.createOrganizationInvitation({
+        organizationId: tenant.clerk_org_id,
+        emailAddress: normalizedEmail,
+        role: 'org:member',
+        expiresInDays: 7,
+        publicMetadata: { role: normalizedRole, username: normalizedEmail },
+        redirectUrl: `${INVITE_APP_URL}/accept-invitation`,
+      });
+      clerkInvitationId = clerkInvitation.id;
+      deliveredByClerk = true;
+    }
+
     const invitation = (await req.db.query(
-      `INSERT INTO user_invitations (tenant_id, email, role, token, invited_by, expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, email, role, status, expires_at`,
-      [req.tenantId, email.trim().toLowerCase(), role.toLowerCase(), token, req.user?.sub || req.user?.name || null, expiresAt])).rows[0];
+      `INSERT INTO user_invitations (tenant_id, email, role, token, invited_by, expires_at, clerk_invitation_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, email, role, status, expires_at`,
+      [req.tenantId, normalizedEmail, normalizedRole, token, req.user?.sub || req.user?.name || null, expiresAt, clerkInvitationId])).rows[0];
 
-    const acceptUrl = `${INVITE_APP_URL}/invite/${token}`;
-    sendEmail({
-      to: invitation.email,
-      subject: 'Te invitaron a unirte a Logify',
-      html: `<p>Te invitaron a unirte con el rol <b>${invitation.role}</b>. Acepta la invitación aquí: <a href="${acceptUrl}">${acceptUrl}</a></p>`
-    }).catch(() => {});
+    if (!deliveredByClerk) {
+      const acceptUrl = `${getTenantAppUrl(tenant.slug)}/invite/${token}`;
+      sendEmail({
+        to: invitation.email,
+        subject: 'Te invitaron a unirte a Logify',
+        html: `<p>Te invitaron a unirte con el rol <b>${invitation.role}</b>. Acepta la invitación aquí: <a href="${acceptUrl}">${acceptUrl}</a></p>`
+      }).catch(() => {});
+    }
 
-    res.status(201).json(invitation);
-  } catch (err) { sendError(res, 500, 'Failed to create invitation', err); }
+    res.status(201).json({ ...invitation, delivery: deliveredByClerk ? 'clerk' : 'legacy' });
+  } catch (err) { sendError(res, 500, 'No se pudo crear la invitación', err); }
 });
 
 app.post('/api/auth/invite/:token/accept', async (req, res) => {
   try {
     const { username, password, name } = req.body;
     if (!username || !password || !name) {
-      return res.status(400).json({ error: 'username, password y name son requeridos' });
+      return res.status(400).json({ error: 'El usuario, la contraseña y el nombre son obligatorios' });
     }
     const invitation = (await pool.query(
       `SELECT i.*, t.slug AS tenant_slug FROM user_invitations i
@@ -1416,8 +1458,8 @@ app.post('/api/auth/invite/:token/accept', async (req, res) => {
       [username.trim().toLowerCase(), hash, name.trim(), invitation.role, invitation.email, invitation.tenant_id])).rows[0];
 
     await pool.query(`UPDATE user_invitations SET status='accepted' WHERE id=$1`, [invitation.id]);
-    res.status(201).json({ ...user, tenantSlug: invitation.tenant_slug });
-  } catch (err) { sendError(res, 500, 'Failed to accept invitation', err); }
+    res.status(201).json({ ...user, tenantSlug: invitation.tenant_slug, loginUrl: `${getTenantAppUrl(invitation.tenant_slug)}/login` });
+  } catch (err) { sendError(res, 500, 'No se pudo aceptar la invitación', err); }
 });
 
 // ═══ GESTIÓN DE PLATAFORMA ════════════════════════════════════════════════════════

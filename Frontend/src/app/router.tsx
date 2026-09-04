@@ -1,22 +1,9 @@
-import { lazy, Suspense, type ComponentType } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { RequireAuth } from "@/app/auth";
+import { lazyPage } from "@/app/lazy-page";
 import { RequireCompletedOnboarding } from "@/app/onboarding";
 import { AppShell } from "@/components/layout/app-shell";
-import { PageLoader } from "@/components/common/page-loader";
 import { RouteErrorFallback } from "@/components/common/route-error-fallback";
-
-function lazyPage<T extends { [key: string]: ComponentType }>(
-  factory: () => Promise<T>,
-  named: keyof T
-) {
-  const LazyComponent = lazy(() => factory().then((module) => ({ default: module[named] })));
-  return (
-    <Suspense fallback={<PageLoader />}>
-      <LazyComponent />
-    </Suspense>
-  );
-}
 
 export const router = createBrowserRouter([
   {
@@ -47,6 +34,11 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorFallback />
   },
   {
+    path: "/accept-invitation",
+    element: lazyPage(() => import("@/pages/clerk-invitation-page"), "ClerkInvitationPage"),
+    errorElement: <RouteErrorFallback />
+  },
+  {
     path: "/tracking/:code?",
     element: lazyPage(() => import("@/pages/tracking-page"), "TrackingPage"),
     errorElement: <RouteErrorFallback />
@@ -67,6 +59,8 @@ export const router = createBrowserRouter([
             children: [
               { path: "/dashboard", element: lazyPage(() => import("@/pages/dashboard-page"), "DashboardPage") },
               { path: "/inventory", element: lazyPage(() => import("@/pages/inventory-page"), "InventoryPage") },
+              { path: "/inventory/history", element: lazyPage(() => import("@/pages/inventory-history-page"), "InventoryHistoryPage") },
+              { path: "/inventory/history/:sessionId", element: lazyPage(() => import("@/pages/inventory-session-page"), "InventorySessionPage") },
               { path: "/scan", element: lazyPage(() => import("@/pages/scan-page"), "ScanPage") },
               { path: "/inventory/:productId", element: lazyPage(() => import("@/pages/inventory-detail-page"), "InventoryDetailPage") },
               { path: "/pos", element: lazyPage(() => import("@/pages/pos-page"), "PosPage") },

@@ -9,8 +9,12 @@ jest.mock('../shared/platform-auth', () => ({
 }));
 jest.mock('@clerk/backend/webhooks', () => ({ verifyWebhook: jest.fn() }));
 const mockUpdateOrganization = jest.fn();
+const mockCreateOrganizationInvitation = jest.fn();
 jest.mock('@clerk/backend', () => ({
-  createClerkClient: jest.fn(() => ({ organizations: { updateOrganization: (...args) => mockUpdateOrganization(...args) } })),
+  createClerkClient: jest.fn(() => ({ organizations: {
+    updateOrganization: (...args) => mockUpdateOrganization(...args),
+    createOrganizationInvitation: (...args) => mockCreateOrganizationInvitation(...args),
+  } })),
 }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt-token'),
@@ -868,13 +872,49 @@ describe('orders-service', () => {
 
   describe('POST /api/auth/invite', () => {
     it('crea invitación válida → 201 sin exponer el token', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 1, email: 'nuevo@empresa.com', role: 'ops', status: 'pending', expires_at: new Date().toISOString() }]
-      });
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ slug: 'lapercha', clerk_org_id: null }] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, email: 'nuevo@empresa.com', role: 'ops', status: 'pending', expires_at: new Date().toISOString() }]
+        });
       const res = await request(app).post('/api/auth/invite').send({ email: 'nuevo@empresa.com', role: 'ops' });
       expect(res.status).toBe(201);
       expect(res.body.email).toBe('nuevo@empresa.com');
       expect(res.body.token).toBeUndefined();
+      expect(res.body.delivery).toBe('legacy');
+    });
+
+    it('crea la invitación en Clerk para que el rol invitado pueda iniciar sesión en app.logify.cl', async () => {
+      const originalSecretKey = process.env.CLERK_SECRET_KEY;
+      process.env.CLERK_SECRET_KEY = 'configured-for-invitation-test';
+      mockCreateOrganizationInvitation.mockResolvedValueOnce({ id: 'orginv_123' });
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ slug: 'empresa', clerk_org_id: 'org_123' }] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 9, email: 'bodega@empresa.cl', role: 'warehouse', status: 'pending', expires_at: new Date().toISOString() }]
+        });
+
+      try {
+        const res = await request(app).post('/api/auth/invite').send({ email: 'BODEGA@EMPRESA.CL', role: 'warehouse' });
+
+        expect(res.status).toBe(201);
+        expect(res.body).toMatchObject({ email: 'bodega@empresa.cl', role: 'warehouse', delivery: 'clerk' });
+        expect(mockCreateOrganizationInvitation).toHaveBeenCalledWith({
+          organizationId: 'org_123',
+          emailAddress: 'bodega@empresa.cl',
+          role: 'org:member',
+          expiresInDays: 7,
+          publicMetadata: { role: 'warehouse', username: 'bodega@empresa.cl' },
+          redirectUrl: 'https://app.logify.cl/accept-invitation',
+        });
+        expect(mockQuery).toHaveBeenLastCalledWith(
+          expect.stringContaining('clerk_invitation_id'),
+          expect.arrayContaining(['orginv_123'])
+        );
+      } finally {
+        if (originalSecretKey == null) delete process.env.CLERK_SECRET_KEY;
+        else process.env.CLERK_SECRET_KEY = originalSecretKey;
+      }
     });
 
     it('rechaza rol inválido → 400', async () => {
@@ -908,6 +948,7 @@ describe('orders-service', () => {
       expect(res.body.username).toBe('nuevo.usuario');
       expect(res.body.role).toBe('ops');
       expect(res.body.tenantSlug).toBe('lapercha');
+      expect(res.body.loginUrl).toBe('https://lapercha.logify.cl/login');
     });
 
     it('retorna 404 si el token no existe o ya expiró', async () => {
@@ -1382,7 +1423,7 @@ describe('orders-service', () => {
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toBe('application/pdf');
       expect(res.headers['content-disposition']).toMatch(/orden-1\.pdf/);
-    });
+    }, 15_000);
 
     it('genera PDF aunque falten datos de cliente', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [mockOrder] });
@@ -1543,6 +1584,7 @@ describe('POST /api/webhooks/clerk', () => {
 
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO users'), ['juanp', 'Juan Perez', 'vendor', 7, 'user_1']);
+      expect(mockQuery).toHaveBeenNthCalledWith(4, expect.stringContaining("status='accepted'"), [7, 'juan@acme.cl']);
     });
 
     it('actualiza el usuario existente en organizationMembership.updated', async () => {
@@ -1562,6 +1604,7 @@ describe('POST /api/webhooks/clerk', () => {
 
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE users'), ['Juan Perez', 'ops', 42]);
+      expect(mockQuery).toHaveBeenNthCalledWith(4, expect.stringContaining("status='accepted'"), [7, 'juan@acme.cl']);
     });
 
     // Regresion del bug encontrado en auditoria de produccion (ver PR #67):

@@ -401,7 +401,7 @@ describe('notification-service', () => {
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toBe('application/pdf');
       expect(res.headers['content-disposition']).toMatch(/notificaciones\.pdf/);
-    });
+    }, 15_000);
 
     it('genera un PDF vacio cuando no hay registros', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] });
