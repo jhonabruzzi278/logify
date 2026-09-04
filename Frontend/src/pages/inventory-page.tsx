@@ -2,6 +2,7 @@
 import { ClipboardList, Download, FileText, ImageOff, Minus, PackagePlus, Plus, ScanLine, Search, Trash2, Upload, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/auth";
+import { BarcodeScannerModal } from "@/components/pos/barcode-scanner-modal";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
@@ -29,9 +30,11 @@ export function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
     sku: "", barcode: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0,
-    supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true,
+    supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true, imageUrl: "" as string,
   });
   const [formError, setFormError] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [lookupState, setLookupState] = useState<"idle" | "loading" | "not_found" | "duplicate">("idle");
   const [deleteConfirm, setDeleteConfirm] = useState<{ sku: string; name: string } | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -67,11 +70,44 @@ export function InventoryPage() {
 
   async function handleAdd(data: {
     sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory;
-    barcode?: string | null;
+    barcode?: string | null; imageUrl?: string;
     supplierId?: number | null; unitOfMeasure?: string; taxRate?: number; active?: boolean;
   }) {
     await addProduct(data);
     refresh();
+  }
+
+  async function handleScanned(code: string) {
+    setScannerOpen(false);
+    // El Dialog de "Nuevo producto" se cierra mientras el escaner esta activo
+    // (ver onClick del boton de escanear) -- Base UI marca inert cualquier
+    // contenido fuera del Dialog abierto, y el escaner queda inutilizable si
+    // el formulario sigue "abierto" por debajo. Se reabre apenas hay un
+    // resultado; el estado del formulario no se pierde porque vive en este
+    // componente, no en el Dialog.
+    setDialogOpen(true);
+    setForm((f) => ({ ...f, barcode: code }));
+    const existing = (inventory ?? []).find((p) => p.barcode === code);
+    if (existing) {
+      setLookupState("duplicate");
+      return;
+    }
+    setLookupState("loading");
+    try {
+      const result = await apiFetch<{ found: boolean; name?: string; category?: ProductCategory; imageUrl?: string | null }>(
+        `/api/inventory/barcode-lookup?barcode=${encodeURIComponent(code)}`
+      );
+      if (result.found) {
+        setForm((f) => ({ ...f, name: result.name ?? f.name, category: result.category ?? f.category, imageUrl: result.imageUrl ?? f.imageUrl }));
+        setLookupState("idle");
+      } else {
+        setLookupState("not_found");
+      }
+    } catch {
+      // Nunca un error duro por esto -- si falla la busqueda, el formulario
+      // sigue disponible para completar los datos a mano.
+      setLookupState("not_found");
+    }
   }
 
   async function handleImportPreview(csv: string) {
@@ -260,10 +296,11 @@ export function InventoryPage() {
                 if (form.stock < 0 || form.price < 0 || form.cost < 0) { setFormError("Stock, Precio y Costo no pueden ser negativos"); return; }
                 await handleAdd({
                   sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost,
-                  barcode: form.barcode || null,
+                  barcode: form.barcode || null, imageUrl: form.imageUrl || undefined,
                   supplierId: form.supplierId ? Number(form.supplierId) : null, unitOfMeasure: form.unitOfMeasure, taxRate: form.taxRate, active: form.active,
                 });
-                setForm({ sku: "", barcode: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true });
+                setForm({ sku: "", barcode: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true, imageUrl: "" });
+                setLookupState("idle");
                 setDialogOpen(false);
               }} className="space-y-3">
                 <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
@@ -290,7 +327,15 @@ export function InventoryPage() {
                 </div>
                 <div className="space-y-1">
                   <label htmlFor="inventory-page-barcode" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código de barras</label>
-                  <Input id="inventory-page-barcode" inputMode="numeric" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="78006027 (opcional)" className="h-9 text-sm" />
+                  <div className="flex gap-2">
+                    <Input id="inventory-page-barcode" inputMode="numeric" value={form.barcode} onChange={(e) => { setForm({ ...form, barcode: e.target.value }); setLookupState("idle"); }} placeholder="78006027 (opcional)" className="h-9 text-sm" />
+                    <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => { setDialogOpen(false); setScannerOpen(true); }} aria-label="Escanear código de barras">
+                      <ScanLine className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {lookupState === "loading" && <p className="text-[11px] text-[#64748B]">Buscando información del producto...</p>}
+                  {lookupState === "not_found" && <p className="text-[11px] text-[#64748B]">No pudimos autocompletar, ingresa los datos manualmente.</p>}
+                  {lookupState === "duplicate" && <p className="text-[11px] text-amber-600">Ya existe un producto con este código en tu inventario.</p>}
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3">
@@ -584,6 +629,10 @@ export function InventoryPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {scannerOpen && (
+        <BarcodeScannerModal title="Escanear código de barras" onDetected={handleScanned} onClose={() => setScannerOpen(false)} />
       )}
     </div>
   );

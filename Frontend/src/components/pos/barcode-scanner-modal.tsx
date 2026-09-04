@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
+import { BrowserCodeReader, BrowserMultiFormatReader } from "@zxing/browser";
 import type { IScannerControls } from "@zxing/browser";
-import { Barcode, Camera, Keyboard, RefreshCw, X } from "lucide-react";
+import type { Result } from "@zxing/library";
+import { Barcode, Camera, Flashlight, Keyboard, RefreshCw, SwitchCamera, X } from "lucide-react";
 
 interface BarcodeScannerModalProps {
   onDetected: (code: string) => void;
@@ -9,13 +10,46 @@ interface BarcodeScannerModalProps {
   title?: string;
 }
 
+// El Image Capture API (zoom, torch, focusMode/focusDistance) es un borrador
+// experimental -- lib.dom.d.ts no lo tipa todavia, asi que se extiende
+// localmente en vez de usar `any`.
+interface ExtendedTrackCapabilities extends MediaTrackCapabilities {
+  zoom?: { min: number; max: number; step: number };
+  focusMode?: string[];
+  focusDistance?: { min: number; max: number; step: number };
+}
+
+interface ExtendedTrackSettings extends MediaTrackSettings {
+  zoom?: number;
+}
+
+interface ExtendedConstraintSet extends MediaTrackConstraintSet {
+  zoom?: number;
+  focusMode?: string;
+  focusDistance?: number;
+}
+
 export function BarcodeScannerModal({ onDetected, onClose, title = "Escanear producto" }: BarcodeScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const detectedRef = useRef(false);
+  const trackRef = useRef<MediaStreamTrack | null>(null);
+  // deviceId real de la camara activa, incluso antes de que la persona elija
+  // una explicitamente con el boton de cambiar camara (el primer stream se
+  // abre por facingMode, no por deviceId) -- switchCamera() lo necesita para
+  // calcular cual es "la siguiente" a partir de la que esta en uso ahora.
+  const currentDeviceIdRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraKey, setCameraKey] = useState(0);
   const [manualCode, setManualCode] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
+
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [zoomCaps, setZoomCaps] = useState<{ min: number; max: number; step: number } | null>(null);
+  const [zoomValue, setZoomValue] = useState<number | null>(null);
+  const [focusSupported, setFocusSupported] = useState(false);
 
   useEffect(() => {
     const reader = new BrowserMultiFormatReader();
@@ -24,23 +58,108 @@ export function BarcodeScannerModal({ onDetected, onClose, title = "Escanear pro
 
     detectedRef.current = false;
     setError(null);
+    setTorchOn(false);
+    setTorchSupported(false);
+    setZoomCaps(null);
+    setZoomValue(null);
+    setFocusSupported(false);
+    trackRef.current = null;
+    currentDeviceIdRef.current = null;
 
-    reader
-      .decodeFromConstraints({ video: { facingMode: { ideal: "environment" } }, audio: false }, videoRef.current ?? undefined, (result) => {
-        if (result && !cancelled && !detectedRef.current) {
-          detectedRef.current = true;
-          navigator.vibrate?.(80);
-          onDetected(result.getText().trim());
+    function handleResult(result: Result | undefined) {
+      if (result && !cancelled && !detectedRef.current) {
+        detectedRef.current = true;
+        navigator.vibrate?.(80);
+        onDetected(result.getText().trim());
+      }
+    }
+
+    const decodePromise = activeDeviceId
+      ? reader.decodeFromVideoDevice(activeDeviceId, videoRef.current ?? undefined, handleResult)
+      : reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" } }, audio: false }, videoRef.current ?? undefined, handleResult);
+
+    decodePromise
+      .then((c) => {
+        controls = c;
+        if (cancelled) return;
+
+        const stream = videoRef.current?.srcObject as MediaStream | null;
+        const track = stream?.getVideoTracks()[0] ?? null;
+        trackRef.current = track;
+
+        if (track && typeof track.getCapabilities === "function") {
+          const caps = track.getCapabilities() as ExtendedTrackCapabilities;
+          const settings = track.getSettings() as ExtendedTrackSettings;
+          currentDeviceIdRef.current = settings.deviceId ?? activeDeviceId;
+          setTorchSupported(BrowserCodeReader.mediaStreamIsTorchCompatibleTrack(track));
+          if (caps.zoom) {
+            setZoomCaps(caps.zoom);
+            setZoomValue(settings.zoom ?? caps.zoom.min);
+          }
+          setFocusSupported(Array.isArray(caps.focusMode) && caps.focusMode.includes("manual"));
         }
+
+        // Recien despues de un getUserMedia exitoso: sin permiso ya concedido,
+        // enumerateDevices() devuelve dispositivos sin label en la mayoria de
+        // navegadores -- inutil para armar un selector con nombres reales.
+        BrowserCodeReader.listVideoInputDevices()
+          .then((list) => { if (!cancelled) setDevices(list); })
+          .catch(() => {});
       })
-      .then((c) => { controls = c; })
       .catch(() => { if (!cancelled) setError("No pudimos abrir la cámara. Revisa el permiso del navegador o ingresa el código manualmente."); });
 
     return () => {
       cancelled = true;
       controls?.stop();
+      trackRef.current = null;
     };
-  }, [cameraKey, onDetected]);
+  }, [cameraKey, activeDeviceId, onDetected]);
+
+  async function toggleTorch() {
+    const track = trackRef.current;
+    if (!track) return;
+    try {
+      await BrowserCodeReader.mediaStreamSetTorch(track, !torchOn);
+      setTorchOn((value) => !value);
+    } catch {
+      // El navegador reporto soporte pero rechazo la constraint en la practica
+      // (comun en iOS Safari) -- se oculta el control en vez de insistir.
+      setTorchSupported(false);
+    }
+  }
+
+  async function handleZoomChange(value: number) {
+    const track = trackRef.current;
+    if (!track) return;
+    try {
+      await track.applyConstraints({ advanced: [{ zoom: value } as ExtendedConstraintSet] });
+      setZoomValue(value);
+    } catch {
+      // Sin cambios visibles si el navegador rechaza la constraint en runtime.
+    }
+  }
+
+  async function handleFocusTap() {
+    const track = trackRef.current;
+    if (!track) return;
+    try {
+      const caps = track.getCapabilities() as ExtendedTrackCapabilities;
+      const distance = caps.focusDistance;
+      const midpoint = distance ? (distance.min + distance.max) / 2 : undefined;
+      await track.applyConstraints({ advanced: [{ focusMode: "manual", focusDistance: midpoint } as ExtendedConstraintSet] });
+    } catch {
+      // Mejor esfuerzo: un solo intento, sin feedback de error para no
+      // distraer el flujo de escaneo por una capacidad secundaria.
+    }
+  }
+
+  function switchCamera() {
+    if (devices.length < 2) return;
+    const currentId = currentDeviceIdRef.current ?? activeDeviceId;
+    const currentIndex = devices.findIndex((device) => device.deviceId === currentId);
+    const next = devices[(currentIndex + 1) % devices.length];
+    setActiveDeviceId(next.deviceId);
+  }
 
   function submitManualCode(event: React.FormEvent) {
     event.preventDefault();
@@ -58,13 +177,25 @@ export function BarcodeScannerModal({ onDetected, onClose, title = "Escanear pro
           <div className="flex items-center gap-2 rounded-full bg-black/30 px-3 py-2 text-sm font-semibold backdrop-blur-sm">
             <Barcode className="h-4 w-4" /> {title}
           </div>
-          <button type="button" onClick={() => setCameraKey((key) => key + 1)} aria-label="Reiniciar cámara" className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/40 active:scale-95">
-            <RefreshCw className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {torchSupported && (
+              <button type="button" onClick={toggleTorch} aria-label={torchOn ? "Apagar flash" : "Encender flash"} aria-pressed={torchOn} className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition active:scale-95 ${torchOn ? "bg-[#38BDF8] text-[#07111f]" : "bg-black/25 text-white hover:bg-black/40"}`}>
+                <Flashlight className="h-5 w-5" />
+              </button>
+            )}
+            {devices.length > 1 && (
+              <button type="button" onClick={switchCamera} aria-label="Cambiar de cámara" className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/40 active:scale-95">
+                <SwitchCamera className="h-5 w-5" />
+              </button>
+            )}
+            <button type="button" onClick={() => setCameraKey((key) => key + 1)} aria-label="Reiniciar cámara" className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/40 active:scale-95">
+              <RefreshCw className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="relative min-h-0 flex-1">
-          <video ref={videoRef} className="h-full w-full bg-black object-cover" muted playsInline />
+          <video ref={videoRef} className="h-full w-full bg-black object-cover" muted playsInline onClick={focusSupported ? handleFocusTap : undefined} />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(7,17,31,.34),transparent_28%,transparent_68%,rgba(7,17,31,.65))]" />
           <div className="pointer-events-none absolute left-1/2 top-[46%] aspect-[1.65/1] w-[82%] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/80 shadow-[0_0_0_999px_rgba(7,17,31,.28)]">
             <span className="absolute -left-0.5 -top-0.5 h-9 w-9 rounded-tl-2xl border-l-4 border-t-4 border-[#38BDF8]" />
@@ -75,8 +206,24 @@ export function BarcodeScannerModal({ onDetected, onClose, title = "Escanear pro
           </div>
           <div className="absolute inset-x-6 top-[19%] text-center">
             <p className="text-base font-bold text-white drop-shadow-md">Mantén el código dentro del marco</p>
-            <p className="mt-1 text-sm text-white/75">La lectura se realiza automáticamente</p>
+            <p className="mt-1 text-sm text-white/75">{focusSupported ? "Toca la imagen para enfocar" : "La lectura se realiza automáticamente"}</p>
           </div>
+
+          {zoomCaps && zoomValue !== null && (
+            <div className="absolute inset-x-10 bottom-6 flex items-center gap-3 rounded-full bg-black/35 px-4 py-2 backdrop-blur-sm">
+              <span className="text-xs font-semibold text-white/80">Zoom</span>
+              <input
+                type="range"
+                aria-label="Zoom de la cámara"
+                min={zoomCaps.min}
+                max={zoomCaps.max}
+                step={zoomCaps.step}
+                value={zoomValue}
+                onChange={(event) => handleZoomChange(Number(event.target.value))}
+                className="h-1.5 w-full accent-[#38BDF8]"
+              />
+            </div>
+          )}
 
           {error && (
             <div className="absolute inset-x-5 top-1/2 -translate-y-1/2 rounded-xl border border-white/15 bg-[#07111f]/90 p-5 text-center shadow-xl backdrop-blur-md">
