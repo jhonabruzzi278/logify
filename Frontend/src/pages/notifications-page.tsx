@@ -2,6 +2,7 @@
 import { Clock, Cloud, CloudRain, Download, Inbox, Package, Search, Trash2, Truck, User, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { managedUsers } from "@/app/user-directory";
+import { Input } from "@/components/ui/input";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
