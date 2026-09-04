@@ -1487,6 +1487,85 @@ describe('inventory-service', () => {
     });
   });
 
+  // ─── GET /api/inventory/barcode-lookup ───────────────────────────────────────
+
+  describe('GET /api/inventory/barcode-lookup', () => {
+    afterEach(() => { delete global.fetch; });
+
+    it('retorna found:true con nombre, categoria e imagen desde Open Food Facts', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: 1,
+          product: {
+            product_name_es: 'Coca-Cola 2L',
+            brands: 'Coca-Cola,Otra Marca',
+            categories_tags: ['en:beverages', 'en:sodas'],
+            image_front_url: 'http://x/coca.jpg',
+          },
+        }),
+      });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234567890');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ found: true, name: 'Coca-Cola 2L', category: 'bebidas', imageUrl: 'http://x/coca.jpg', source: 'openfoodfacts' });
+    });
+
+    it('antepone la marca al nombre solo si no esta ya incluida', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 1, product: { product_name: 'Galletas Surtidas', brands: 'Costa', categories_tags: ['en:biscuits'] } }),
+      });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500000');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ found: true, name: 'Costa Galletas Surtidas', category: 'galletas' });
+    });
+
+    it('categoriza dulces y usa "otros" quando no hay coincidencia', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 1, product: { product_name: 'Caramelos Menta', categories_tags: ['en:candies'] } }),
+      });
+      const dulces = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500001');
+      expect(dulces.body.category).toBe('dulces');
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 1, product: { product_name: 'Producto Cualquiera', categories_tags: ['en:misc'] } }),
+      });
+      const otros = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500002');
+      expect(otros.body.category).toBe('otros');
+    });
+
+    it('retorna found:false, reason:not_found si Open Food Facts no tiene el codigo', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500003');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ found: false, reason: 'not_found' });
+    });
+
+    it('retorna found:false, reason:upstream_unavailable si Open Food Facts responde con error', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500004');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ found: false, reason: 'upstream_unavailable' });
+    });
+
+    it('retorna found:false, reason:upstream_unavailable si la llamada de red falla (nunca un error duro)', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500005');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ found: false, reason: 'upstream_unavailable' });
+    });
+
+    it('rechaza un barcode con letras o demasiado corto → 400', async () => {
+      const conLetras = await request(app).get('/api/inventory/barcode-lookup?barcode=abc123');
+      expect(conLetras.status).toBe(400);
+
+      const corto = await request(app).get('/api/inventory/barcode-lookup?barcode=123');
+      expect(corto.status).toBe(400);
+    });
+  });
+
   // ─── PUT /api/inventory/:sku/image ───────────────────────────────────────────
 
   describe('PUT /api/inventory/:sku/image', () => {
