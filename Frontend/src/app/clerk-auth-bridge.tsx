@@ -31,12 +31,23 @@ interface ClerkAppClaims {
   role?: string;
 }
 
+// El JWT Template de Clerk arma el claim `name` concatenando first_name +
+// last_name (ver dashboard de Clerk) -- cuando alguien no tiene apellido
+// cargado (ej. "Agregar usuario" solo pide un nombre), Clerk interpola ese
+// campo vacío como la palabra "null" en vez de una cadena vacía, y el claim
+// sale literalmente "Jonathan null". Se sanea aquí en vez de depender de
+// arreglar el template (fuera de este repo, config manual del dashboard).
+function sanitizeClerkName(rawName: string): string {
+  return rawName.replace(/\bnull\b/gi, "").replace(/\s+/g, " ").trim();
+}
+
 function sessionFromClerkToken(token: string): Session {
   const claims = decodeJwtPayload(token) as ClerkAppClaims & { exp?: number };
+  const name = sanitizeClerkName(claims.name ?? "") || claims.username || "";
   return {
     token,
     username: claims.username ?? "",
-    name: claims.name ?? claims.username ?? "",
+    name,
     role: parseRole(claims.role),
     expiresAt: claims.exp ? claims.exp * 1000 : Date.now() + 60_000,
   };

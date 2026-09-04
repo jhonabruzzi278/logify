@@ -852,14 +852,19 @@ app.post('/api/auth/register', authMiddleware, requireTenant, withTenantDb, requ
         const [firstName, ...rest] = name.trim().split(/\s+/);
         clerkUser = await clerk.users.createUser({ emailAddress: [normalizedEmail], password, firstName, lastName: rest.join(' ') || undefined });
       }
-      try {
+      // Se comprueba la membership ANTES de crearla en vez de intentar crear y
+      // atrapar el error de "ya existe" -- bug real de produccion: DELETE
+      // /api/auth/users/:id solo borraba la fila local (ver mismo fix mas
+      // abajo), asi que re-agregar a alguien ya eliminado localmente pero
+      // todavia miembro en Clerk lanzaba un error cuyo codigo real no
+      // coincidia con lo asumido aqui, y el 409 nunca se disparaba (terminaba
+      // en 500). Comprobar primero evita depender de adivinar el codigo de
+      // error exacto que devuelve la API de Clerk para ese caso.
+      const existingMemberships = await clerk.organizations.getOrganizationMembershipList({
+        organizationId: tenant.clerk_org_id, userId: [clerkUser.id],
+      });
+      if (!existingMemberships.data.length) {
         await clerk.organizations.createOrganizationMembership({ organizationId: tenant.clerk_org_id, userId: clerkUser.id, role: 'org:member' });
-      } catch (err) {
-        const codes = Array.isArray(err.errors) ? err.errors.map((e) => e.code) : [];
-        if (err.status === 422 && codes.includes('duplicate_record')) {
-          return res.status(409).json({ error: 'Esta persona ya es parte de tu equipo.' });
-        }
-        throw err;
       }
       await clerk.organizations.updateOrganizationMembershipMetadata({
         organizationId: tenant.clerk_org_id, userId: clerkUser.id,
@@ -935,7 +940,7 @@ app.put('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, requ
 
 app.delete('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const target = (await req.db.query('SELECT id, username, role FROM users WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
+    const target = (await req.db.query('SELECT id, username, role, clerk_user_id FROM users WHERE id=$1 AND tenant_id=$2', [req.params.id, req.tenantId])).rows[0];
     if (!target) return res.status(404).json({ error: 'Usuario no encontrado' });
     // req.user.sub es el username del token (ver shared/auth.js signToken) -- el
     // JWT no lleva el id numerico, por eso se compara por username. Sin este
@@ -953,6 +958,25 @@ app.delete('/api/auth/users/:id', authMiddleware, requireTenant, withTenantDb, r
       }
     }
     const r = await req.db.query('DELETE FROM users WHERE id=$1 AND tenant_id=$2 RETURNING id, username', [req.params.id, req.tenantId]);
+    // Multi-org: sin esto, borrar la fila local dejaba a la persona como
+    // miembro de la Organization de Clerk para siempre (bug real encontrado
+    // en produccion) -- podia seguir iniciando sesion, y "Agregar usuario"
+    // fallaba con 500 al intentar re-agregarla porque Clerk ya la tenia como
+    // miembro. No se aborta el delete si esto falla: la fila local ya se
+    // borro, que es la fuente de verdad para el acceso a la app.
+    if (target.clerk_user_id) {
+      const clerk = getClerkClient();
+      if (clerk) {
+        const tenantRow = (await req.db.query('SELECT clerk_org_id FROM tenants WHERE id=$1', [req.tenantId])).rows[0];
+        if (tenantRow?.clerk_org_id) {
+          await clerk.organizations.deleteOrganizationMembership({
+            organizationId: tenantRow.clerk_org_id, userId: target.clerk_user_id,
+          }).catch((err) => {
+            log.warn('No se pudo remover la membership de Clerk al eliminar el usuario', { message: err.message });
+          });
+        }
+      }
+    }
     res.json({ message: 'Usuario eliminado', user: r.rows[0] });
   } catch (err) { sendError(res, 500, 'Failed to delete user', err); }
 });

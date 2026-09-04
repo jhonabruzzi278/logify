@@ -11,6 +11,8 @@ jest.mock('@clerk/backend/webhooks', () => ({ verifyWebhook: jest.fn() }));
 const mockUpdateOrganization = jest.fn();
 const mockCreateOrganizationMembership = jest.fn();
 const mockUpdateOrganizationMembershipMetadata = jest.fn();
+const mockGetOrganizationMembershipList = jest.fn().mockResolvedValue({ data: [] });
+const mockDeleteOrganizationMembership = jest.fn().mockResolvedValue({});
 const mockGetUserList = jest.fn().mockResolvedValue({ data: [] });
 const mockCreateUser = jest.fn();
 jest.mock('@clerk/backend', () => ({
@@ -19,6 +21,8 @@ jest.mock('@clerk/backend', () => ({
       updateOrganization: (...args) => mockUpdateOrganization(...args),
       createOrganizationMembership: (...args) => mockCreateOrganizationMembership(...args),
       updateOrganizationMembershipMetadata: (...args) => mockUpdateOrganizationMembershipMetadata(...args),
+      getOrganizationMembershipList: (...args) => mockGetOrganizationMembershipList(...args),
+      deleteOrganizationMembership: (...args) => mockDeleteOrganizationMembership(...args),
     },
     users: {
       getUserList: (...args) => mockGetUserList(...args),
@@ -994,6 +998,7 @@ describe('orders-service', () => {
         process.env.CLERK_SECRET_KEY = 'sk_test_register';
         mockGetUserList.mockResolvedValue({ data: [] });
         mockCreateUser.mockResolvedValue({ id: 'user_new' });
+        mockGetOrganizationMembershipList.mockResolvedValue({ data: [] });
         mockCreateOrganizationMembership.mockResolvedValue({ id: 'orgmem_new' });
         mockUpdateOrganizationMembershipMetadata.mockResolvedValue({});
       });
@@ -1032,16 +1037,29 @@ describe('orders-service', () => {
         expect(mockCreateOrganizationMembership).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_existing', role: 'org:member' });
       });
 
-      it('retorna 409 si la persona ya es miembro de esta organización', async () => {
-        const dup = Object.assign(new Error('duplicate'), { status: 422, errors: [{ code: 'duplicate_record' }] });
-        mockCreateOrganizationMembership.mockRejectedValueOnce(dup);
+      // Bug real de produccion: DELETE /api/auth/users/:id borraba solo la
+      // fila local sin sacar a la persona de la Organization en Clerk (ver
+      // fix en el mismo commit). Re-agregarla con "Agregar usuario" pasaba
+      // por createOrganizationMembership, que Clerk rechazaba porque ya era
+      // miembro -- el codigo de error real no coincidia con lo que el catch
+      // asumia, y terminaba en 500 en vez de manejarse. La comprobacion
+      // previa evita depender de adivinar ese codigo: si ya es miembro,
+      // simplemente no se vuelve a crear la membership.
+      it('reconcilia en vez de fallar si la persona ya es miembro en Clerk (ej. se borro la fila local pero no la membership)', async () => {
+        mockGetOrganizationMembershipList.mockResolvedValueOnce({ data: [{ id: 'orgmem_existing' }] });
         mockQuery
           .mockResolvedValueOnce({ rows: [] })
-          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] });
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] })
+          .mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevot1', name: 'Nuevo Usuario', role: 'ops', email: 'nuevo@empresa.com', created_at: new Date().toISOString() }] });
 
         const res = await request(app).post('/api/auth/register').send(newUser);
 
-        expect(res.status).toBe(409);
+        expect(res.status).toBe(201);
+        expect(mockGetOrganizationMembershipList).toHaveBeenCalledWith({ organizationId: 'org_1', userId: ['user_new'] });
+        expect(mockCreateOrganizationMembership).not.toHaveBeenCalled();
+        expect(mockUpdateOrganizationMembershipMetadata).toHaveBeenCalledWith({
+          organizationId: 'org_1', userId: 'user_new', publicMetadata: { role: 'ops', username: 'nuevot1' },
+        });
       });
 
       it('rechaza contraseña débil al crear una identidad nueva → 400', async () => {
@@ -1105,6 +1123,42 @@ describe('orders-service', () => {
       const res = await request(app).delete('/api/auth/users/2');
       expect(res.status).toBe(200);
       expect(res.body.user.username).toBe('empleado');
+    });
+
+    // Multi-org: sin esto, borrar la fila local dejaba a la persona como
+    // miembro de la Organization de Clerk para siempre -- podia seguir
+    // iniciando sesion, y volver a agregarla fallaba (bug real de produccion,
+    // ver el fix de POST /api/auth/register en el mismo commit).
+    it('remueve tambien la membership de Clerk cuando el usuario eliminado esta vinculado', async () => {
+      process.env.CLERK_SECRET_KEY = 'sk_test_delete';
+      try {
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: 2, username: 'empleado', role: 'ops', clerk_user_id: 'user_2' }] }); // SELECT target
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: 2, username: 'empleado' }] }); // DELETE ... RETURNING
+        mockQuery.mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] }); // SELECT tenants
+
+        const res = await request(app).delete('/api/auth/users/2');
+
+        expect(res.status).toBe(200);
+        expect(mockDeleteOrganizationMembership).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_2' });
+      } finally {
+        delete process.env.CLERK_SECRET_KEY;
+      }
+    });
+
+    it('no falla el delete si remover la membership de Clerk da error (la fila local ya se borro)', async () => {
+      process.env.CLERK_SECRET_KEY = 'sk_test_delete';
+      try {
+        mockDeleteOrganizationMembership.mockRejectedValueOnce(new Error('Clerk down'));
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: 2, username: 'empleado', role: 'ops', clerk_user_id: 'user_2' }] });
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: 2, username: 'empleado' }] });
+        mockQuery.mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] });
+
+        const res = await request(app).delete('/api/auth/users/2');
+
+        expect(res.status).toBe(200);
+      } finally {
+        delete process.env.CLERK_SECRET_KEY;
+      }
     });
 
     it('retorna 404 si no existe', async () => {
