@@ -3,6 +3,7 @@ import { AlertTriangle, Check, ChevronDown, Edit2, Search, Trash2, UserPlus, X }
 import { getRoleProfile } from "@/app/access";
 import { useAuth } from "@/app/auth";
 import { fetchUsers, registerUser, updateUser, deleteUser } from "@/lib/local-jwt-auth";
+import { useEmailAvailabilityCheck } from "@/hooks/use-email-availability-check";
 import { cn, onActivateKey } from "@/lib/utils";
 import type { Role } from "@/types/domain";
 
@@ -32,6 +33,7 @@ export function UsersPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "ops" as Role });
+  const emailCheck = useEmailAvailabilityCheck(newUser.email, token, showAdd);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -115,15 +117,16 @@ export function UsersPage() {
   }
 
   async function handleAddUser() {
-    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.password) {
-      setFeedback("Nombre, correo y contraseña son requeridos");
+    const passwordRequired = emailCheck !== "existing";
+    if (!newUser.name.trim() || !newUser.email.trim() || (passwordRequired && !newUser.password)) {
+      setFeedback(passwordRequired ? "Nombre, correo y contraseña son requeridos" : "Nombre y correo son requeridos");
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
     try {
       const created = await registerUser(token, {
         email: newUser.email.trim().toLowerCase(),
-        password: newUser.password,
+        password: passwordRequired ? newUser.password : undefined,
         name: newUser.name.trim(),
         role: newUser.role,
       });
@@ -195,11 +198,21 @@ export function UsersPage() {
             <div className="flex-1">
               <label htmlFor="users-page-f238" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Correo</label>
               <input id="users-page-f238" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="empleado@empresa.com" />
+              {emailCheck === "checking" && <p className="mt-1 text-[10px] text-[#64748B]">Comprobando...</p>}
+              {emailCheck === "existing" && <p className="mt-1 text-[10px] font-medium text-[#0D9488]">Ya tiene cuenta en Logify</p>}
             </div>
-            <div className="flex-1">
-              <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Contraseña</label>
-              <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="••••••" />
-            </div>
+            {emailCheck === "existing" ? (
+              <div className="flex-1">
+                <p className="mt-1 text-xs text-[#64748B] sm:mt-[22px]">
+                  Esta persona ya tiene cuenta en Logify. Se agregará a tu empresa con la contraseña que ya usa para iniciar sesión.
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1">
+                <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Contraseña</label>
+                <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="••••••" />
+              </div>
+            )}
             <div>
               <label htmlFor="users-page-f246" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Rol</label>
               <select id="users-page-f246" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })} className="h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 text-sm">

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { ClerkBridgedAuthProvider } from "@/app/clerk-auth-bridge";
@@ -66,7 +67,8 @@ function fakeJwt(payload: Record<string, unknown>): string {
 }
 
 function AuthConsumer() {
-  const { session, error, login, logout, organizationOptions, selectOrganization } = useAuth();
+  const { session, error, login, logout, organizationOptions, selectOrganization, listMyOrganizations } = useAuth();
+  const [myOrgs, setMyOrgs] = useState<string>("");
   return (
     <div>
       <span data-testid="session-username">{session?.username ?? "sin-sesion"}</span>
@@ -74,10 +76,20 @@ function AuthConsumer() {
       <span data-testid="session-role">{session?.role ?? ""}</span>
       <span data-testid="error">{error ?? ""}</span>
       <span data-testid="org-options">{(organizationOptions ?? []).map((o) => o.id).join(",")}</span>
+      <span data-testid="my-orgs">{myOrgs}</span>
       <button onClick={() => void login({ username: "admin", password: "Admin123!" }).catch(() => {})}>
         Ingresar
       </button>
       <button onClick={() => void logout()}>Salir</button>
+      <button
+        onClick={() =>
+          void listMyOrganizations?.()
+            .then((opts) => setMyOrgs(opts.map((o) => o.id).join(",")))
+            .catch(() => {})
+        }
+      >
+        Listar mis organizaciones
+      </button>
       {(organizationOptions ?? []).map((option) => (
         <button key={option.id} onClick={() => void selectOrganization?.(option.id).catch(() => {})}>
           Elegir {option.id}
@@ -458,6 +470,35 @@ describe("ClerkBridgedAuthProvider", () => {
       organizationId: "org_2",
       skipCache: true,
     });
+    expect(screen.getByTestId("org-options")).toHaveTextContent("");
+  });
+
+  // Botón "Cambiar de organización" del perfil: lista bajo demanda, sin
+  // depender del flujo de selección pendiente (organizationOptions sigue
+  // vacío -- esto es una consulta aparte, no un login a medio completar).
+  it("listMyOrganizations() lista todas las organizaciones de la persona ya logueada, sin tocar organizationOptions", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    clerkLastActiveOrganizationId = "org_1";
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin1", name: "Admin", role: "owner", exp: 9999999999 }));
+    clerkUser = {
+      organizationMemberships: [
+        { organization: { id: "org_1", name: "Empresa Uno", slug: "empresa-uno" } },
+        { organization: { id: "org_2", name: "Empresa Dos", slug: "empresa-dos" } },
+      ],
+      reload: mockUserReload,
+    };
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin1"));
+
+    fireEvent.click(screen.getByText("Listar mis organizaciones"));
+
+    await waitFor(() => expect(screen.getByTestId("my-orgs")).toHaveTextContent("org_1,org_2"));
     expect(screen.getByTestId("org-options")).toHaveTextContent("");
   });
 });

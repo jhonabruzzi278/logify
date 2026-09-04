@@ -49,13 +49,28 @@ export async function loginWithLocalJwt(username: string, password: string): Pro
   };
 }
 
+// Pre-chequeo del formulario de "Agregar usuario": si el correo ya tiene
+// cuenta en Logify (de este tenant o de otro), esa persona inicia sesión de
+// forma independiente con su propia contraseña -- no hace falta pedirle una
+// nueva. Si Clerk no está configurado siempre responde exists:false (no hay
+// concepto de identidad reusable en el fallback local).
+export async function checkEmailExists(token: string, email: string): Promise<boolean> {
+  const response = await fetch(apiUrl(`/api/auth/check-email?email=${encodeURIComponent(email)}`), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) return false;
+  const body = (await response.json()) as { exists?: boolean };
+  return Boolean(body.exists);
+}
+
 // Alta directa multi-org (reemplaza el viejo flujo de invitación por correo):
 // el owner/admin crea la cuenta al instante con correo+contraseña -- si ese
 // correo ya tiene identidad en Clerk (de este tenant o de otro), el backend
-// la reusa en vez de fallar (linkedExistingAccount:true en la respuesta).
+// la reusa en vez de fallar (linkedExistingAccount:true en la respuesta) y
+// cualquier password enviado se ignora, por eso es opcional aquí.
 export async function registerUser(
   token: string,
-  userData: { email: string; password: string; name: string; role: string }
+  userData: { email: string; password?: string; name: string; role: string }
 ): Promise<{ id: number; username: string; name: string; role: string; email: string; linkedExistingAccount: boolean }> {
   const response = await fetch(apiUrl("/api/auth/register"), {
     method: "POST",

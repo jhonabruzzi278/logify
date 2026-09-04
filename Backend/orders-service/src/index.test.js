@@ -973,6 +973,18 @@ describe('orders-service', () => {
       expect(res.status).toBe(400);
     });
 
+    // password ya no es requerido a nivel de validacion superior -- si el
+    // correo va a reusar una identidad existente de Clerk no hace falta uno
+    // nuevo. Pero el camino local (sin Clerk configurada) no tiene concepto
+    // de identidad reusable, asi que ahi password sigue siendo obligatorio.
+    it('rechaza sin password en el camino local (sin Clerk configurada) → 400', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // sin duplicado en el tenant
+        .mockResolvedValueOnce({ rows: [{ clerk_org_id: null }] }); // tenant sin clerk_org_id
+      const res = await request(app).post('/api/auth/register').send({ email: newUser.email, name: newUser.name, role: newUser.role });
+      expect(res.status).toBe(400);
+    });
+
     it('rechaza rol invalido → 400', async () => {
       const res = await request(app).post('/api/auth/register').send({ ...newUser, role: 'super-admin' });
       expect(res.status).toBe(400);
@@ -1071,6 +1083,78 @@ describe('orders-service', () => {
 
         expect(res.status).toBe(400);
         expect(mockCreateUser).not.toHaveBeenCalled();
+      });
+
+      // Corazon del pedido: la persona agregada ya inicia sesion de forma
+      // independiente con su propia contraseña (de otro tenant, u otra vez
+      // en este) -- no hay que pedirle ni usar una nueva.
+      it('reusa la identidad de Clerk sin pedir contraseña cuando el correo ya tiene cuenta', async () => {
+        mockGetUserList.mockResolvedValueOnce({ data: [{ id: 'user_existing', emailAddresses: [{ emailAddress: 'nuevo@empresa.com' }] }] });
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] })
+          .mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevot1', name: 'Nuevo Usuario', role: 'ops', email: 'nuevo@empresa.com', created_at: new Date().toISOString() }] });
+
+        const res = await request(app).post('/api/auth/register').send({ email: newUser.email, name: newUser.name, role: newUser.role });
+
+        expect(res.status).toBe(201);
+        expect(res.body.linkedExistingAccount).toBe(true);
+        expect(mockCreateUser).not.toHaveBeenCalled();
+        expect(mockCreateOrganizationMembership).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_existing', role: 'org:member' });
+      });
+
+      it('rechaza sin password al crear una identidad nueva en Clerk → 400 con mensaje claro', async () => {
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] });
+
+        const res = await request(app).post('/api/auth/register').send({ email: newUser.email, name: newUser.name, role: newUser.role });
+
+        expect(res.status).toBe(400);
+        expect(res.body.code).toBe('PASSWORD_REQUIRED_NEW_ACCOUNT');
+        expect(mockCreateUser).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  // ─── GET /api/auth/check-email ────────────────────────────────────────────────
+
+  describe('GET /api/auth/check-email', () => {
+    it('rechaza sin email → 400', async () => {
+      const res = await request(app).get('/api/auth/check-email');
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna exists:false sin Clerk configurada (camino local no tiene identidad reusable)', async () => {
+      const res = await request(app).get('/api/auth/check-email').query({ email: 'alguien@empresa.com' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ exists: false });
+    });
+
+    describe('con Clerk configurada', () => {
+      const ORIGINAL_SECRET_KEY = process.env.CLERK_SECRET_KEY;
+
+      beforeEach(() => {
+        process.env.CLERK_SECRET_KEY = 'sk_test_check_email';
+      });
+
+      afterEach(() => {
+        if (ORIGINAL_SECRET_KEY == null) delete process.env.CLERK_SECRET_KEY;
+        else process.env.CLERK_SECRET_KEY = ORIGINAL_SECRET_KEY;
+      });
+
+      it('retorna exists:true si el correo ya tiene una identidad en Clerk', async () => {
+        mockGetUserList.mockResolvedValueOnce({ data: [{ id: 'user_existing', emailAddresses: [{ emailAddress: 'alguien@empresa.com' }] }] });
+        const res = await request(app).get('/api/auth/check-email').query({ email: 'alguien@empresa.com' });
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ exists: true });
+      });
+
+      it('retorna exists:false si no hay match exacto (filtro de Clerk es parcial)', async () => {
+        mockGetUserList.mockResolvedValueOnce({ data: [{ id: 'user_other', emailAddresses: [{ emailAddress: 'otro@empresa.com' }] }] });
+        const res = await request(app).get('/api/auth/check-email').query({ email: 'alguien@empresa.com' });
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ exists: false });
       });
     });
   });

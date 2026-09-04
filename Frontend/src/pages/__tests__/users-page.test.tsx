@@ -10,12 +10,14 @@ const mockFetchUsers = vi.fn();
 const mockDeleteUser = vi.fn();
 const mockUpdateUser = vi.fn();
 const mockRegisterUser = vi.fn();
+const mockCheckEmailExists = vi.fn();
 
 vi.mock("@/lib/local-jwt-auth", () => ({
   fetchUsers: (...args: unknown[]) => mockFetchUsers(...args),
   registerUser: (...args: unknown[]) => mockRegisterUser(...args),
   updateUser: (...args: unknown[]) => mockUpdateUser(...args),
   deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
+  checkEmailExists: (...args: unknown[]) => mockCheckEmailExists(...args),
 }));
 
 const USERS = [
@@ -33,8 +35,10 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
     mockFetchUsers.mockReset();
     mockDeleteUser.mockReset();
     mockUpdateUser.mockReset();
+    mockCheckEmailExists.mockReset();
     mockFetchUsers.mockResolvedValue(USERS);
     mockDeleteUser.mockResolvedValue(undefined);
+    mockCheckEmailExists.mockResolvedValue(false);
     mockUpdateUser.mockImplementation(async (_token, id, changes) => ({
       ...USERS.find((user) => user.id === id),
       ...changes,
@@ -125,6 +129,32 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
     fireEvent.click(screen.getByRole("button", { name: "Crear" }));
 
     await waitFor(() => expect(screen.getAllByText(/ya tenía cuenta en Logify y fue agregado a tu empresa/).length).toBeGreaterThan(0));
+  });
+
+  it("oculta el campo de contraseña y la omite del alta cuando el correo ya tiene cuenta en Logify", async () => {
+    mockCheckEmailExists.mockResolvedValue(true);
+    mockRegisterUser.mockResolvedValue({
+      id: 5, username: "yaexistiat1", name: "Ya Existe", email: "yaexiste@empresa.cl", role: "ops", linkedExistingAccount: true,
+    });
+    render(<UsersPage />);
+    await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getAllByRole("button", { name: /agregar usuario/i })[0]);
+    fireEvent.change(screen.getByPlaceholderText("Nombre completo"), { target: { value: "Ya Existe" } });
+    fireEvent.change(screen.getByPlaceholderText("empleado@empresa.com"), { target: { value: "yaexiste@empresa.cl" } });
+
+    await waitFor(() => expect(mockCheckEmailExists).toHaveBeenCalledWith("tok", "yaexiste@empresa.cl"), { timeout: 2000 });
+    await waitFor(() => expect(screen.getAllByText(/ya tiene cuenta en Logify/i).length).toBeGreaterThan(0));
+    expect(screen.queryByPlaceholderText("••••••")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Crear" }));
+
+    await waitFor(() => expect(mockRegisterUser).toHaveBeenCalledWith("tok", {
+      email: "yaexiste@empresa.cl",
+      password: undefined,
+      name: "Ya Existe",
+      role: "ops",
+    }));
   });
 
   it("no muestra ninguna opción de invitar por correo", async () => {

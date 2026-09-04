@@ -1,11 +1,13 @@
 ﻿import { useEffect, useState } from "react";
-import { Bell, BellOff, Boxes, Clock, MapPin, Package, Truck } from "lucide-react";
+import { Bell, BellOff, Boxes, Building2, Clock, MapPin, Package, Truck } from "lucide-react";
 import { useAuth } from "@/app/auth";
 import { getRoleProfile } from "@/app/access";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useOrganizationSwitch } from "@/hooks/use-organization-switch";
 import { adaptOrder, adaptShipment } from "@/lib/api-adapters";
 import { getPushSubscription, isPushSupported, subscribeToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 import { cn } from "@/lib/utils";
+import { OrganizationSwitchDialog } from "@/components/auth/organization-switch-dialog";
 import type { ApiOrder, ApiShipment } from "@/types/api";
 import type { Order, Shipment } from "@/types/domain";
 
@@ -17,6 +19,8 @@ export function ProfilePage() {
   const [pushStatus, setPushStatus] = useState<PushStatus>("checking");
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
+
+  const orgSwitch = useOrganizationSwitch();
 
   useEffect(() => {
     if (!isPushSupported()) { setPushStatus("unsupported"); return; }
@@ -106,6 +110,17 @@ export function ProfilePage() {
         <aside className="w-full shrink-0 lg:w-64">
           <h1 className="text-xl font-bold text-[#172554]">{session.name}</h1>
           <p className="text-sm text-[#64748B]">{session.username}</p>
+
+          {orgSwitch.supported && (
+            <button
+              type="button"
+              onClick={orgSwitch.open}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded border border-[#E2E8F0] px-3 py-1.5 text-xs font-semibold text-[#172554] hover:bg-[#F8FAFC]"
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Cambiar de organización
+            </button>
+          )}
 
           <div className="mt-4 space-y-2.5 text-sm text-[#172554]">
             <div className="flex items-center gap-2 text-[#64748B]">
@@ -215,6 +230,17 @@ export function ProfilePage() {
           </div>
         </div>
       </div>
+
+      <OrganizationSwitchDialog
+        open={orgSwitch.dialogOpen}
+        onOpenChange={orgSwitch.setDialogOpen}
+        options={orgSwitch.options}
+        loading={orgSwitch.loading}
+        busy={orgSwitch.busy}
+        error={orgSwitch.error}
+        currentSlug={session.organizationSlug}
+        onSelect={orgSwitch.select}
+      />
     </div>
   );
 }
