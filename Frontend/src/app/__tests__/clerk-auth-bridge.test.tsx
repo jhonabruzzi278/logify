@@ -15,13 +15,16 @@ let registeredAuthRefreshHandler: (() => Promise<string | null>) | null = null;
 
 let clerkAuthState: { isLoaded: boolean; isSignedIn: boolean } = { isLoaded: true, isSignedIn: false };
 const mockUserReload = vi.fn().mockResolvedValue(undefined);
-let clerkUser: { organizationMemberships: Array<{ organization: { id: string } }>; reload: typeof mockUserReload } = {
-  organizationMemberships: [{ organization: { id: "org_1" } }],
+let clerkUser: { organizationMemberships: Array<{ organization: { id: string; name?: string; slug?: string } }>; reload: typeof mockUserReload } = {
+  organizationMemberships: [{ organization: { id: "org_1", name: "Empresa Uno", slug: "empresa-uno" } }],
   reload: mockUserReload,
 };
 // Sesion activa de Clerk restaurada desde cookies al cargar la pagina --
 // null simula el caso "Clerk todavia no expone session.id en este tick".
 let clerkSessionId: string | null = "sess_restore";
+// Multi-org: organizacion activa recordada por Clerk entre recargas -- null
+// simula el caso "todavia no eligio ninguna" (fuerza la enumeracion).
+let clerkLastActiveOrganizationId: string | null = null;
 
 // El objeto que devuelve useClerk() debe tener identidad ESTABLE entre
 // renders (igual que el cliente real de Clerk, un singleton) -- clerk-auth-bridge.tsx
@@ -34,7 +37,7 @@ const mockClerkClient = {
     return clerkUser;
   },
   get session() {
-    return clerkSessionId ? { id: clerkSessionId } : undefined;
+    return clerkSessionId ? { id: clerkSessionId, lastActiveOrganizationId: clerkLastActiveOrganizationId } : undefined;
   },
 };
 
@@ -63,16 +66,22 @@ function fakeJwt(payload: Record<string, unknown>): string {
 }
 
 function AuthConsumer() {
-  const { session, error, login, logout } = useAuth();
+  const { session, error, login, logout, organizationOptions, selectOrganization } = useAuth();
   return (
     <div>
       <span data-testid="session-username">{session?.username ?? "sin-sesion"}</span>
       <span data-testid="session-role">{session?.role ?? ""}</span>
       <span data-testid="error">{error ?? ""}</span>
+      <span data-testid="org-options">{(organizationOptions ?? []).map((o) => o.id).join(",")}</span>
       <button onClick={() => void login({ username: "admin", password: "Admin123!" }).catch(() => {})}>
         Ingresar
       </button>
       <button onClick={() => void logout()}>Salir</button>
+      {(organizationOptions ?? []).map((option) => (
+        <button key={option.id} onClick={() => void selectOrganization?.(option.id).catch(() => {})}>
+          Elegir {option.id}
+        </button>
+      ))}
     </div>
   );
 }
@@ -89,8 +98,9 @@ describe("ClerkBridgedAuthProvider", () => {
       registeredAuthRefreshHandler = handler;
     });
     clerkAuthState = { isLoaded: true, isSignedIn: false };
-    clerkUser = { organizationMemberships: [{ organization: { id: "org_1" } }], reload: mockUserReload };
+    clerkUser = { organizationMemberships: [{ organization: { id: "org_1", name: "Empresa Uno", slug: "empresa-uno" } }], reload: mockUserReload };
     clerkSessionId = "sess_restore";
+    clerkLastActiveOrganizationId = null;
     mockUserReload.mockResolvedValue(undefined);
   });
 
@@ -324,5 +334,108 @@ describe("ClerkBridgedAuthProvider", () => {
     await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("sin-sesion"));
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(mockUpdateApiToken).toHaveBeenCalledWith(null);
+  });
+
+  it("restaura la sesion sin enumerar memberships cuando Clerk ya recuerda una organizacion activa", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    clerkLastActiveOrganizationId = "org_recordada";
+    mockSetActive.mockResolvedValue(undefined);
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "admin", name: "Andrés Soto", role: "owner", exp: 9999999999 }));
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("admin"));
+    expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_restore", organization: "org_recordada" });
+    // Camino silencioso: no hace falta reload()/enumerar memberships cuando
+    // Clerk ya recuerda la organizacion activa entre recargas.
+    expect(mockUserReload).not.toHaveBeenCalled();
+    expect(mockGetToken).toHaveBeenCalledWith({
+      template: "logify-api",
+      organizationId: "org_recordada",
+      skipCache: true,
+    });
+  });
+
+  it("multi-org: al restaurar sesion con 2+ memberships y sin organizacion recordada, deja la sesion en null y publica las opciones", async () => {
+    clerkAuthState = { isLoaded: true, isSignedIn: true };
+    clerkUser = {
+      organizationMemberships: [
+        { organization: { id: "org_1", name: "Empresa Uno", slug: "empresa-uno" } },
+        { organization: { id: "org_2", name: "Empresa Dos", slug: "empresa-dos" } },
+      ],
+      reload: mockUserReload,
+    };
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("org-options")).toHaveTextContent("org_1,org_2"));
+    expect(screen.getByTestId("session-username")).toHaveTextContent("sin-sesion");
+    expect(mockSetActive).not.toHaveBeenCalled();
+    expect(mockGetToken).not.toHaveBeenCalled();
+  });
+
+  it("multi-org: login() con 2+ memberships publica las opciones sin completar la sesion ni mostrar un error", async () => {
+    mockSignInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_multi" });
+    clerkUser = {
+      organizationMemberships: [
+        { organization: { id: "org_1", name: "Empresa Uno", slug: "empresa-uno" } },
+        { organization: { id: "org_2", name: "Empresa Dos", slug: "empresa-dos" } },
+      ],
+      reload: mockUserReload,
+    };
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    fireEvent.click(screen.getByText("Ingresar"));
+
+    await waitFor(() => expect(screen.getByTestId("org-options")).toHaveTextContent("org_1,org_2"));
+    expect(screen.getByTestId("session-username")).toHaveTextContent("sin-sesion");
+    expect(screen.getByTestId("error")).toHaveTextContent("");
+    expect(mockGetToken).not.toHaveBeenCalled();
+  });
+
+  it("multi-org: selectOrganization() completa el login tras elegir una organizacion del selector", async () => {
+    mockSignInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_multi" });
+    mockSetActive.mockResolvedValue(undefined);
+    mockGetToken.mockResolvedValue(fakeJwt({ username: "vendedor1", name: "María González", role: "vendor", exp: 9999999999 }));
+    clerkUser = {
+      organizationMemberships: [
+        { organization: { id: "org_1", name: "Empresa Uno", slug: "empresa-uno" } },
+        { organization: { id: "org_2", name: "Empresa Dos", slug: "empresa-dos" } },
+      ],
+      reload: mockUserReload,
+    };
+
+    render(
+      <ClerkBridgedAuthProvider>
+        <AuthConsumer />
+      </ClerkBridgedAuthProvider>,
+    );
+
+    fireEvent.click(screen.getByText("Ingresar"));
+    await waitFor(() => expect(screen.getByTestId("org-options")).toHaveTextContent("org_1,org_2"));
+
+    fireEvent.click(screen.getByText("Elegir org_2"));
+
+    await waitFor(() => expect(screen.getByTestId("session-username")).toHaveTextContent("vendedor1"));
+    expect(mockSetActive).toHaveBeenCalledWith({ session: "sess_multi", organization: "org_2" });
+    expect(mockGetToken).toHaveBeenCalledWith({
+      template: "logify-api",
+      organizationId: "org_2",
+      skipCache: true,
+    });
+    expect(screen.getByTestId("org-options")).toHaveTextContent("");
   });
 });

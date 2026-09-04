@@ -1,7 +1,6 @@
 import type { CognitoAuthResult } from "@/lib/cognito-auth";
 import { decodeJwtPayload } from "@/lib/cognito-auth";
 import { readApiConfig } from "@/lib/api-config";
-import { apiFetch, ApiRequestError } from "@/lib/api-client";
 
 function apiUrl(path: string): string {
   const { baseUrl } = readApiConfig();
@@ -50,10 +49,14 @@ export async function loginWithLocalJwt(username: string, password: string): Pro
   };
 }
 
+// Alta directa multi-org (reemplaza el viejo flujo de invitación por correo):
+// el owner/admin crea la cuenta al instante con correo+contraseña -- si ese
+// correo ya tiene identidad en Clerk (de este tenant o de otro), el backend
+// la reusa en vez de fallar (linkedExistingAccount:true en la respuesta).
 export async function registerUser(
   token: string,
-  userData: { username: string; password: string; name: string; role: string }
-): Promise<{ id: number; username: string; name: string; role: string }> {
+  userData: { email: string; password: string; name: string; role: string }
+): Promise<{ id: number; username: string; name: string; role: string; email: string; linkedExistingAccount: boolean }> {
   const response = await fetch(apiUrl("/api/auth/register"), {
     method: "POST",
     headers: {
@@ -68,59 +71,10 @@ export async function registerUser(
     throw new Error(body.error || "Error al registrar usuario");
   }
 
-  return response.json() as Promise<{ id: number; username: string; name: string; role: string }>;
+  return response.json() as Promise<{ id: number; username: string; name: string; role: string; email: string; linkedExistingAccount: boolean }>;
 }
 
-export async function inviteUser(
-  _token: string,
-  data: { email: string; role: string }
-): Promise<{ id: number; email: string; role: string; status: string; expires_at: string }> {
-  try {
-    // Usa el cliente compartido para que un token Clerk vencido se renueve y
-    // la solicitud se reintente una vez, igual que el resto de la aplicación.
-    return await apiFetch<{ id: number; email: string; role: string; status: string; expires_at: string }>(
-      "/api/auth/invite",
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-      },
-    );
-  } catch (error) {
-    // Diagnóstico seguro: no registrar token, correo ni el body de la petición.
-    if (error instanceof ApiRequestError) {
-      console.error("[inviteUser] invitación rechazada", {
-        status: error.status,
-        message: error.message,
-        requestId: error.requestId,
-      });
-    } else {
-      console.error("[inviteUser] fallo de red al enviar invitación", {
-        errorType: error instanceof Error ? error.name : typeof error,
-      });
-    }
-    throw error;
-  }
-}
-
-export async function acceptInvite(
-  token: string,
-  data: { username: string; password: string; name: string }
-): Promise<{ id: number; username: string; name: string; role: string; tenantSlug: string; loginUrl?: string }> {
-  const response = await fetch(apiUrl(`/api/auth/invite/${token}/accept`), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ error: "Error al aceptar la invitacion" })) as { error?: string };
-    throw new Error(body.error || "Error al aceptar la invitacion");
-  }
-
-  return response.json() as Promise<{ id: number; username: string; name: string; role: string; tenantSlug: string; loginUrl?: string }>;
-}
-
-export async function fetchUsers(token: string): Promise<Array<{ id: number; username: string; name: string; role: string; created_at: string; updated_at: string; last_login_at: string | null }>> {
+export async function fetchUsers(token: string): Promise<Array<{ id: number; username: string; name: string; email: string; role: string; created_at: string; updated_at: string; last_login_at: string | null }>> {
   const response = await fetch(apiUrl("/api/auth/users"), {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -129,7 +83,7 @@ export async function fetchUsers(token: string): Promise<Array<{ id: number; use
     throw new Error("No se pudo obtener la lista de usuarios");
   }
 
-  return response.json() as Promise<Array<{ id: number; username: string; name: string; role: string; created_at: string; updated_at: string; last_login_at: string | null }>>;
+  return response.json() as Promise<Array<{ id: number; username: string; name: string; email: string; role: string; created_at: string; updated_at: string; last_login_at: string | null }>>;
 }
 
 export async function updateUser(

@@ -6,6 +6,7 @@ import { getDefaultPathForRole, isPathAllowedForRole } from "@/app/access";
 import { useAuth } from "@/app/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OrganizationPicker } from "@/components/auth/organization-picker";
 import { useDocumentMeta } from "@/hooks/use-document-meta";
 import { useStaggerReveal } from "@/hooks/use-stagger-reveal";
 import { shouldActivateClerk } from "@/lib/clerk-config";
@@ -28,7 +29,7 @@ export function LoginPage() {
   });
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, login, loading, error } = useAuth();
+  const { session, login, loading, error, organizationOptions, selectOrganization } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -82,6 +83,25 @@ export function LoginPage() {
 
   if (session) {
     return <Navigate to={getDefaultPathForRole(session.role)} replace />;
+  }
+
+  // Multi-org: la sesión de Clerk ya está activa pero la persona pertenece a
+  // 2+ organizaciones -- se muestra el selector en vez del formulario hasta
+  // que elija una (ver ClerkBridgedAuthProvider.login en clerk-auth-bridge.tsx).
+  if (organizationOptions && organizationOptions.length > 0 && selectOrganization) {
+    return (
+      <OrganizationPicker
+        options={organizationOptions}
+        busy={loading}
+        onSelect={async (organizationId) => {
+          const nextSession = await selectOrganization(organizationId);
+          const target = from && isPathAllowedForRole(nextSession.role, from)
+            ? from
+            : getDefaultPathForRole(nextSession.role);
+          navigate(target, { replace: true });
+        }}
+      />
+    );
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

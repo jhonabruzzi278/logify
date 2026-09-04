@@ -100,4 +100,28 @@ describe("RequireAuth", () => {
 
     expect(screen.getByText("Panel protegido")).toBeInTheDocument();
   });
+
+  // Multi-org: sin sesion activa todavia pero con 2+ organizaciones para
+  // elegir, RequireAuth muestra el selector en vez de mandar a /login --
+  // ver ClerkBridgedAuthProvider (clerk-auth-bridge.tsx).
+  it("muestra el selector de organizacion en vez de redirigir a /login cuando hay opciones pendientes", () => {
+    vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "fake-publishable-key-for-tests");
+    setHostname("app.logify.cl");
+
+    renderRequireAuth({
+      ...BASE_AUTH_VALUE,
+      session: null,
+      organizationOptions: [
+        { id: "org_1", name: "Empresa Uno", slug: "empresa-uno" },
+        { id: "org_2", name: "Empresa Dos", slug: "empresa-dos" },
+      ],
+      selectOrganization: vi.fn(),
+    });
+
+    expect(screen.getByText("Elige tu empresa")).toBeInTheDocument();
+    expect(screen.getByText("Empresa Uno")).toBeInTheDocument();
+    expect(screen.getByText("Empresa Dos")).toBeInTheDocument();
+    expect(screen.queryByText("Pagina de login")).not.toBeInTheDocument();
+    expect(screen.queryByText("Panel protegido")).not.toBeInTheDocument();
+  });
 });

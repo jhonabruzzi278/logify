@@ -4,8 +4,10 @@ import { shouldActivateClerk } from "@/lib/clerk-config";
 import { isPlatformPortalHostname } from "@/lib/tenant-navigation";
 import { getDefaultPathForRole, isPathAllowedForRole } from "@/app/access";
 import { PageLoader } from "@/components/common/page-loader";
+import { OrganizationPicker } from "@/components/auth/organization-picker";
 import { setApiAuthErrorListener, setApiAuthRefreshHandler, updateApiToken } from "@/lib/api-client";
 import { loginWithBackend, type Session } from "@/lib/auth-service";
+import type { OrganizationOption } from "@/app/clerk-org-activation";
 import type { ApiLoginRequest } from "@/types/api";
 
 export interface AuthContextValue {
@@ -14,6 +16,11 @@ export interface AuthContextValue {
   error: string | null;
   login: (credentials: ApiLoginRequest) => Promise<Session>;
   logout: () => Promise<void>;
+  // Multi-org (solo lo puebla ClerkBridgedAuthProvider): opciones pendientes
+  // de elegir cuando la persona pertenece a 2+ organizaciones. AuthProvider
+  // (JWT legacy, sin concepto de organizacion) nunca las puebla.
+  organizationOptions?: OrganizationOption[] | null;
+  selectOrganization?: (organizationId: string) => Promise<Session>;
 }
 
 const STORAGE_KEY = "logify-auth-v2";
@@ -118,7 +125,7 @@ export function useAuth() {
 }
 
 export function RequireAuth() {
-  const { session, loading } = useAuth();
+  const { session, loading, organizationOptions, selectOrganization } = useAuth();
   const location = useLocation();
 
   // Sin Clerk activo en este host (modelo viejo de JWT por subdominio),
@@ -139,6 +146,12 @@ export function RequireAuth() {
   }
 
   if (!session) {
+    // Multi-org: la sesion de Clerk ya esta activa pero falta elegir a que
+    // organizacion entrar (2+ memberships). Cubre tanto el login como la
+    // restauracion de sesion al recargar la pagina -- ver clerk-auth-bridge.tsx.
+    if (organizationOptions && organizationOptions.length > 0 && selectOrganization) {
+      return <OrganizationPicker options={organizationOptions} onSelect={selectOrganization} busy={loading} />;
+    }
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 

@@ -9,18 +9,18 @@ vi.mock("@/app/auth", () => ({
 const mockFetchUsers = vi.fn();
 const mockDeleteUser = vi.fn();
 const mockUpdateUser = vi.fn();
+const mockRegisterUser = vi.fn();
 
 vi.mock("@/lib/local-jwt-auth", () => ({
   fetchUsers: (...args: unknown[]) => mockFetchUsers(...args),
-  registerUser: vi.fn(),
+  registerUser: (...args: unknown[]) => mockRegisterUser(...args),
   updateUser: (...args: unknown[]) => mockUpdateUser(...args),
   deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
-  inviteUser: vi.fn(),
 }));
 
 const USERS = [
-  { id: 1, username: "admin", name: "Admin Owner", role: "owner", created_at: "2026-01-01", updated_at: "2026-01-01", last_login_at: null },
-  { id: 2, username: "empleado", name: "Empleado Uno", role: "ops", created_at: "2026-01-01", updated_at: "2026-01-01", last_login_at: null },
+  { id: 1, username: "admin", name: "Admin Owner", email: "admin@empresa.cl", role: "owner", created_at: "2026-01-01", updated_at: "2026-01-01", last_login_at: null },
+  { id: 2, username: "empleado", name: "Empleado Uno", email: "empleado@empresa.cl", role: "ops", created_at: "2026-01-01", updated_at: "2026-01-01", last_login_at: null },
 ];
 
 // El componente renderiza dos layouts (mobile y desktop) simultaneamente en
@@ -50,7 +50,7 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
     expect(screen.getAllByTitle("Eliminar usuario").length).toBeGreaterThan(0);
   });
 
-  it("exige escribir el username exacto antes de habilitar la eliminacion definitiva", async () => {
+  it("exige escribir el correo exacto antes de habilitar la eliminacion definitiva", async () => {
     render(<UsersPage />);
     await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
 
@@ -60,11 +60,11 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
     const confirmButton = screen.getByRole("button", { name: /eliminar definitivamente/i });
     expect(confirmButton).toBeDisabled();
 
-    const input = screen.getByPlaceholderText("empleado");
+    const input = screen.getByPlaceholderText("empleado@empresa.cl");
     fireEvent.change(input, { target: { value: "texto-incorrecto" } });
     expect(confirmButton).toBeDisabled();
 
-    fireEvent.change(input, { target: { value: "empleado" } });
+    fireEvent.change(input, { target: { value: "empleado@empresa.cl" } });
     expect(confirmButton).toBeEnabled();
 
     fireEvent.click(confirmButton);
@@ -87,5 +87,50 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
       role: "warehouse",
     }));
     await waitFor(() => expect(screen.getAllByText("Empleado Actualizado").length).toBeGreaterThan(0));
+  });
+
+  it("crea un usuario directo con correo y contraseña (sin invitación)", async () => {
+    mockRegisterUser.mockResolvedValue({
+      id: 3, username: "nuevot1", name: "Nuevo Usuario", email: "nuevo@empresa.cl", role: "warehouse", linkedExistingAccount: false,
+    });
+    render(<UsersPage />);
+    await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getAllByRole("button", { name: /agregar usuario/i })[0]);
+    fireEvent.change(screen.getByPlaceholderText("Nombre completo"), { target: { value: "Nuevo Usuario" } });
+    fireEvent.change(screen.getByPlaceholderText("empleado@empresa.com"), { target: { value: "nuevo@empresa.cl" } });
+    fireEvent.change(screen.getByPlaceholderText("••••••"), { target: { value: "ClaveSegura123!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear" }));
+
+    await waitFor(() => expect(mockRegisterUser).toHaveBeenCalledWith("tok", {
+      email: "nuevo@empresa.cl",
+      password: "ClaveSegura123!",
+      name: "Nuevo Usuario",
+      role: "ops",
+    }));
+    await waitFor(() => expect(screen.getAllByText("Usuario creado").length).toBeGreaterThan(0));
+  });
+
+  it("avisa cuando el correo ya tenía cuenta en otra empresa y fue agregado a esta", async () => {
+    mockRegisterUser.mockResolvedValue({
+      id: 4, username: "ya-existiat1", name: "Persona Existente", email: "existente@empresa.cl", role: "ops", linkedExistingAccount: true,
+    });
+    render(<UsersPage />);
+    await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getAllByRole("button", { name: /agregar usuario/i })[0]);
+    fireEvent.change(screen.getByPlaceholderText("Nombre completo"), { target: { value: "Persona Existente" } });
+    fireEvent.change(screen.getByPlaceholderText("empleado@empresa.com"), { target: { value: "existente@empresa.cl" } });
+    fireEvent.change(screen.getByPlaceholderText("••••••"), { target: { value: "ClaveSegura123!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear" }));
+
+    await waitFor(() => expect(screen.getAllByText(/ya tenía cuenta en Logify y fue agregado a tu empresa/).length).toBeGreaterThan(0));
+  });
+
+  it("no muestra ninguna opción de invitar por correo", async () => {
+    render(<UsersPage />);
+    await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
+
+    expect(screen.queryByRole("button", { name: /^invitar$/i })).not.toBeInTheDocument();
   });
 });

@@ -1,8 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check, ChevronDown, Edit2, Mail, Search, Trash2, UserPlus, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Edit2, Search, Trash2, UserPlus, X } from "lucide-react";
 import { getRoleProfile } from "@/app/access";
 import { useAuth } from "@/app/auth";
-import { fetchUsers, registerUser, updateUser, deleteUser, inviteUser } from "@/lib/local-jwt-auth";
+import { fetchUsers, registerUser, updateUser, deleteUser } from "@/lib/local-jwt-auth";
 import { cn, onActivateKey } from "@/lib/utils";
 import type { Role } from "@/types/domain";
 
@@ -12,6 +12,7 @@ interface UserRecord {
   id: number;
   username: string;
   name: string;
+  email: string;
   role: Role;
   created_at: string;
   updated_at: string;
@@ -30,10 +31,7 @@ export function UsersPage() {
   const [editDraft, setEditDraft] = useState<{ name: string; role: Role } | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", username: "", password: "", role: "ops" as Role });
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: "", role: "ops" as Role });
-  const [inviting, setInviting] = useState(false);
+  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "ops" as Role });
   const [feedback, setFeedback] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -71,7 +69,7 @@ export function UsersPage() {
   }
 
   async function confirmDelete() {
-    if (deleteConfirmText.trim() !== deleteTarget?.username) return;
+    if (deleteConfirmText.trim().toLowerCase() !== deleteTarget?.email.toLowerCase()) return;
     setDeleting(true);
     try {
       await deleteUser(token, deleteTarget.id);
@@ -117,44 +115,24 @@ export function UsersPage() {
   }
 
   async function handleAddUser() {
-    if (!newUser.name.trim() || !newUser.username.trim() || !newUser.password) {
-      setFeedback("Nombre, usuario y contraseña son requeridos");
+    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.password) {
+      setFeedback("Nombre, correo y contraseña son requeridos");
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
     try {
       const created = await registerUser(token, {
-        username: newUser.username.trim().toLowerCase(),
+        email: newUser.email.trim().toLowerCase(),
         password: newUser.password,
         name: newUser.name.trim(),
         role: newUser.role,
       });
       setUsers((prev) => [...prev, { ...created, role: created.role as Role, created_at: "", updated_at: "", last_login_at: null }]);
-      setNewUser({ name: "", username: "", password: "", role: "ops" });
+      setNewUser({ name: "", email: "", password: "", role: "ops" });
       setShowAdd(false);
-      setFeedback("Usuario creado");
+      setFeedback(created.linkedExistingAccount ? `${created.name} ya tenía cuenta en Logify y fue agregado a tu empresa` : "Usuario creado");
     } catch (e: any) {
       setFeedback(e.message || "Error al crear usuario");
-    }
-    setTimeout(() => setFeedback(null), 3000);
-  }
-
-  async function handleInvite() {
-    if (!inviteForm.email.trim()) {
-      setFeedback("El email es requerido");
-      setTimeout(() => setFeedback(null), 3000);
-      return;
-    }
-    setInviting(true);
-    try {
-      await inviteUser(token, { email: inviteForm.email.trim().toLowerCase(), role: inviteForm.role });
-      setInviteForm({ email: "", role: "ops" });
-      setShowInvite(false);
-      setFeedback("Invitación enviada");
-    } catch (e: any) {
-      setFeedback(e.message || "Error al invitar");
-    } finally {
-      setInviting(false);
     }
     setTimeout(() => setFeedback(null), 3000);
   }
@@ -198,14 +176,7 @@ export function UsersPage() {
         </div>
         <div className="flex gap-2">
           <button type="button"
-            onClick={() => { setShowInvite(!showInvite); setShowAdd(false); }}
-            className="flex items-center gap-1.5 rounded border border-[#2563EB] px-3 py-1.5 text-xs font-bold text-[#2563EB] hover:bg-[#2563EB]/5"
-          >
-            <Mail className="h-3.5 w-3.5" />
-            Invitar
-          </button>
-          <button type="button"
-            onClick={() => { setShowAdd(!showAdd); setShowInvite(false); }}
+            onClick={() => setShowAdd(!showAdd)}
             className="flex items-center gap-1.5 rounded bg-[#2563EB] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1D4ED8]"
           >
             <UserPlus className="h-3.5 w-3.5" />
@@ -213,27 +184,6 @@ export function UsersPage() {
           </button>
         </div>
       </div>
-
-      {showInvite && (
-        <div className="rounded border border-[#E2E8F0] bg-white p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label htmlFor="users-page-f213" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Email</label>
-              <input id="users-page-f213" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="empleado@empresa.com" />
-            </div>
-            <div>
-              <label htmlFor="users-page-f217" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Rol</label>
-              <select id="users-page-f217" value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as Role })} className="h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 text-sm">
-                {ROLES.map((r) => <option key={r} value={r}>{getRoleProfile(r).label}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={handleInvite} disabled={inviting} className="h-9 rounded bg-[#2563EB] px-4 text-xs font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-50">{inviting ? "Enviando..." : "Enviar invitación"}</button>
-              <button type="button" onClick={() => setShowInvite(false)} className="h-9 rounded border border-[#E2E8F0] px-3 text-xs font-semibold text-[#64748B] hover:bg-[#F8FAFC]">Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showAdd && (
         <div className="rounded border border-[#E2E8F0] bg-white p-4">
@@ -243,8 +193,8 @@ export function UsersPage() {
               <input id="users-page-f234" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="Nombre completo" />
             </div>
             <div className="flex-1">
-              <label htmlFor="users-page-f238" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Usuario</label>
-              <input id="users-page-f238" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="usuario" />
+              <label htmlFor="users-page-f238" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Correo</label>
+              <input id="users-page-f238" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="empleado@empresa.com" />
             </div>
             <div className="flex-1">
               <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Contraseña</label>
@@ -306,7 +256,7 @@ export function UsersPage() {
                     ) : (
                       <p className="font-semibold text-[#172554]">{user.name}</p>
                     )}
-                    <p className="text-xs text-[#64748B]">{user.username}</p>
+                    <p className="text-xs text-[#64748B]">{user.email}</p>
                   </div>
                   <button
                     type="button"
@@ -385,7 +335,7 @@ export function UsersPage() {
                           onClick={() => startEditing(user)}
                           onKeyDown={onActivateKey(() => startEditing(user))}
                         >{user.name}</p>
-                        <p className="text-xs text-[#64748B]">{user.username}</p>
+                        <p className="text-xs text-[#64748B]">{user.email}</p>
                       </>
                     )}
                   </td>
@@ -512,21 +462,21 @@ export function UsersPage() {
               <div>
                 <h3 className="text-sm font-bold text-[#172554]">Eliminar usuario</h3>
                 <p className="mt-1 text-xs text-[#64748B]">
-                  Vas a eliminar a <strong className="text-[#172554]">{deleteTarget.name}</strong> ({deleteTarget.username}).
+                  Vas a eliminar a <strong className="text-[#172554]">{deleteTarget.name}</strong> ({deleteTarget.email}).
                   Esta acción es irreversible y no se puede deshacer.
                 </p>
               </div>
             </div>
             <label className="mt-4 block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">
-              Escribe <span className="font-mono normal-case text-red-500">{deleteTarget.username}</span> para confirmar
+              Escribe <span className="font-mono normal-case text-red-500">{deleteTarget.email}</span> para confirmar
             </label>
             <input
               autoFocus
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && deleteConfirmText.trim() === deleteTarget.username) confirmDelete(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && deleteConfirmText.trim().toLowerCase() === deleteTarget.email.toLowerCase()) confirmDelete(); }}
               className="mt-1.5 h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm outline-none focus:border-red-400"
-              placeholder={deleteTarget.username}
+              placeholder={deleteTarget.email}
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -539,7 +489,7 @@ export function UsersPage() {
               <button
                 type="button"
                 onClick={confirmDelete}
-                disabled={deleting || deleteConfirmText.trim() !== deleteTarget.username}
+                disabled={deleting || deleteConfirmText.trim().toLowerCase() !== deleteTarget.email.toLowerCase()}
                 className="h-9 rounded bg-red-500 px-4 text-xs font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {deleting ? "Eliminando..." : "Eliminar definitivamente"}
