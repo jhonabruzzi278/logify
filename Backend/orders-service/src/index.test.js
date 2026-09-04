@@ -9,12 +9,22 @@ jest.mock('../shared/platform-auth', () => ({
 }));
 jest.mock('@clerk/backend/webhooks', () => ({ verifyWebhook: jest.fn() }));
 const mockUpdateOrganization = jest.fn();
-const mockCreateOrganizationInvitation = jest.fn();
+const mockCreateOrganizationMembership = jest.fn();
+const mockUpdateOrganizationMembershipMetadata = jest.fn();
+const mockGetUserList = jest.fn().mockResolvedValue({ data: [] });
+const mockCreateUser = jest.fn();
 jest.mock('@clerk/backend', () => ({
-  createClerkClient: jest.fn(() => ({ organizations: {
-    updateOrganization: (...args) => mockUpdateOrganization(...args),
-    createOrganizationInvitation: (...args) => mockCreateOrganizationInvitation(...args),
-  } })),
+  createClerkClient: jest.fn(() => ({
+    organizations: {
+      updateOrganization: (...args) => mockUpdateOrganization(...args),
+      createOrganizationMembership: (...args) => mockCreateOrganizationMembership(...args),
+      updateOrganizationMembershipMetadata: (...args) => mockUpdateOrganizationMembershipMetadata(...args),
+    },
+    users: {
+      getUserList: (...args) => mockGetUserList(...args),
+      createUser: (...args) => mockCreateUser(...args),
+    },
+  })),
 }));
 jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt-token'),
@@ -50,7 +60,7 @@ const mockClientQuery = jest.fn((text, ...rest) => {
 const mockClient = { query: mockClientQuery, release: jest.fn() };
 createPool.mockReturnValue({ query: mockQuery, on: jest.fn(), end: jest.fn(), connect: jest.fn().mockResolvedValue(mockClient) });
 
-const { app, seedUsers, ensureTables } = require('./index');
+const { app, seedUsers, ensureTables, ensureTenantConstraints } = require('./index');
 
 const mockOrder = {
   id: 1, customer_id: 10, sku: 'COCA-2L', quantity: 5,
@@ -868,102 +878,6 @@ describe('orders-service', () => {
     });
   });
 
-  // ─── INVITACIONES DE USUARIO ────────────────────────────────────────────────
-
-  describe('POST /api/auth/invite', () => {
-    it('crea invitación válida → 201 sin exponer el token', async () => {
-      mockQuery
-        .mockResolvedValueOnce({ rows: [{ slug: 'lapercha', clerk_org_id: null }] })
-        .mockResolvedValueOnce({
-          rows: [{ id: 1, email: 'nuevo@empresa.com', role: 'ops', status: 'pending', expires_at: new Date().toISOString() }]
-        });
-      const res = await request(app).post('/api/auth/invite').send({ email: 'nuevo@empresa.com', role: 'ops' });
-      expect(res.status).toBe(201);
-      expect(res.body.email).toBe('nuevo@empresa.com');
-      expect(res.body.token).toBeUndefined();
-      expect(res.body.delivery).toBe('legacy');
-    });
-
-    it('crea la invitación en Clerk para que el rol invitado pueda iniciar sesión en app.logify.cl', async () => {
-      const originalSecretKey = process.env.CLERK_SECRET_KEY;
-      process.env.CLERK_SECRET_KEY = 'configured-for-invitation-test';
-      mockCreateOrganizationInvitation.mockResolvedValueOnce({ id: 'orginv_123' });
-      mockQuery
-        .mockResolvedValueOnce({ rows: [{ slug: 'empresa', clerk_org_id: 'org_123' }] })
-        .mockResolvedValueOnce({
-          rows: [{ id: 9, email: 'bodega@empresa.cl', role: 'warehouse', status: 'pending', expires_at: new Date().toISOString() }]
-        });
-
-      try {
-        const res = await request(app).post('/api/auth/invite').send({ email: 'BODEGA@EMPRESA.CL', role: 'warehouse' });
-
-        expect(res.status).toBe(201);
-        expect(res.body).toMatchObject({ email: 'bodega@empresa.cl', role: 'warehouse', delivery: 'clerk' });
-        expect(mockCreateOrganizationInvitation).toHaveBeenCalledWith({
-          organizationId: 'org_123',
-          emailAddress: 'bodega@empresa.cl',
-          role: 'org:member',
-          expiresInDays: 7,
-          publicMetadata: { role: 'warehouse', username: 'bodega@empresa.cl' },
-          redirectUrl: 'https://app.logify.cl/accept-invitation',
-        });
-        expect(mockQuery).toHaveBeenLastCalledWith(
-          expect.stringContaining('clerk_invitation_id'),
-          expect.arrayContaining(['orginv_123'])
-        );
-      } finally {
-        if (originalSecretKey == null) delete process.env.CLERK_SECRET_KEY;
-        else process.env.CLERK_SECRET_KEY = originalSecretKey;
-      }
-    });
-
-    it('rechaza rol inválido → 400', async () => {
-      const res = await request(app).post('/api/auth/invite').send({ email: 'x@x.com', role: 'root' });
-      expect(res.status).toBe(400);
-    });
-
-    it('rechaza sin email → 400', async () => {
-      const res = await request(app).post('/api/auth/invite').send({ role: 'ops' });
-      expect(res.status).toBe(400);
-    });
-
-    it('retorna 500 si BD falla', async () => {
-      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
-      const res = await request(app).post('/api/auth/invite').send({ email: 'x@x.com', role: 'ops' });
-      expect(res.status).toBe(500);
-    });
-  });
-
-  describe('POST /api/auth/invite/:token/accept', () => {
-    it('acepta invitación válida → 201 con el usuario creado', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 1, tenant_id: 1, tenant_slug: 'lapercha', email: 'nuevo@empresa.com', role: 'ops', status: 'pending', expires_at: new Date(Date.now() + 86400000).toISOString() }]
-      });
-      mockQuery.mockResolvedValueOnce({ rows: [] }); // username disponible
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevo.usuario', name: 'Nuevo Usuario', role: 'ops' }] });
-      mockQuery.mockResolvedValueOnce({ rows: [] }); // marca invitación como aceptada
-      const res = await request(app).post('/api/auth/invite/abc123/accept')
-        .send({ username: 'nuevo.usuario', password: 'Clave123!', name: 'Nuevo Usuario' });
-      expect(res.status).toBe(201);
-      expect(res.body.username).toBe('nuevo.usuario');
-      expect(res.body.role).toBe('ops');
-      expect(res.body.tenantSlug).toBe('lapercha');
-      expect(res.body.loginUrl).toBe('https://lapercha.logify.cl/login');
-    });
-
-    it('retorna 404 si el token no existe o ya expiró', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
-      const res = await request(app).post('/api/auth/invite/invalido/accept')
-        .send({ username: 'x', password: 'Clave123!', name: 'X' });
-      expect(res.status).toBe(404);
-    });
-
-    it('rechaza sin password → 400', async () => {
-      const res = await request(app).post('/api/auth/invite/abc123/accept').send({ username: 'x', name: 'X' });
-      expect(res.status).toBe(400);
-    });
-  });
-
   describe('GET /api/auth/users (con último acceso)', () => {
     it('incluye last_login_at en cada usuario', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', name: 'Admin', role: 'owner', last_login_at: '2026-08-01T10:00:00.000Z' }] });
@@ -1034,20 +948,24 @@ describe('orders-service', () => {
 
   // ─── POST /api/auth/register ─────────────────────────────────────────────────
 
-  describe('POST /api/auth/register', () => {
-    const newUser = { username: 'nuevo', password: 'Clave123!', name: 'Nuevo Usuario', role: 'ops' };
+  describe('POST /api/auth/register (alta directa multi-org, reemplaza invitaciones)', () => {
+    const newUser = { email: 'nuevo@empresa.com', password: 'ClaveSegura123!', name: 'Nuevo Usuario', role: 'ops' };
 
-    it('crea usuario valido → 201', async () => {
+    // Sin CLERK_SECRET_KEY configurada (default de este archivo), getClerkClient()
+    // retorna null y el alta cae en el camino local legacy.
+    it('crea usuario valido → 201 (camino local, sin Clerk configurada)', async () => {
       mockQuery
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevo', name: 'Nuevo Usuario', role: 'ops' }] });
+        .mockResolvedValueOnce({ rows: [] }) // sin duplicado en el tenant
+        .mockResolvedValueOnce({ rows: [{ clerk_org_id: null }] }) // tenant sin clerk_org_id
+        .mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevot1', name: 'Nuevo Usuario', role: 'ops', email: 'nuevo@empresa.com', created_at: new Date().toISOString() }] });
       const res = await request(app).post('/api/auth/register').send(newUser);
       expect(res.status).toBe(201);
-      expect(res.body.username).toBe('nuevo');
+      expect(res.body.email).toBe('nuevo@empresa.com');
+      expect(res.body.linkedExistingAccount).toBe(false);
     });
 
     it('rechaza sin campos requeridos → 400', async () => {
-      const res = await request(app).post('/api/auth/register').send({ username: 'x' });
+      const res = await request(app).post('/api/auth/register').send({ email: 'x@x.com' });
       expect(res.status).toBe(400);
     });
 
@@ -1056,16 +974,86 @@ describe('orders-service', () => {
       expect(res.status).toBe(400);
     });
 
-    it('retorna 409 si el usuario ya existe', async () => {
+    it('retorna 409 si ya existe un usuario con ese correo en el tenant', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] });
       const res = await request(app).post('/api/auth/register').send(newUser);
       expect(res.status).toBe(409);
+      expect(mockQuery).toHaveBeenCalledTimes(1);
     });
 
     it('retorna 500 si BD falla', async () => {
       mockQuery.mockRejectedValueOnce(new Error('DB down'));
       const res = await request(app).post('/api/auth/register').send(newUser);
       expect(res.status).toBe(500);
+    });
+
+    describe('con Clerk configurada (multi-org)', () => {
+      const ORIGINAL_SECRET_KEY = process.env.CLERK_SECRET_KEY;
+
+      beforeEach(() => {
+        process.env.CLERK_SECRET_KEY = 'sk_test_register';
+        mockGetUserList.mockResolvedValue({ data: [] });
+        mockCreateUser.mockResolvedValue({ id: 'user_new' });
+        mockCreateOrganizationMembership.mockResolvedValue({ id: 'orgmem_new' });
+        mockUpdateOrganizationMembershipMetadata.mockResolvedValue({});
+      });
+
+      afterEach(() => {
+        if (ORIGINAL_SECRET_KEY == null) delete process.env.CLERK_SECRET_KEY;
+        else process.env.CLERK_SECRET_KEY = ORIGINAL_SECRET_KEY;
+      });
+
+      it('crea una identidad nueva en Clerk cuando el correo no tiene cuenta todavia', async () => {
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] }) // sin duplicado en el tenant
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] }) // tenant con clerk_org_id
+          .mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevot1', name: 'Nuevo Usuario', role: 'ops', email: 'nuevo@empresa.com', created_at: new Date().toISOString() }] });
+
+        const res = await request(app).post('/api/auth/register').send(newUser);
+
+        expect(res.status).toBe(201);
+        expect(res.body.linkedExistingAccount).toBe(false);
+        expect(mockCreateUser).toHaveBeenCalledWith(expect.objectContaining({ emailAddress: ['nuevo@empresa.com'], password: 'ClaveSegura123!' }));
+        expect(mockCreateOrganizationMembership).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_new', role: 'org:member' });
+      });
+
+      it('reusa la identidad de Clerk si el correo ya tiene cuenta (de este tenant o de otro) en vez de crear una nueva', async () => {
+        mockGetUserList.mockResolvedValueOnce({ data: [{ id: 'user_existing', emailAddresses: [{ emailAddress: 'nuevo@empresa.com' }] }] });
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] })
+          .mockResolvedValueOnce({ rows: [{ id: 5, username: 'nuevot1', name: 'Nuevo Usuario', role: 'ops', email: 'nuevo@empresa.com', created_at: new Date().toISOString() }] });
+
+        const res = await request(app).post('/api/auth/register').send(newUser);
+
+        expect(res.status).toBe(201);
+        expect(res.body.linkedExistingAccount).toBe(true);
+        expect(mockCreateUser).not.toHaveBeenCalled();
+        expect(mockCreateOrganizationMembership).toHaveBeenCalledWith({ organizationId: 'org_1', userId: 'user_existing', role: 'org:member' });
+      });
+
+      it('retorna 409 si la persona ya es miembro de esta organización', async () => {
+        const dup = Object.assign(new Error('duplicate'), { status: 422, errors: [{ code: 'duplicate_record' }] });
+        mockCreateOrganizationMembership.mockRejectedValueOnce(dup);
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] });
+
+        const res = await request(app).post('/api/auth/register').send(newUser);
+
+        expect(res.status).toBe(409);
+      });
+
+      it('rechaza contraseña débil al crear una identidad nueva → 400', async () => {
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] });
+
+        const res = await request(app).post('/api/auth/register').send({ ...newUser, password: 'abc' });
+
+        expect(res.status).toBe(400);
+        expect(mockCreateUser).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -1577,14 +1565,15 @@ describe('POST /api/webhooks/clerk', () => {
         }
       });
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] }); // SELECT tenants
-      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT users por clerk_user_id: no existe
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT users por clerk_user_id + tenant_id: no existe
       mockQuery.mockResolvedValueOnce({ rows: [] }); // INSERT users
 
       const res = await request(app).post('/api/webhooks/clerk').send({});
 
       expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT id FROM users WHERE clerk_user_id=$1 AND tenant_id=$2'), ['user_1', 7]);
       expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO users'), ['juanp', 'Juan Perez', 'vendor', 7, 'user_1']);
-      expect(mockQuery).toHaveBeenNthCalledWith(4, expect.stringContaining("status='accepted'"), [7, 'juan@acme.cl']);
+      expect(mockQuery).toHaveBeenCalledTimes(3);
     });
 
     it('actualiza el usuario existente en organizationMembership.updated', async () => {
@@ -1597,50 +1586,66 @@ describe('POST /api/webhooks/clerk', () => {
         }
       });
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 7 }] }); // SELECT tenants
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 42, tenant_id: 7 }] }); // SELECT users por clerk_user_id: existe, mismo tenant
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 42 }] }); // SELECT users por clerk_user_id + tenant_id: existe
       mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE users
 
       const res = await request(app).post('/api/webhooks/clerk').send({});
 
       expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT id FROM users WHERE clerk_user_id=$1 AND tenant_id=$2'), ['user_1', 7]);
       expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE users'), ['Juan Perez', 'ops', 42]);
-      expect(mockQuery).toHaveBeenNthCalledWith(4, expect.stringContaining("status='accepted'"), [7, 'juan@acme.cl']);
+      expect(mockQuery).toHaveBeenCalledTimes(3);
     });
 
-    // Regresion del bug encontrado en auditoria de produccion (ver PR #67):
-    // sin este guard, un Clerk User con una membership en un segundo tenant
-    // reasignaria tenant_id en su fila existente, moviendo en silencio su
-    // acceso de un tenant a otro. Logify todavia no soporta multi-org.
-    it('ignora la membership nueva (sin UPDATE) si el usuario ya pertenece a OTRO tenant', async () => {
+    // Multi-org: la misma persona (mismo clerk_user_id) puede tener una fila
+    // por cada tenant del que es miembro. Una membership nueva para un
+    // clerk_user_id que ya tiene fila en OTRO tenant ya no se ignora -- crea
+    // la fila correspondiente a ESTE tenant (ver A.1: uk_users_tenant_clerk_user_id).
+    it('crea una fila nueva en este tenant si el clerk_user_id ya tiene fila en OTRO tenant (multi-org)', async () => {
       verifyWebhook.mockResolvedValueOnce({
         type: 'organizationMembership.updated',
         data: {
           organization: { id: 'org_456' },
           public_user_data: { user_id: 'user_1', first_name: 'Juan', last_name: 'Perez', identifier: 'juan@otraempresa.cl' },
-          public_metadata: { role: 'owner' }
+          public_metadata: { role: 'owner', username: 'juanp' }
         }
       });
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 9 }] }); // SELECT tenants: org_456 -> tenant 9
-      mockQuery.mockResolvedValueOnce({ rows: [{ id: 42, tenant_id: 7 }] }); // SELECT users: mismo clerk_user_id, tenant 7 (distinto)
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT users scoped a tenant 9: no existe ahi (aunque si en el tenant 7)
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // INSERT users
 
       const res = await request(app).post('/api/webhooks/clerk').send({});
 
       expect(res.status).toBe(200);
-      // Solo las 2 SELECT -- ningun UPDATE ni INSERT sobre users.
-      expect(mockQuery).toHaveBeenCalledTimes(2);
+      expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT id FROM users WHERE clerk_user_id=$1 AND tenant_id=$2'), ['user_1', 9]);
+      expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO users'), ['juanp', 'Juan Perez', 'owner', 9, 'user_1']);
     });
 
-    it('desvincula clerk_user_id en organizationMembership.deleted sin borrar la fila', async () => {
+    it('desvincula clerk_user_id en organizationMembership.deleted sin borrar la fila, scoped al tenant del evento', async () => {
       verifyWebhook.mockResolvedValueOnce({
         type: 'organizationMembership.deleted',
-        data: { public_user_data: { user_id: 'user_1' } }
+        data: { organization: { id: 'org_456' }, public_user_data: { user_id: 'user_1' } }
       });
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 9 }] }); // SELECT tenants: org_456 -> tenant 9
       mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE users SET clerk_user_id=NULL
 
       const res = await request(app).post('/api/webhooks/clerk').send({});
 
       expect(res.status).toBe(200);
-      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('UPDATE users SET clerk_user_id=NULL'), ['user_1']);
+      expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('UPDATE users SET clerk_user_id=NULL'), ['user_1', 9]);
+    });
+
+    it('no toca la base si organizationMembership.deleted llega para un tenant no sincronizado', async () => {
+      verifyWebhook.mockResolvedValueOnce({
+        type: 'organizationMembership.deleted',
+        data: { organization: { id: 'org_sin_tenant' }, public_user_data: { user_id: 'user_1' } }
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // SELECT tenants: no encontrado
+
+      const res = await request(app).post('/api/webhooks/clerk').send({});
+
+      expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenCalledTimes(1);
     });
 
     it('responde 200 sin tocar la base para tipos de evento no manejados', async () => {
@@ -1737,5 +1742,22 @@ describe('ensureTables()', () => {
     expect(sqlCalls.some(sql => typeof sql === 'string' && sql.includes('users ADD COLUMN IF NOT EXISTS clerk_user_id'))).toBe(true);
     expect(sqlCalls.some(sql => typeof sql === 'string' && sql.includes('users ALTER COLUMN password_hash DROP NOT NULL'))).toBe(true);
     expect(sqlCalls.some(sql => typeof sql === 'string' && sql.includes('tenants ADD COLUMN IF NOT EXISTS clerk_org_id'))).toBe(true);
+  });
+});
+
+describe('ensureTenantConstraints()', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockQuery.mockResolvedValue({ rows: [] });
+  });
+
+  // Multi-org: clerk_user_id deja de ser unico globalmente (1 persona = 1
+  // tenant como maximo) y pasa a ser unico por tenant, igual que username/rut.
+  it('migra clerk_user_id de unico global a unico por tenant', async () => {
+    await expect(ensureTenantConstraints()).resolves.toBeUndefined();
+
+    const sqlCalls = mockQuery.mock.calls.map(([sql]) => sql);
+    expect(sqlCalls.some(sql => typeof sql === 'string' && sql.includes('DROP CONSTRAINT IF EXISTS users_clerk_user_id_key'))).toBe(true);
+    expect(sqlCalls.some(sql => typeof sql === 'string' && sql.includes('CREATE UNIQUE INDEX IF NOT EXISTS uk_users_tenant_clerk_user_id'))).toBe(true);
   });
 });
