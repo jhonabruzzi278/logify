@@ -34,7 +34,7 @@ describe("InvitePage", () => {
     mockAcceptInvite.mockReset();
   });
 
-  it("navega al portal centralizado para cualquier tenant", async () => {
+  it("navega al subdominio del tenant legado después de crear la cuenta", async () => {
     mockAcceptInvite.mockResolvedValue({ tenantSlug: "lapercha" });
     const assignMock = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign: assignMock });
@@ -43,12 +43,12 @@ describe("InvitePage", () => {
     await acceptInvite();
     fireEvent.click(screen.getByRole("button", { name: /ir a iniciar sesión/i }));
 
-    expect(assignMock).toHaveBeenCalledWith("https://app.logify.cl/login");
+    expect(assignMock).toHaveBeenCalledWith("https://lapercha.logify.cl/login");
     vi.unstubAllGlobals();
   });
 
-  it("navega al portal centralizado incluso si recibe un slug legado", async () => {
-    mockAcceptInvite.mockResolvedValue({ tenantSlug: "logify" });
+  it("usa la URL de inicio de sesión entregada por el backend", async () => {
+    mockAcceptInvite.mockResolvedValue({ tenantSlug: "logify", loginUrl: "https://app.logify.cl/login" });
     const assignMock = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign: assignMock });
 

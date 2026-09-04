@@ -82,6 +82,432 @@ describe('inventory-service', () => {
     });
   });
 
+  // ─── HISTORIAL Y PROCESOS DE INVENTARIO ──────────────────────────────────
+
+  describe('procesos de inventario', () => {
+    const baseSession = {
+      id: 21,
+      tenant_id: 1,
+      type: 'count',
+      name: 'Conteo de bodega',
+      status: 'draft',
+      created_by: 'admin',
+      created_by_name: 'Admin',
+      started_at: '2026-09-03T10:00:00.000Z',
+      updated_at: '2026-09-03T10:00:00.000Z',
+      finalized_at: null,
+      cancelled_at: null,
+      total_products: 2,
+      scanned_products: 0,
+      total_difference: -15,
+    };
+
+    it('lista el historial del tenant con estado y diferencias', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ ...baseSession, status: 'finalized', scanned_products: 2, total_difference: -2 }] });
+
+      const res = await request(app).get('/api/inventory-sessions');
+
+      expect(res.status).toBe(200);
+      expect(res.body[0]).toMatchObject({ id: 21, type: 'count', status: 'finalized', scannedProducts: 2, totalDifference: -2 });
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('s.tenant_id=$1'), [1]);
+    });
+
+    it('crea un conteo físico y congela el stock inicial de todos los productos activos', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes("WHERE tenant_id=$1 AND status='draft'")) return { rows: [] };
+        if (text.includes('INSERT INTO inventory_sessions')) return { rows: [baseSession] };
+        if (text.includes('INSERT INTO inventory_session_items') && text.includes('SELECT $1')) return { rows: [] };
+        if (text.includes('SELECT s.*')) return { rows: [baseSession] };
+        if (text.includes('SELECT i.*, COALESCE')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions').send({ type: 'count', name: 'Conteo de bodega' });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toMatchObject({ id: 21, type: 'count', name: 'Conteo de bodega' });
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('FROM inventory'),
+        [21, 1]
+      );
+    });
+
+    it('registra cada lectura del código de barras y aumenta la cantidad contada', async () => {
+      const product = { sku: 'COCA-2L', barcode: '7801234567890', product_name: 'Coca Cola 2L', stock: 10 };
+      const item = { id: 5, session_id: 21, tenant_id: 1, ...product, initial_stock: 10, counted_quantity: 3, scanned: true, final_stock: null, applied_delta: null, updated_at: baseSession.updated_at };
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [baseSession] };
+        if (text.includes('SELECT sku, barcode')) return { rows: [product] };
+        if (text.includes('INSERT INTO inventory_session_items')) return { rows: [item] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/scan').send({ code: '7801234567890' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ sku: 'COCA-2L', quantity: 3, scanned: true, currentStock: 10 });
+    });
+
+    it('exige confirmación antes de convertir productos no escaneados a stock cero', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [baseSession] };
+        if (text.includes('SELECT i.*, inv.stock AS current_stock')) {
+          return { rows: [{ id: 1, sku: 'AGUA', initial_stock: 5, counted_quantity: 0, scanned: false, current_stock: 5 }] };
+        }
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/finalize').send({});
+
+      expect(res.status).toBe(409);
+      expect(res.body).toMatchObject({ code: 'UNSCANNED_PRODUCTS', count: 1 });
+      expect(mockQuery).toHaveBeenCalledWith('ROLLBACK');
+    });
+
+    it('finaliza un ingreso de mercadería sumando lo escaneado al stock y dejando auditoría', async () => {
+      const restockSession = { ...baseSession, type: 'restock', name: 'Recepción proveedor', total_products: 1, scanned_products: 1, total_difference: 3 };
+      const item = { id: 8, session_id: 21, tenant_id: 1, sku: 'AGUA', barcode: '7800001', product_name: 'Agua', initial_stock: 10, counted_quantity: 3, scanned: true, current_stock: 10, final_stock: null, applied_delta: null, updated_at: baseSession.updated_at };
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [restockSession] };
+        if (text.includes('SELECT i.*, inv.stock AS current_stock')) return { rows: [item] };
+        if (text.includes('SELECT s.*')) return { rows: [{ ...restockSession, status: 'finalized', finalized_at: baseSession.updated_at }] };
+        if (text.includes('SELECT i.*, COALESCE')) return { rows: [{ ...item, status: 'finalized', final_stock: 13, applied_delta: 3 }] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/finalize').send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ status: 'finalized', type: 'restock' });
+      expect(mockQuery).toHaveBeenCalledWith('UPDATE inventory SET stock=$1 WHERE tenant_id=$2 AND sku=$3', [13, 1, 'AGUA']);
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inventory_movements'), [1, '21', 'AGUA', 'restock', 3, 10, 13, 'admin']);
+    });
+
+    it('rechaza un filtro de estado inválido en el historial → 400', async () => {
+      const res = await request(app).get('/api/inventory-sessions').query({ status: 'bogus' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza un filtro de tipo inválido en el historial → 400', async () => {
+      const res = await request(app).get('/api/inventory-sessions').query({ type: 'bogus' });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 500 si BD falla al listar el historial', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).get('/api/inventory-sessions');
+      expect(res.status).toBe(500);
+    });
+
+    it('filtra el historial por estado y tipo cuando ambos son válidos', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [baseSession] });
+
+      const res = await request(app).get('/api/inventory-sessions').query({ status: 'draft', type: 'count' });
+
+      expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('s.status=$2'), [1, 'draft', 'count']);
+    });
+
+    it('obtiene un inventario en proceso con sus items → 200', async () => {
+      const item = { id: 5, sku: 'COCA-2L', barcode: '7801234567890', product_name: 'Coca Cola 2L', initial_stock: 10, counted_quantity: 3, scanned: true, current_stock: 10, final_stock: null, applied_delta: null, updated_at: baseSession.updated_at, status: 'draft' };
+      mockQuery.mockImplementation(async (text) => {
+        if (text.includes('SELECT s.*')) return { rows: [baseSession] };
+        if (text.includes('SELECT i.*, COALESCE')) return { rows: [item] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).get('/api/inventory-sessions/21');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: 21, type: 'count' });
+      expect(res.body.items[0]).toMatchObject({ sku: 'COCA-2L', quantity: 3 });
+    });
+
+    it('retorna 404 si el inventario solicitado no existe', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).get('/api/inventory-sessions/999');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla al obtener un inventario', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).get('/api/inventory-sessions/21');
+      expect(res.status).toBe(500);
+    });
+
+    it('rechaza crear un inventario con tipo inválido → 400', async () => {
+      const res = await request(app).post('/api/inventory-sessions').send({ type: 'bogus' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza crear un inventario cuando ya hay uno guardado en proceso → 409', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes("WHERE tenant_id=$1 AND status='draft'")) return { rows: [{ id: 21, name: 'Conteo de bodega', type: 'count' }] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions').send({ type: 'count' });
+
+      expect(res.status).toBe(409);
+      expect(res.body).toMatchObject({ activeSessionId: 21 });
+      expect(mockQuery).toHaveBeenCalledWith('ROLLBACK');
+    });
+
+    it('crea un ingreso de mercadería (restock) sin precargar productos', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes("WHERE tenant_id=$1 AND status='draft'")) return { rows: [] };
+        if (text.includes('INSERT INTO inventory_sessions')) return { rows: [{ ...baseSession, type: 'restock', name: 'Recepción proveedor' }] };
+        if (text.includes('SELECT s.*')) return { rows: [{ ...baseSession, type: 'restock', name: 'Recepción proveedor' }] };
+        if (text.includes('SELECT i.*, COALESCE')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions').send({ type: 'restock' });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toMatchObject({ type: 'restock' });
+      expect(mockQuery).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inventory_session_items'), expect.anything());
+    });
+
+    it('retorna 409 si la restricción única de la BD rechaza el inventario duplicado', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes("WHERE tenant_id=$1 AND status='draft'")) return { rows: [] };
+        if (text.includes('INSERT INTO inventory_sessions')) { const e = new Error('duplicate'); e.code = '23505'; throw e; }
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions').send({ type: 'count' });
+
+      expect(res.status).toBe(409);
+    });
+
+    it('retorna 500 si BD falla al crear un inventario', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes("WHERE tenant_id=$1 AND status='draft'")) return { rows: [] };
+        if (text.includes('INSERT INTO inventory_sessions')) throw new Error('DB crash');
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions').send({ type: 'count' });
+
+      expect(res.status).toBe(500);
+    });
+
+    it('rechaza escanear sin código → 400', async () => {
+      const res = await request(app).post('/api/inventory-sessions/21/scan').send({ code: '' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rechaza escanear con un delta inválido → 400', async () => {
+      const res = await request(app).post('/api/inventory-sessions/21/scan').send({ code: 'ABC', delta: 0 });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 404 al escanear en un inventario inexistente', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/999/scan').send({ code: 'ABC' });
+
+      expect(res.status).toBe(404);
+      expect(mockQuery).toHaveBeenCalledWith('ROLLBACK');
+    });
+
+    it('rechaza escanear en un inventario que ya no admite cambios → 409', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [{ ...baseSession, status: 'finalized' }] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/scan').send({ code: 'ABC' });
+
+      expect(res.status).toBe(409);
+    });
+
+    it('retorna 404 al escanear un código que no corresponde a ningún producto', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [baseSession] };
+        if (text.includes('SELECT sku, barcode')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/scan').send({ code: 'DESCONOCIDO' });
+
+      expect(res.status).toBe(404);
+      expect(res.body).toMatchObject({ code: 'DESCONOCIDO' });
+    });
+
+    it('retorna 500 si BD falla al escanear', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) throw new Error('DB crash');
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/scan').send({ code: 'ABC' });
+
+      expect(res.status).toBe(500);
+    });
+
+    it('rechaza actualizar la cantidad de un item con un valor inválido → 400', async () => {
+      const res = await request(app).put('/api/inventory-sessions/21/items/COCA-2L').send({ quantity: -1 });
+      expect(res.status).toBe(400);
+    });
+
+    it('retorna 404 al actualizar la cantidad de un item que no existe o no está en un inventario en proceso', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).put('/api/inventory-sessions/21/items/COCA-2L').send({ quantity: 5 });
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla al actualizar la cantidad de un item', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).put('/api/inventory-sessions/21/items/COCA-2L').send({ quantity: 5 });
+      expect(res.status).toBe(500);
+    });
+
+    it('actualiza la cantidad contada de un item → 200', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 5, sku: 'COCA-2L', barcode: '7801234567890', product_name: 'Coca Cola 2L', initial_stock: 10, counted_quantity: 5, scanned: true, current_stock: 10, final_stock: null, applied_delta: null, updated_at: baseSession.updated_at, type: 'count', status: 'draft' }] });
+
+      const res = await request(app).put('/api/inventory-sessions/21/items/COCA-2L').send({ quantity: 5 });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ sku: 'COCA-2L', quantity: 5 });
+    });
+
+    it('retorna 404 al finalizar un inventario inexistente', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/999/finalize').send({});
+
+      expect(res.status).toBe(404);
+    });
+
+    it('devuelve el inventario ya finalizado con alreadyFinalized=true en vez de volver a aplicarlo', async () => {
+      const finalizedSession = { ...baseSession, status: 'finalized', finalized_at: baseSession.updated_at };
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [finalizedSession] };
+        if (text.includes('SELECT s.*')) return { rows: [finalizedSession] };
+        if (text.includes('SELECT i.*, COALESCE')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/finalize').send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ alreadyFinalized: true });
+    });
+
+    it('rechaza finalizar un inventario anulado → 409', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [{ ...baseSession, status: 'cancelled' }] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/finalize').send({});
+
+      expect(res.status).toBe(409);
+    });
+
+    it('rechaza finalizar un inventario sin productos escaneados → 400', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [baseSession] };
+        if (text.includes('SELECT i.*, inv.stock AS current_stock')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/finalize').send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('exige confirmación cuando el stock cambió durante el conteo', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [baseSession] };
+        if (text.includes('SELECT i.*, inv.stock AS current_stock')) {
+          return { rows: [{ id: 1, sku: 'AGUA', initial_stock: 5, counted_quantity: 4, scanned: true, current_stock: 8 }] };
+        }
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/finalize').send({ confirmUnscannedAsZero: true });
+
+      expect(res.status).toBe(409);
+      expect(res.body).toMatchObject({ code: 'STOCK_CHANGED', count: 1 });
+    });
+
+    it('finaliza un conteo físico reemplazando el stock por lo contado y dejando auditoría', async () => {
+      const item = { id: 5, sku: 'COCA-2L', barcode: '7801234567890', product_name: 'Coca Cola 2L', initial_stock: 10, counted_quantity: 7, scanned: true, current_stock: 10, final_stock: null, applied_delta: null, updated_at: baseSession.updated_at };
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) return { rows: [baseSession] };
+        if (text.includes('SELECT i.*, inv.stock AS current_stock')) return { rows: [item] };
+        if (text.includes('SELECT s.*')) return { rows: [{ ...baseSession, status: 'finalized', finalized_at: baseSession.updated_at }] };
+        if (text.includes('SELECT i.*, COALESCE')) return { rows: [{ ...item, status: 'finalized', final_stock: 7, applied_delta: -3 }] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/finalize').send({ confirmUnscannedAsZero: true, confirmStockChanges: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ status: 'finalized', type: 'count' });
+      expect(mockQuery).toHaveBeenCalledWith('UPDATE inventory SET stock=$1 WHERE tenant_id=$2 AND sku=$3', [7, 1, 'COCA-2L']);
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inventory_movements'), [1, '21', 'COCA-2L', 'physical_count', -3, 10, 7, 'admin']);
+    });
+
+    it('retorna 500 si BD falla al finalizar', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('SELECT * FROM inventory_sessions')) throw new Error('DB crash');
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory-sessions/21/finalize').send({});
+
+      expect(res.status).toBe(500);
+    });
+
+    it('anula un inventario en proceso → 200', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 21 }] });
+      const res = await request(app).delete('/api/inventory-sessions/21');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: 21, status: 'cancelled' });
+    });
+
+    it('retorna 404 al anular un inventario que no está en proceso', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      const res = await request(app).delete('/api/inventory-sessions/21');
+      expect(res.status).toBe(404);
+    });
+
+    it('retorna 500 si BD falla al anular', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('DB crash'));
+      const res = await request(app).delete('/api/inventory-sessions/21');
+      expect(res.status).toBe(500);
+    });
+  });
+
   // ─── GET /api/inventory/report ──────────────────────────────────────────────
 
   describe('GET /api/inventory/report (SP fn_get_inventory_report)', () => {
@@ -944,7 +1370,7 @@ describe('inventory-service', () => {
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toBe('application/pdf');
       expect(res.headers['content-disposition']).toMatch(/inventario\.pdf/);
-    });
+    }, 15_000);
 
     it('genera un PDF vacio cuando no hay productos', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] });

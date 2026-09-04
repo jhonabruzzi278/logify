@@ -159,6 +159,43 @@ export interface ApiInventory {
   variant_label?: string | null;
 }
 
+export type ApiInventorySessionType = "count" | "restock";
+export type ApiInventorySessionStatus = "draft" | "finalized" | "cancelled";
+
+export interface ApiInventorySessionItem {
+  id: number;
+  sku: string;
+  barcode: string | null;
+  name: string;
+  initialStock: number;
+  currentStock: number;
+  quantity: number;
+  scanned: boolean;
+  difference: number;
+  finalStock: number;
+  appliedDelta: number | null;
+  stockChanged: boolean;
+  updatedAt: string;
+}
+
+export interface ApiInventorySession {
+  id: number;
+  type: ApiInventorySessionType;
+  name: string;
+  status: ApiInventorySessionStatus;
+  createdBy: string | null;
+  createdByName: string | null;
+  startedAt: string;
+  updatedAt: string;
+  finalizedAt: string | null;
+  cancelledAt: string | null;
+  totalProducts: number;
+  scannedProducts: number;
+  totalDifference: number;
+  items?: ApiInventorySessionItem[];
+  alreadyFinalized?: boolean;
+}
+
 export interface ApiShipment {
   id: number;
   orderId: number;

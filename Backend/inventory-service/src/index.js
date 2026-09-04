@@ -3,6 +3,7 @@ const { validateInventoryBody, validateSaleBody } = require('../shared/validate'
 const { authMiddleware, requireTenant, requireRole } = require('../shared/auth');
 const { requireAdminKey } = require('../shared/admin');
 const log = require('../shared/logger');
+const { ensureInventorySessionTables, registerInventorySessionRoutes } = require('./inventory-sessions');
 
 const { app, pool, sendError, start } = createApp('inventory_db', process.env.PORT || 8082);
 
@@ -76,6 +77,7 @@ async function ensureTables() {
 
   await ensureTenantColumns();
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_tenant_barcode ON inventory (tenant_id, barcode) WHERE barcode IS NOT NULL`).catch(() => {});
+  await ensureInventorySessionTables(pool);
 }
 
 // Fase 4A del roadmap multi-tenant (ver wiki/Multi-Tenant.md): backfill al
@@ -164,6 +166,8 @@ app.get('/api/inventory', authMiddleware, requireTenant, async (req, res) => {
   try { res.json((await pool.query('SELECT * FROM inventory WHERE tenant_id=$1 ORDER BY id', [req.tenantId])).rows); }
   catch (err) { sendError(res, 500, 'Failed to list inventory', err); }
 });
+
+registerInventorySessionRoutes({ app, pool, authMiddleware, requireTenant, requireRole, sendError });
 
 app.get('/api/inventory/report', authMiddleware, requireTenant, async (req, res) => {
   try { res.json((await pool.query('SELECT * FROM fn_get_inventory_report($1)', [req.tenantId])).rows); }
@@ -832,7 +836,7 @@ app.delete('/api/admin/tenants/:tenantId/purge', requireAdminKey, async (req, re
     try {
       await client.query('BEGIN');
       const counts = {};
-      for (const table of ['sales', 'purchases', 'cash_sessions', 'processed_events', 'inventory', 'suppliers']) {
+      for (const table of ['inventory_session_items', 'inventory_movements', 'inventory_sessions', 'sales', 'purchases', 'cash_sessions', 'processed_events', 'inventory', 'suppliers']) {
         const r = await client.query(`DELETE FROM ${table} WHERE tenant_id=$1`, [tenantId]);
         counts[table] = r.rowCount;
       }
