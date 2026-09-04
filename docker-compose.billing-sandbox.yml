@@ -1,0 +1,77 @@
+services:
+  billing-postgres-sandbox:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD para sandbox}
+      POSTGRES_DB: billing_db
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c effective_cache_size=128MB
+      -c max_connections=30
+    volumes:
+      - billing_sandbox_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d billing_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - billing-sandbox-net
+    security_opt:
+      - no-new-privileges:true
+
+  billing-service:
+    build:
+      context: ./Backend
+      dockerfile: billing-service/Dockerfile
+    environment:
+      DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@billing-postgres-sandbox:5432/billing_db
+      DB_RUNTIME_URL: postgresql://app_runtime:${DB_RUNTIME_PASSWORD:?Define DB_RUNTIME_PASSWORD para sandbox}@billing-postgres-sandbox:5432/billing_db
+      DB_RUNTIME_PASSWORD: ${DB_RUNTIME_PASSWORD}
+      PORT: 8086
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET para sandbox}
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      PLATFORM_ADMIN_CLERK_USER_IDS: ${PLATFORM_ADMIN_CLERK_USER_IDS:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+      BILLING_ENVIRONMENT: sandbox
+      BILLING_DEFAULT_PROVIDER: fake
+      BILLING_FAKE_PROVIDER_ENABLED: "true"
+      BILLING_FAKE_CHECKOUT_URL: ${BILLING_FAKE_CHECKOUT_URL:-https://gestion-sandbox.logify.cl/billing/fake}
+      BILLING_METRICS_TOKEN: ${BILLING_METRICS_TOKEN:?Define BILLING_METRICS_TOKEN para sandbox}
+    restart: unless-stopped
+    depends_on:
+      billing-postgres-sandbox:
+        condition: service_healthy
+    networks:
+      - billing-sandbox-net
+    security_opt:
+      - no-new-privileges:true
+
+  billing-api-gateway:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      # El sandbox permanece privado en el VPS hasta que el edge TLS para
+      # api-sandbox.logify.cl quede validado. Nunca publicar 8087 en 0.0.0.0.
+      - "127.0.0.1:8087:80"
+    volumes:
+      - ./Backend/nginx/nginx.billing-sandbox.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      billing-service:
+        condition: service_healthy
+    networks:
+      - billing-sandbox-net
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  billing-sandbox-net:
+    driver: bridge
+
+volumes:
+  billing_sandbox_postgres_data:

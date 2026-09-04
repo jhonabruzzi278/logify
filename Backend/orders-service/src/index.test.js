@@ -146,6 +146,7 @@ describe('orders-service', () => {
       expect(res.status).toBe(200);
       expect(res.body.defaultProvider).toBe('flow');
       expect(res.body.providers.find((provider) => provider.id === 'flow')).toMatchObject({ configured: true, active: true });
+      expect(res.body.providers.map((provider) => provider.id)).toEqual(['flow', 'mercado_pago']);
       expect(JSON.stringify(res.body)).not.toContain('flow-secret');
 
       delete process.env.BILLING_DEFAULT_PROVIDER;
