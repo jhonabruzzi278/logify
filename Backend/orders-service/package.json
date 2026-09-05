@@ -9,20 +9,20 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "@clerk/backend": "^3.16.6",
-    "bcryptjs": "^2.4.3",
+    "@clerk/backend": "^3.17.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
-    "express": "^4.22.2",
-    "express-rate-limit": "^7.5.0",
-    "helmet": "^8.0.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^9.0.5",
-    "pdfkit": "^0.15.2",
-    "pg": "^8.13.1",
-    "uuid": "^11.0.5"
+    "nodemailer": "^9.1.1",
+    "pdfkit": "^0.20.2",
+    "pg": "^8.23.0",
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
+    "jest": "^30.5.1",
     "supertest": "^7.2.2"
   },
   "jest": {
