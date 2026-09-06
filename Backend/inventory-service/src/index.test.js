@@ -1520,6 +1520,35 @@ describe('inventory-service', () => {
       expect(res.body).toMatchObject({ found: true, name: 'Costa Galletas Surtidas', category: 'galletas' });
     });
 
+    it('no antepone la razon social legal cuando el nombre ya trae la marca de consumo (orden real de OFF: legal primero)', async () => {
+      // Reproduce el bug reportado: Open Food Facts a veces lista "brands"
+      // como "razon social, marca de consumo" -- tomar solo el primer
+      // elemento (como se hacia antes) producia
+      // "COCA-COLA SERVICES SA/NV Coca-Cola". Ahora se revisan TODOS los
+      // candidatos antes de decidir si ya esta mencionada la marca.
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: 1,
+          product: { product_name_es: 'Coca-Cola', brands: 'COCA-COLA SERVICES SA/NV, Coca-Cola', categories_tags: ['en:sodas'] },
+        }),
+      });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500010');
+      expect(res.body.name).toBe('Coca-Cola');
+    });
+
+    it('antepone el candidato de marca mas corto cuando ninguno esta mencionado en el nombre', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: 1,
+          product: { product_name: 'Galletas de Avena', brands: 'Manufacturera Nacional de Alimentos S.A., Nutrix', categories_tags: ['en:biscuits'] },
+        }),
+      });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500011');
+      expect(res.body.name).toBe('Nutrix Galletas de Avena');
+    });
+
     it('categoriza dulces y usa "otros" quando no hay coincidencia', async () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,

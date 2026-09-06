@@ -321,6 +321,25 @@ function mapOffCategoryToLogify(categoriesTags) {
   return 'otros';
 }
 
+// Open Food Facts guarda "brands" como una lista separada por comas cuyo
+// orden es inconsistente entre productos -- a veces la razon social legal va
+// primero ("COCA-COLA SERVICES SA/NV, Coca-Cola"), a veces la marca de
+// consumo. Tomar siempre el primer elemento (como se hacia antes) producia
+// nombres como "COCA-COLA SERVICES SA/NV Coca-Cola" cuando product_name ya
+// traia la marca correcta. Ahora: si el nombre ya menciona CUALQUIERA de los
+// candidatos, no se antepone nada; si no menciona ninguno, se antepone el
+// candidato mas corto (las razones sociales suelen ser mas largas por
+// sufijos como "S.A.", "SA/NV", "LTDA", "INC").
+function buildProductName(name, brandsField) {
+  const candidates = (brandsField || '').split(',').map((b) => b.trim()).filter(Boolean);
+  if (!candidates.length) return name;
+  const lowerName = name.toLowerCase();
+  const alreadyMentionsBrand = candidates.some((b) => lowerName.includes(b.toLowerCase()));
+  if (alreadyMentionsBrand) return name;
+  const shortestBrand = candidates.reduce((shortest, b) => (b.length < shortest.length ? b : shortest));
+  return `${shortestBrand} ${name}`;
+}
+
 // Autocompletar al escanear un producto nuevo (no existe todavia en el
 // inventario del tenant): Open Food Facts es gratis y sin API key, mismo
 // patron que geocode/image-search arriba. A diferencia de esas dos rutas,
@@ -341,8 +360,7 @@ app.get('/api/inventory/barcode-lookup', authMiddleware, requireTenant, async (r
     const p = data.product;
     let name = (p.product_name_es || p.product_name || '').trim();
     if (!name) return res.json({ found: false, reason: 'not_found' });
-    const brand = (p.brands || '').split(',')[0]?.trim();
-    if (brand && !name.toLowerCase().includes(brand.toLowerCase())) name = `${brand} ${name}`;
+    name = buildProductName(name, p.brands);
     res.json({
       found: true,
       name,
