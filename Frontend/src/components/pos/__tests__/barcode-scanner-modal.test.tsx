@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import { BarcodeScannerModal } from "@/components/pos/barcode-scanner-modal";
 
 const mockDecodeFromConstraints = vi.fn();
@@ -8,6 +9,7 @@ const mockListVideoInputDevices = vi.fn();
 const mockIsTorchCompatible = vi.fn();
 const mockSetTorch = vi.fn();
 const mockStop = vi.fn();
+const mockReaderCtor = vi.fn();
 
 function makeFakeTrack(overrides: { getCapabilities?: () => object; getSettings?: () => object } = {}) {
   return {
@@ -30,7 +32,8 @@ vi.mock("@zxing/browser", () => ({
   // vi.fn() con arrow function no puede usarse como constructor (new) --
   // BarcodeScannerModal hace `new BrowserMultiFormatReader()`, asi que el
   // mock necesita una function/class real.
-  BrowserMultiFormatReader: vi.fn().mockImplementation(function BrowserMultiFormatReaderMock() {
+  BrowserMultiFormatReader: vi.fn().mockImplementation(function BrowserMultiFormatReaderMock(...ctorArgs: unknown[]) {
+    mockReaderCtor(...ctorArgs);
     return {
       decodeFromConstraints: (...args: unknown[]) => mockDecodeFromConstraints(...args),
       decodeFromVideoDevice: (...args: unknown[]) => mockDecodeFromVideoDevice(...args),
@@ -58,6 +61,47 @@ describe("BarcodeScannerModal", () => {
       attachStream(videoElem);
       return { stop: mockStop };
     });
+  });
+
+  it("restringe los formatos a los que circulan en el negocio y activa TRY_HARDER para 1D", async () => {
+    render(<BarcodeScannerModal onDetected={vi.fn()} onClose={vi.fn()} />);
+
+    await waitFor(() => expect(mockReaderCtor).toHaveBeenCalled());
+    const hints = mockReaderCtor.mock.calls[0][0] as Map<DecodeHintType, unknown>;
+
+    expect(hints.get(DecodeHintType.POSSIBLE_FORMATS)).toEqual(
+      expect.arrayContaining([BarcodeFormat.EAN_13, BarcodeFormat.UPC_A, BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE])
+    );
+    // No debe incluir formatos que este negocio no usa y que solo restan FPS.
+    expect(hints.get(DecodeHintType.POSSIBLE_FORMATS)).not.toEqual(expect.arrayContaining([BarcodeFormat.DATA_MATRIX]));
+    expect(hints.get(DecodeHintType.TRY_HARDER)).toBe(true);
+  });
+
+  it("pide alta resolucion de camara en la apertura inicial y al cambiar de camara", async () => {
+    mockListVideoInputDevices.mockResolvedValue([
+      { deviceId: "cam1", label: "Trasera" } as MediaDeviceInfo,
+      { deviceId: "cam2", label: "Frontal" } as MediaDeviceInfo,
+    ]);
+    render(<BarcodeScannerModal onDetected={vi.fn()} onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(mockDecodeFromConstraints).toHaveBeenCalledWith(
+        { video: expect.objectContaining({ width: { ideal: 1920 }, height: { ideal: 1080 } }), audio: false },
+        expect.anything(),
+        expect.anything()
+      )
+    );
+
+    mockDecodeFromConstraints.mockClear();
+    fireEvent.click(await screen.findByRole("button", { name: "Cambiar de cámara" }));
+
+    await waitFor(() =>
+      expect(mockDecodeFromConstraints).toHaveBeenCalledWith(
+        { video: expect.objectContaining({ width: { ideal: 1920 }, height: { ideal: 1080 } }), audio: false },
+        expect.anything(),
+        expect.anything()
+      )
+    );
   });
 
   it("no muestra ningun control de camara cuando el dispositivo no reporta capacidades", async () => {
@@ -110,10 +154,18 @@ describe("BarcodeScannerModal", () => {
     render(<BarcodeScannerModal onDetected={vi.fn()} onClose={vi.fn()} />);
 
     const switchButton = await screen.findByRole("button", { name: "Cambiar de cámara" });
-    mockDecodeFromVideoDevice.mockClear();
+    mockDecodeFromConstraints.mockClear();
     fireEvent.click(switchButton);
 
-    await waitFor(() => expect(mockDecodeFromVideoDevice).toHaveBeenCalledWith("cam2", expect.anything(), expect.anything()));
+    // decodeFromVideoDevice() no acepta resolucion -- el cambio de camara
+    // pasa siempre por decodeFromConstraints para poder pedirla tambien aqui.
+    await waitFor(() =>
+      expect(mockDecodeFromConstraints).toHaveBeenCalledWith(
+        { video: expect.objectContaining({ deviceId: { exact: "cam2" } }), audio: false },
+        expect.anything(),
+        expect.anything()
+      )
+    );
   });
 
   it("mantiene el ingreso manual y el estado de error existentes", async () => {

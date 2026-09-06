@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserCodeReader, BrowserMultiFormatReader } from "@zxing/browser";
 import type { IScannerControls } from "@zxing/browser";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import type { Result } from "@zxing/library";
 import { Barcode, Camera, Flashlight, Keyboard, RefreshCw, SwitchCamera, X } from "lucide-react";
 
@@ -9,6 +10,37 @@ interface BarcodeScannerModalProps {
   onClose: () => void;
   title?: string;
 }
+
+// Sin hints, BrowserMultiFormatReader activa TODOS los lectores en cada frame
+// (QR, DataMatrix, Aztec, PDF417 ademas de codigos de barras 1D) -- formatos
+// que este negocio nunca usa, y que le restan FPS efectivos al lector de
+// barras real. Se restringe a los formatos que de verdad circulan (barras de
+// retail + QR por si un proveedor lo usa) y se activa TRY_HARDER para 1D:
+// hace pasadas mas completas por frame (mas costo de CPU, mejor tasa de
+// deteccion en barras borrosas/inclinadas), razonable en un escaneo continuo.
+const SCAN_HINTS = new Map<DecodeHintType, unknown>([
+  [
+    DecodeHintType.POSSIBLE_FORMATS,
+    [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.CODE_39,
+      BarcodeFormat.ITF,
+      BarcodeFormat.QR_CODE,
+    ],
+  ],
+  [DecodeHintType.TRY_HARDER, true],
+]);
+
+// Sin width/height explicitos, getUserMedia puede entregar una resolucion
+// baja segun el dispositivo -- un EAN-13 necesita suficientes pixeles
+// horizontales para resolver el ancho de cada barra, mas critico aun de
+// cerca. "ideal" nunca falla si el hardware no llega a esto, solo pide lo
+// maximo razonable.
+const VIDEO_RESOLUTION_CONSTRAINTS = { width: { ideal: 1920 }, height: { ideal: 1080 } };
 
 // El Image Capture API (zoom, torch, focusMode/focusDistance) es un borrador
 // experimental -- lib.dom.d.ts no lo tipa todavia, asi que se extiende
@@ -52,7 +84,7 @@ export function BarcodeScannerModal({ onDetected, onClose, title = "Escanear pro
   const [focusSupported, setFocusSupported] = useState(false);
 
   useEffect(() => {
-    const reader = new BrowserMultiFormatReader();
+    const reader = new BrowserMultiFormatReader(SCAN_HINTS);
     let controls: IScannerControls | null = null;
     let cancelled = false;
 
@@ -74,9 +106,19 @@ export function BarcodeScannerModal({ onDetected, onClose, title = "Escanear pro
       }
     }
 
-    const decodePromise = activeDeviceId
-      ? reader.decodeFromVideoDevice(activeDeviceId, videoRef.current ?? undefined, handleResult)
-      : reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" } }, audio: false }, videoRef.current ?? undefined, handleResult);
+    // decodeFromVideoDevice() arma sus propias constraints internamente
+    // (solo deviceId, sin resolucion) -- se usa siempre decodeFromConstraints
+    // directamente para poder pedir alta resolucion tambien al cambiar de
+    // camara, no solo en la apertura inicial.
+    const videoConstraints: MediaTrackConstraints = activeDeviceId
+      ? { deviceId: { exact: activeDeviceId }, ...VIDEO_RESOLUTION_CONSTRAINTS }
+      : { facingMode: { ideal: "environment" }, ...VIDEO_RESOLUTION_CONSTRAINTS };
+
+    const decodePromise = reader.decodeFromConstraints(
+      { video: videoConstraints, audio: false },
+      videoRef.current ?? undefined,
+      handleResult
+    );
 
     decodePromise
       .then((c) => {
