@@ -74,8 +74,6 @@ sync_env_from_ci() {
   sync_env_var FLOW_API_KEY "${FLOW_API_KEY:-}"
   sync_env_var FLOW_SECRET_KEY "${FLOW_SECRET_KEY:-}"
   sync_env_var MERCADOPAGO_ACCESS_TOKEN "${MERCADOPAGO_ACCESS_TOKEN:-}"
-  sync_env_var PADDLE_API_KEY "${PADDLE_API_KEY:-}"
-  sync_env_var PADDLE_WEBHOOK_SECRET "${PADDLE_WEBHOOK_SECRET:-}"
   sync_env_var SIGNUP_ENABLED "${SIGNUP_ENABLED:-}"
   if [ "$before" != "$(sha256sum .env 2>/dev/null || true)" ]; then
     echo "==> .env cambio -- se forzara redeploy aunque el commit no haya cambiado."
