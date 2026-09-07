@@ -33,6 +33,8 @@ jobs:
             directory: Backend/shipping-service
           - project: notification
             directory: Backend/notification-service
+          - project: billing
+            directory: Backend/billing-service
           - project: frontend
             directory: Frontend
           - project: landing

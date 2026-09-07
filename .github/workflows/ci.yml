@@ -22,6 +22,7 @@ jobs:
           - inventory-service
           - shipping-service
           - notification-service
+          - billing-service
     defaults:
       run:
         working-directory: Backend/${{ matrix.service }}
@@ -90,6 +91,8 @@ jobs:
         working-directory: Backend/shipping-service
       - run: npm ci && npm test
         working-directory: Backend/notification-service
+      - run: npm ci && npm test
+        working-directory: Backend/billing-service
       - run: npm ci && npm run test:coverage
         working-directory: Frontend
       - uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
