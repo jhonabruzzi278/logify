@@ -340,34 +340,97 @@ function buildProductName(name, brandsField) {
   return `${shortestBrand} ${name}`;
 }
 
+// Familia Open*Facts: mismo software (Product Opener) y mismo formato de API
+// v2 (`{status, product}`) en los tres hosts, asi que comparten el parsing.
+// Orden de prioridad: alimentos primero (base mas grande y mejor curada),
+// despues belleza/cuidado personal (cubre bastante parafarmacia), despues
+// productos generales.
+const OPEN_FACTS_SOURCES = [
+  { host: 'world.openfoodfacts.org', source: 'openfoodfacts' },
+  { host: 'world.openbeautyfacts.org', source: 'openbeautyfacts' },
+  { host: 'world.openproductsfacts.org', source: 'openproductsfacts' },
+];
+
+async function lookupOpenFactsSource(host, barcode) {
+  const url = `https://${host}/api/v2/product/${encodeURIComponent(barcode)}.json`;
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: { 'User-Agent': 'Logify/1.0 (logistica@logify.cl)' },
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch (err) {
+    log.warn('Barcode lookup failed', { host, message: err.message });
+    return { outcome: 'error' };
+  }
+  // Los tres hosts Open*Facts responden 404 (no 200 + status:0) cuando el
+  // codigo no existe -- verificado contra la API real. Distinguirlo de un
+  // error real (500/503/timeout) importa para el reason final.
+  if (response.status === 404) return { outcome: 'not_found' };
+  if (!response.ok) return { outcome: 'error' };
+  const data = await response.json().catch(() => null);
+  const p = data && data.status === 1 ? data.product : null;
+  const name = p && typeof (p.product_name_es || p.product_name) === 'string'
+    ? (p.product_name_es || p.product_name).trim() : '';
+  if (!name) return { outcome: 'not_found' };
+  return {
+    outcome: 'found',
+    payload: {
+      found: true,
+      name: buildProductName(name, p.brands),
+      category: mapOffCategoryToLogify(p.categories_tags),
+      imageUrl: p.image_front_url || p.image_url || null,
+      source: OPEN_FACTS_SOURCES.find((s) => s.host === host).source,
+    },
+  };
+}
+
+// Ultimo recurso: UPCitemdb (100 lookups/dia gratis, sin registro). Cubre
+// mas retail generalista que la familia Open*Facts pero con datos de menor
+// calidad (agregador de terceros) -- por eso va al final y no intentamos
+// mapear su "category" (texto libre tipo "Media > DVDs & Videos") a las
+// categorias fijas de Logify.
+async function lookupUpcItemDb(barcode) {
+  const url = `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`;
+  let response;
+  try {
+    response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000) });
+  } catch (err) {
+    log.warn('Barcode lookup failed', { host: 'upcitemdb', message: err.message });
+    return { outcome: 'error' };
+  }
+  if (!response.ok) return { outcome: 'error' };
+  const data = await response.json().catch(() => null);
+  const item = data && data.code === 'OK' && Array.isArray(data.items) ? data.items[0] : null;
+  const name = item && typeof item.title === 'string' ? item.title.trim() : '';
+  if (!name) return { outcome: 'not_found' };
+  return {
+    outcome: 'found',
+    payload: { found: true, name, category: 'otros', imageUrl: (item.images && item.images[0]) || null, source: 'upcitemdb' },
+  };
+}
+
 // Autocompletar al escanear un producto nuevo (no existe todavia en el
-// inventario del tenant): Open Food Facts es gratis y sin API key, mismo
-// patron que geocode/image-search arriba. A diferencia de esas dos rutas,
-// esta SIEMPRE responde 200 -- para el formulario de alta, "no encontramos
-// info" debe sentirse como "ingresa los datos a mano", nunca como un error.
+// inventario del tenant): todas las fuentes son gratis y sin API key, mismo
+// patron que geocode/image-search arriba. Esta ruta SIEMPRE responde 200 --
+// para el formulario de alta, "no encontramos info" debe sentirse como
+// "ingresa los datos a mano", nunca como un error. Distingue not_found
+// (alguna fuente respondio y no tenia el codigo) de upstream_unavailable
+// (ninguna fuente pudo ser consultada).
 app.get('/api/inventory/barcode-lookup', authMiddleware, requireTenant, async (req, res) => {
   const barcode = (req.query.barcode || '').toString().trim();
   if (!/^\d{6,14}$/.test(barcode)) return res.status(400).json({ error: 'barcode inválido' });
   try {
-    const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`;
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Logify/1.0 (logistica@logify.cl)' },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) return res.json({ found: false, reason: 'upstream_unavailable' });
-    const data = await response.json();
-    if (data.status !== 1 || !data.product) return res.json({ found: false, reason: 'not_found' });
-    const p = data.product;
-    let name = (p.product_name_es || p.product_name || '').trim();
-    if (!name) return res.json({ found: false, reason: 'not_found' });
-    name = buildProductName(name, p.brands);
-    res.json({
-      found: true,
-      name,
-      category: mapOffCategoryToLogify(p.categories_tags),
-      imageUrl: p.image_front_url || p.image_url || null,
-      source: 'openfoodfacts',
-    });
+    let sawSuccessfulCheck = false;
+    for (const { host } of OPEN_FACTS_SOURCES) {
+      const result = await lookupOpenFactsSource(host, barcode);
+      if (result.outcome === 'found') return res.json(result.payload);
+      if (result.outcome === 'not_found') sawSuccessfulCheck = true;
+    }
+    const upcResult = await lookupUpcItemDb(barcode);
+    if (upcResult.outcome === 'found') return res.json(upcResult.payload);
+    if (upcResult.outcome === 'not_found') sawSuccessfulCheck = true;
+    res.json({ found: false, reason: sawSuccessfulCheck ? 'not_found' : 'upstream_unavailable' });
   } catch (err) {
     log.warn('Barcode lookup failed', { message: err.message });
     res.json({ found: false, reason: 'upstream_unavailable' });
