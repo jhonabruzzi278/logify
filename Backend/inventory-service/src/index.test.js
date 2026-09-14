@@ -1593,6 +1593,64 @@ describe('inventory-service', () => {
       const corto = await request(app).get('/api/inventory/barcode-lookup?barcode=123');
       expect(corto.status).toBe(400);
     });
+
+    it('recurre a Open Beauty Facts si Open Food Facts no tiene el codigo', async () => {
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 0 }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 1, product: { product_name: 'Crema Hidratante', brands: 'Nivea', categories_tags: [] } }) });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500020');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ found: true, name: 'Nivea Crema Hidratante', source: 'openbeautyfacts' });
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch.mock.calls[1][0]).toContain('world.openbeautyfacts.org');
+    });
+
+    it('recurre a Open Products Facts si Food y Beauty no tienen el codigo', async () => {
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 0 }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 0 }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 1, product: { product_name: 'Extensión USB', categories_tags: [] } }) });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500021');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ found: true, name: 'Extensión USB', source: 'openproductsfacts' });
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('recurre a UPCitemdb como ultimo recurso si ninguna fuente Open*Facts tiene el codigo', async () => {
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 0 }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 0 }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 0 }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ code: 'OK', items: [{ title: 'Producto Generico', images: ['http://x/img.jpg'] }] }) });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500022');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ found: true, name: 'Producto Generico', category: 'otros', imageUrl: 'http://x/img.jpg', source: 'upcitemdb' });
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('not_found (no upstream_unavailable) si todas las fuentes responden pero ninguna tiene el codigo', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 0 }) });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500023');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ found: false, reason: 'not_found' });
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it('trata un 404 de un host Open*Facts como not_found, no como upstream_unavailable (comportamiento real verificado)', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500025');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ found: false, reason: 'not_found' });
+    });
+
+    it('recurre a la siguiente fuente si una fuente intermedia tira error de red, en vez de abortar todo', async () => {
+      global.fetch = jest.fn()
+        .mockRejectedValueOnce(new Error('timeout'))
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 1, product: { product_name: 'Shampoo', categories_tags: [] } }) });
+      const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500024');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ found: true, name: 'Shampoo', source: 'openbeautyfacts' });
+    });
   });
 
   // ─── PUT /api/inventory/:sku/image ───────────────────────────────────────────
