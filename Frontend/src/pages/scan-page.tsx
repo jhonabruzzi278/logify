@@ -1,21 +1,36 @@
-import { useCallback, useMemo, useState } from "react";
-import { ArrowRight, Barcode, Boxes, Check, Minus, PackageSearch, Plus, ScanLine } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Barcode, Boxes, Check, Loader2, Minus, PackagePlus, PackageSearch, Plus, ScanLine, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptInventory } from "@/lib/api-adapters";
+import { apiFetch, ApiRequestError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { ApiInventory } from "@/types/api";
-import type { Product } from "@/types/domain";
+import type { Product, ProductCategory } from "@/types/domain";
 import { BarcodeScannerModal } from "@/components/pos/barcode-scanner-modal";
 import { ApiErrorBanner } from "@/components/common/api-error-banner";
+import { Input } from "@/components/ui/input";
+
+interface BarcodeLookupResponse {
+  found: boolean;
+  name?: string;
+  category?: ProductCategory;
+  imageUrl?: string | null;
+}
 
 export function ScanPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannedCode, setScannedCode] = useState("");
   const [adjusting, setAdjusting] = useState(false);
   const [adjusted, setAdjusted] = useState<number | null>(null);
+  const [lookupState, setLookupState] = useState<"idle" | "loading" | "found" | "not_found">("idle");
+  const [addForm, setAddForm] = useState<{ name: string; sku: string; stock: number; category: ProductCategory; imageUrl?: string | null }>({
+    name: "", sku: "", stock: 1, category: "otros",
+  });
+  const [addError, setAddError] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const { can } = usePermissions();
   const canAdjust = can("inventory.adjust");
@@ -23,7 +38,7 @@ export function ScanPage() {
     path: "/api/inventory",
     transform: (response) => response.map(adaptInventory),
   });
-  const { operationalInventory, adjustInventory } = useOperationalWorkspace({ inventory });
+  const { operationalInventory, adjustInventory, addProduct } = useOperationalWorkspace({ inventory });
 
   const product = useMemo(() => {
     const normalized = scannedCode.trim().toLowerCase();
@@ -37,7 +52,48 @@ export function ScanPage() {
     setScannedCode(code);
     setAdjusted(null);
     setScannerOpen(false);
+    setLookupState("idle");
+    setAddError("");
+    setAddForm({ name: "", sku: "", stock: 1, category: "otros" });
   }, []);
+
+  useEffect(() => {
+    if (!scannedCode || product || loading) return;
+    let cancelled = false;
+    setLookupState("loading");
+    apiFetch<BarcodeLookupResponse>(`/api/inventory/barcode-lookup?barcode=${encodeURIComponent(scannedCode)}`)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.found) {
+          setAddForm((prev) => ({ ...prev, name: result.name ?? prev.name, category: result.category ?? prev.category, imageUrl: result.imageUrl }));
+          setLookupState("found");
+        } else {
+          setLookupState("not_found");
+        }
+      })
+      .catch(() => { if (!cancelled) setLookupState("not_found"); });
+    return () => { cancelled = true; };
+  }, [scannedCode, product, loading]);
+
+  async function handleAddProduct() {
+    if (adding) return;
+    const name = addForm.name.trim();
+    const sku = addForm.sku.trim();
+    if (!name || !sku) { setAddError("Nombre y SKU son obligatorios"); return; }
+    setAddError("");
+    setAdding(true);
+    try {
+      await addProduct({
+        sku, name, stock: addForm.stock, price: 0, cost: 0, category: addForm.category,
+        imageUrl: addForm.imageUrl ?? undefined, barcode: scannedCode,
+      });
+      await refresh();
+    } catch (err) {
+      setAddError(err instanceof ApiRequestError ? err.message : "No se pudo agregar el producto");
+    } finally {
+      setAdding(false);
+    }
+  }
 
   async function handleAdjust(delta: number) {
     if (!product || adjusting) return;
@@ -118,11 +174,52 @@ export function ScanPage() {
           </div>
         </section>
       ) : (
-        <section className="scan-result-in rounded-2xl border border-amber-200 bg-white px-6 py-10 text-center shadow-sm">
+        <section className="scan-result-in rounded-2xl border border-amber-200 bg-white px-6 py-8 text-center shadow-sm">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><PackageSearch className="h-8 w-8" /></span>
           <h2 className="mt-5 text-xl font-bold text-[#172554]">Producto no encontrado</h2>
           <p className="mt-2 break-words text-sm text-[#64748B]">No existe un producto con el código <strong className="break-all font-mono text-[#172554]">{scannedCode}</strong>.</p>
-          <button type="button" onClick={scanAgain} className="btn-touch-primary mt-6 w-full gap-2 sm:mx-auto sm:w-auto"><ScanLine className="h-5 w-5" /> Intentar nuevamente</button>
+
+          {canAdjust ? (
+            <div className="mt-6 space-y-3 text-left">
+              {lookupState === "loading" && (
+                <p className="flex items-center justify-center gap-2 text-sm text-[#64748B]"><Loader2 className="h-4 w-4 animate-spin" /> Buscando información del producto…</p>
+              )}
+              {lookupState === "found" && (
+                <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700"><Sparkles className="h-3.5 w-3.5" /> Datos obtenidos automáticamente desde el código de barras</p>
+              )}
+              {lookupState === "not_found" && (
+                <p className="text-center text-xs text-[#64748B]">No pudimos autocompletar, ingresa los datos manualmente.</p>
+              )}
+
+              <div className="space-y-1">
+                <label htmlFor="scan-page-add-name" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nombre*</label>
+                <Input id="scan-page-add-name" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} placeholder="Nombre del producto" maxLength={100} className="h-10 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="scan-page-add-barcode" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código de barras</label>
+                  <Input id="scan-page-add-barcode" value={scannedCode} readOnly className="h-10 text-sm bg-[#F8FAFC]" />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="scan-page-add-sku" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">SKU*</label>
+                  <Input id="scan-page-add-sku" value={addForm.sku} onChange={(e) => setAddForm({ ...addForm, sku: e.target.value })} placeholder="Ej: COCA-2L" className="h-10 text-sm" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="scan-page-add-stock" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Stock inicial</label>
+                <Input id="scan-page-add-stock" type="number" min={0} value={addForm.stock} onChange={(e) => setAddForm({ ...addForm, stock: Math.max(0, parseInt(e.target.value, 10) || 0) })} className="h-10 text-sm" />
+              </div>
+
+              {addError && <p className="text-sm font-semibold text-red-500">{addError}</p>}
+
+              <button type="button" disabled={adding} onClick={handleAddProduct} className="btn-touch-primary w-full gap-2 disabled:opacity-60">
+                {adding ? <Loader2 className="h-5 w-5 animate-spin" /> : <PackagePlus className="h-5 w-5" />} Agregar producto
+              </button>
+              <button type="button" onClick={scanAgain} className="w-full text-center text-sm font-semibold text-red-500 hover:underline">Descartar</button>
+            </div>
+          ) : (
+            <button type="button" onClick={scanAgain} className="btn-touch-primary mt-6 w-full gap-2 sm:mx-auto sm:w-auto"><ScanLine className="h-5 w-5" /> Intentar nuevamente</button>
+          )}
         </section>
       )}
 
