@@ -1502,12 +1502,43 @@ describe('inventory-service', () => {
             brands: 'Coca-Cola,Otra Marca',
             categories_tags: ['en:beverages', 'en:sodas'],
             image_front_url: 'http://x/coca.jpg',
+            quantity: '2 L',
+            ingredients_text_es: 'Agua carbonatada, azúcar',
+            allergens_tags: ['en:none'],
+            nutriments: { 'energy-kcal_100g': 42, sugars_100g: 10.6 },
+            nutrition_grades: 'd',
           },
         }),
       });
       const res = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234567890');
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ found: true, name: 'Coca-Cola 2L', category: 'bebidas', imageUrl: 'http://x/coca.jpg', source: 'openfoodfacts' });
+      expect(res.body).toMatchObject({
+        found: true,
+        name: 'Coca-Cola 2L',
+        category: 'bebidas',
+        imageUrl: 'http://x/coca.jpg',
+        quantity: '2 L',
+        ingredients: 'Agua carbonatada, azúcar',
+        allergens: ['en:none'],
+        nutrition: { energyKcal100g: 42, sugars100g: 10.6 },
+        nutriScore: 'd',
+        source: 'openfoodfacts',
+      });
+      expect(global.fetch.mock.calls[0][0]).toContain('fields=');
+    });
+
+    it('reutiliza el cache para escaneos repetidos del mismo codigo', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 1, product: { product_name: 'Producto Cacheado', categories_tags: [] } }),
+      });
+
+      const first = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500099');
+      const second = await request(app).get('/api/inventory/barcode-lookup?barcode=7801234500099');
+
+      expect(first.body.cached).toBeUndefined();
+      expect(second.body).toMatchObject({ found: true, name: 'Producto Cacheado', cached: true });
+      expect(global.fetch).toHaveBeenCalledTimes(1);
     });
 
     it('antepone la marca al nombre solo si no esta ya incluida', async () => {

@@ -104,6 +104,7 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
     fireEvent.change(screen.getByPlaceholderText("Nombre completo"), { target: { value: "Nuevo Usuario" } });
     fireEvent.change(screen.getByPlaceholderText("empleado@empresa.com"), { target: { value: "nuevo@empresa.cl" } });
     fireEvent.change(screen.getByPlaceholderText("••••••"), { target: { value: "ClaveSegura123!" } });
+    expect(screen.getByText(/10\+ caracteres/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Crear" }));
 
     await waitFor(() => expect(mockRegisterUser).toHaveBeenCalledWith("tok", {

@@ -10,6 +10,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
 import { adaptInventory, adaptSupplier } from "@/lib/api-adapters";
 import { apiFetch } from "@/lib/api-client";
+import { lookupBarcode } from "@/lib/barcode-lookup";
 import { downloadFile } from "@/lib/api-blob";
 import { exportInventoryCSV } from "@/lib/export-csv";
 import type { ApiSupplier } from "@/types/api";
@@ -94,9 +95,7 @@ export function InventoryPage() {
     }
     setLookupState("loading");
     try {
-      const result = await apiFetch<{ found: boolean; name?: string; category?: ProductCategory; imageUrl?: string | null }>(
-        `/api/inventory/barcode-lookup?barcode=${encodeURIComponent(code)}`
-      );
+      const result = await lookupBarcode(code);
       if (result.found) {
         setForm((f) => ({ ...f, name: result.name ?? f.name, category: result.category ?? f.category, imageUrl: result.imageUrl ?? f.imageUrl }));
         setLookupState("idle");

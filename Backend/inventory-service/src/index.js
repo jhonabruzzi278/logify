@@ -4,6 +4,7 @@ const { authMiddleware, requireTenant, requireRole } = require('../shared/auth')
 const { requireAdminKey } = require('../shared/admin');
 const log = require('../shared/logger');
 const { ensureInventorySessionTables, registerInventorySessionRoutes } = require('./inventory-sessions');
+const { lookupBarcode } = require('./barcode-lookup');
 
 const { app, pool, sendError, start } = createApp('inventory_db', process.env.PORT || 8082);
 
@@ -167,7 +168,7 @@ app.get('/api/inventory', authMiddleware, requireTenant, async (req, res) => {
   catch (err) { sendError(res, 500, 'Failed to list inventory', err); }
 });
 
-registerInventorySessionRoutes({ app, pool, authMiddleware, requireTenant, requireRole, sendError });
+registerInventorySessionRoutes({ app, pool, authMiddleware, requireTenant, requireRole, sendError, lookupBarcode });
 
 app.get('/api/inventory/report', authMiddleware, requireTenant, async (req, res) => {
   try { res.json((await pool.query('SELECT * FROM fn_get_inventory_report($1)', [req.tenantId])).rows); }
@@ -310,68 +311,13 @@ app.put('/api/inventory/:sku/image', authMiddleware, requireTenant, async (req, 
   } catch (err) { sendError(res, 500, 'Failed to update image', err); }
 });
 
-// Mapea las categorias abiertas de Open Food Facts a las categorias fijas que
-// usa el formulario de alta de producto -- best-effort, 'otros' si no hay
-// coincidencia clara.
-function mapOffCategoryToLogify(categoriesTags) {
-  const tags = (categoriesTags || []).join(' ').toLowerCase();
-  if (/beverage|drink|soda|juice|water|beer|wine/.test(tags)) return 'bebidas';
-  if (/biscuit|cookie|cracker|wafer/.test(tags)) return 'galletas';
-  if (/candy|candies|sweet|chocolate|gum|caramel/.test(tags)) return 'dulces';
-  return 'otros';
-}
-
-// Open Food Facts guarda "brands" como una lista separada por comas cuyo
-// orden es inconsistente entre productos -- a veces la razon social legal va
-// primero ("COCA-COLA SERVICES SA/NV, Coca-Cola"), a veces la marca de
-// consumo. Tomar siempre el primer elemento (como se hacia antes) producia
-// nombres como "COCA-COLA SERVICES SA/NV Coca-Cola" cuando product_name ya
-// traia la marca correcta. Ahora: si el nombre ya menciona CUALQUIERA de los
-// candidatos, no se antepone nada; si no menciona ninguno, se antepone el
-// candidato mas corto (las razones sociales suelen ser mas largas por
-// sufijos como "S.A.", "SA/NV", "LTDA", "INC").
-function buildProductName(name, brandsField) {
-  const candidates = (brandsField || '').split(',').map((b) => b.trim()).filter(Boolean);
-  if (!candidates.length) return name;
-  const lowerName = name.toLowerCase();
-  const alreadyMentionsBrand = candidates.some((b) => lowerName.includes(b.toLowerCase()));
-  if (alreadyMentionsBrand) return name;
-  const shortestBrand = candidates.reduce((shortest, b) => (b.length < shortest.length ? b : shortest));
-  return `${shortestBrand} ${name}`;
-}
-
-// Autocompletar al escanear un producto nuevo (no existe todavia en el
-// inventario del tenant): Open Food Facts es gratis y sin API key, mismo
-// patron que geocode/image-search arriba. A diferencia de esas dos rutas,
-// esta SIEMPRE responde 200 -- para el formulario de alta, "no encontramos
-// info" debe sentirse como "ingresa los datos a mano", nunca como un error.
+// Fuente unica para todos los escaneos de codigos desconocidos. El cliente
+// compartido limita campos, aplica timeout y cachea resultados para responder
+// rapido sin repetir llamadas a Open Food Facts.
 app.get('/api/inventory/barcode-lookup', authMiddleware, requireTenant, async (req, res) => {
   const barcode = (req.query.barcode || '').toString().trim();
   if (!/^\d{6,14}$/.test(barcode)) return res.status(400).json({ error: 'barcode inválido' });
-  try {
-    const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`;
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Logify/1.0 (logistica@logify.cl)' },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) return res.json({ found: false, reason: 'upstream_unavailable' });
-    const data = await response.json();
-    if (data.status !== 1 || !data.product) return res.json({ found: false, reason: 'not_found' });
-    const p = data.product;
-    let name = (p.product_name_es || p.product_name || '').trim();
-    if (!name) return res.json({ found: false, reason: 'not_found' });
-    name = buildProductName(name, p.brands);
-    res.json({
-      found: true,
-      name,
-      category: mapOffCategoryToLogify(p.categories_tags),
-      imageUrl: p.image_front_url || p.image_url || null,
-      source: 'openfoodfacts',
-    });
-  } catch (err) {
-    log.warn('Barcode lookup failed', { message: err.message });
-    res.json({ found: false, reason: 'upstream_unavailable' });
-  }
+  res.json(await lookupBarcode(barcode));
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
