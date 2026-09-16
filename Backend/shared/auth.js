@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const log = require('./logger');
-const { isClerkConfigured, verifyClerkToken } = require('./clerk-auth');
+const { isClerkConfigured, verifyClerkToken, verifyClerkIdentityToken } = require('./clerk-auth');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -78,6 +78,23 @@ async function authMiddleware(req, res, next) {
   }
 }
 
+// Autenticacion de identidad, deliberadamente separada de authMiddleware:
+// permite crear una Organization antes de que el JWT tenga tenant/rol, pero
+// nunca acepta el JWT local ni claims enviados por el cliente.
+async function clerkIdentityMiddleware(req, res, next) {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) return res.status(401).json({ error: 'Token requerido' });
+  if (!isClerkConfigured()) {
+    return res.status(503).json({ error: 'El registro de empresas no está disponible temporalmente' });
+  }
+  try {
+    req.clerkIdentity = await verifyClerkIdentityToken(token);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Sesión de identidad inválida o expirada' });
+  }
+}
+
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) {
@@ -121,6 +138,7 @@ module.exports = {
   signToken,
   verifyToken,
   authMiddleware,
+  clerkIdentityMiddleware,
   requireRole,
   requireTenant,
   extractRoleFromRequest,

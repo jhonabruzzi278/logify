@@ -6,14 +6,17 @@
 jest.mock('../shared/clerk-auth', () => ({
   isClerkConfigured: jest.fn(),
   verifyClerkToken: jest.fn(),
+  verifyClerkIdentityToken: jest.fn(),
 }));
 
 describe('shared/auth - authMiddleware con Clerk (ADR-004)', () => {
   const ORIGINAL_JWT_SECRET = process.env.JWT_SECRET;
   let signToken;
   let authMiddleware;
+  let clerkIdentityMiddleware;
   let isClerkConfigured;
   let verifyClerkToken;
+  let verifyClerkIdentityToken;
 
   function mockRes() {
     const res = {};
@@ -26,8 +29,8 @@ describe('shared/auth - authMiddleware con Clerk (ADR-004)', () => {
     process.env.JWT_SECRET = 'un-secreto-de-test-suficientemente-largo';
     jest.resetModules();
     jest.clearAllMocks();
-    ({ isClerkConfigured, verifyClerkToken } = require('../shared/clerk-auth'));
-    ({ signToken, authMiddleware } = require('../shared/auth'));
+    ({ isClerkConfigured, verifyClerkToken, verifyClerkIdentityToken } = require('../shared/clerk-auth'));
+    ({ signToken, authMiddleware, clerkIdentityMiddleware } = require('../shared/auth'));
   });
 
   afterAll(() => {
@@ -48,6 +51,20 @@ describe('shared/auth - authMiddleware con Clerk (ADR-004)', () => {
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
     expect(isClerkConfigured).not.toHaveBeenCalled();
+  });
+
+  it('clerkIdentityMiddleware acepta identidad sin tenant y no usa JWT local', async () => {
+    isClerkConfigured.mockReturnValue(true);
+    verifyClerkIdentityToken.mockResolvedValue({ clerkUserId: 'user_123' });
+    const req = { headers: { authorization: 'Bearer token-personal' } };
+    const res = mockRes();
+    const next = jest.fn();
+
+    await clerkIdentityMiddleware(req, res, next);
+
+    expect(req.clerkIdentity).toEqual({ clerkUserId: 'user_123' });
+    expect(verifyClerkIdentityToken).toHaveBeenCalledWith('token-personal');
+    expect(next).toHaveBeenCalledTimes(1);
   });
 
   it('usa el usuario de Clerk cuando esta configurado y el token verifica', async () => {

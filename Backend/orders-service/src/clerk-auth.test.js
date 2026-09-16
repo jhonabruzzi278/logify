@@ -93,4 +93,16 @@ describe('shared/clerk-auth', () => {
       await expect(verifyClerkToken('token-vencido')).rejects.toThrow('token expirado');
     });
   });
+
+  describe('verifyClerkIdentityToken', () => {
+    it('acepta una sesión Clerk sin claims de organización y conserva el user id', async () => {
+      process.env.CLERK_SECRET_KEY = 'sk_test_algo';
+      jest.resetModules();
+      verifyToken = require('@clerk/backend').verifyToken;
+      verifyToken.mockResolvedValueOnce({ sub: 'user_123' });
+      const { verifyClerkIdentityToken } = require('../shared/clerk-auth');
+
+      await expect(verifyClerkIdentityToken('token-personal')).resolves.toEqual({ clerkUserId: 'user_123' });
+    });
+  });
 });

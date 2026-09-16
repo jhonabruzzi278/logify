@@ -60,7 +60,12 @@ Microservicio de gestión de pedidos y clientes. Node.js 22 + Express 4 + Postgr
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/api/auth/login` | Login `{username, password}` → JWT firmado con `JWT_SECRET` — **sin auth** |
-| POST | `/api/auth/register` | Crear usuario (requiere rol owner/admin) |
+| POST | `/api/auth/invitations` | Invitar una persona sin administrar su contraseña (owner/admin) |
+| GET | `/api/auth/invitations` | Listar invitaciones y su estado (owner/admin) |
+| POST | `/api/auth/invitations/:id/resend` | Reenviar una invitación (owner/admin) |
+| DELETE | `/api/auth/invitations/:id` | Revocar una invitación (owner/admin) |
+| POST | `/api/organizations` | Crear organización desde una identidad Clerk autenticada |
+| POST | `/api/auth/register` | Alta legacy solo para tenants sin Clerk; en Clerk responde `410` |
 | GET | `/api/auth/users` | Listar usuarios (owner/admin) |
 | PUT | `/api/auth/users/:id` | Editar usuario (owner/admin) |
 | DELETE | `/api/auth/users/:id` | Eliminar usuario (owner/admin) |

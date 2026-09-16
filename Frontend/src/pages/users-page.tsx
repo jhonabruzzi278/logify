@@ -2,8 +2,7 @@
 import { AlertTriangle, Check, ChevronDown, Edit2, Search, Trash2, UserPlus, X } from "lucide-react";
 import { getRoleProfile } from "@/app/access";
 import { useAuth } from "@/app/auth";
-import { fetchUsers, registerUser, updateUser, deleteUser } from "@/lib/local-jwt-auth";
-import { useEmailAvailabilityCheck } from "@/hooks/use-email-availability-check";
+import { fetchInvitations, fetchUsers, inviteUser, resendInvitation, revokeInvitation, updateUser, deleteUser, type UserInvitation } from "@/lib/local-jwt-auth";
 import { cn, onActivateKey } from "@/lib/utils";
 import type { Role } from "@/types/domain";
 
@@ -24,6 +23,7 @@ export function UsersPage() {
   const { session } = useAuth();
   const token = session?.token ?? "";
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [invitations, setInvitations] = useState<UserInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
@@ -32,8 +32,7 @@ export function UsersPage() {
   const [editDraft, setEditDraft] = useState<{ name: string; role: Role } | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "ops" as Role });
-  const emailCheck = useEmailAvailabilityCheck(newUser.email, token, showAdd);
+  const [newUser, setNewUser] = useState({ name: "", email: "", role: "ops" as Role });
   const [feedback, setFeedback] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -43,8 +42,9 @@ export function UsersPage() {
     if (!token) return;
     try {
       setLoading(true);
-      const data = await fetchUsers(token);
+      const [data, invitationData] = await Promise.all([fetchUsers(token), fetchInvitations(token)]);
       setUsers(data.map((u) => ({ ...u, role: u.role as Role })));
+      setInvitations(invitationData);
     } catch {
       setFeedback("Error al cargar usuarios");
       setTimeout(() => setFeedback(null), 3000);
@@ -117,25 +117,45 @@ export function UsersPage() {
   }
 
   async function handleAddUser() {
-    const passwordRequired = emailCheck !== "existing";
-    if (!newUser.name.trim() || !newUser.email.trim() || (passwordRequired && !newUser.password)) {
-      setFeedback(passwordRequired ? "Nombre, correo y contraseña son requeridos" : "Nombre y correo son requeridos");
+    if (!newUser.name.trim() || !newUser.email.trim()) {
+      setFeedback("Nombre y correo son requeridos");
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
     try {
-      const created = await registerUser(token, {
+      const invitation = await inviteUser(token, {
         email: newUser.email.trim().toLowerCase(),
-        password: passwordRequired ? newUser.password : undefined,
         name: newUser.name.trim(),
         role: newUser.role,
       });
-      setUsers((prev) => [...prev, { ...created, role: created.role as Role, created_at: "", updated_at: "", last_login_at: null }]);
-      setNewUser({ name: "", email: "", password: "", role: "ops" });
+      setInvitations((current) => [invitation, ...current]);
+      setNewUser({ name: "", email: "", role: "ops" });
       setShowAdd(false);
-      setFeedback(created.linkedExistingAccount ? `${created.name} ya tenía cuenta en Logify y fue agregado a tu empresa` : "Usuario creado");
+      setFeedback("Invitación enviada. La persona aparecerá como usuario cuando la acepte.");
     } catch (e: any) {
       setFeedback(e.message || "Error al crear usuario");
+    }
+    setTimeout(() => setFeedback(null), 3000);
+  }
+
+  async function handleResend(invitation: UserInvitation) {
+    try {
+      const updated = await resendInvitation(token, invitation.id);
+      setInvitations((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setFeedback("Invitación reenviada");
+    } catch (e: any) {
+      setFeedback(e.message || "No se pudo reenviar la invitación");
+    }
+    setTimeout(() => setFeedback(null), 3000);
+  }
+
+  async function handleRevoke(invitation: UserInvitation) {
+    try {
+      await revokeInvitation(token, invitation.id);
+      setInvitations((current) => current.map((item) => item.id === invitation.id ? { ...item, status: "revoked" } : item));
+      setFeedback("Invitación revocada");
+    } catch (e: any) {
+      setFeedback(e.message || "No se pudo revocar la invitación");
     }
     setTimeout(() => setFeedback(null), 3000);
   }
@@ -183,7 +203,7 @@ export function UsersPage() {
             className="flex items-center gap-1.5 rounded bg-[#2563EB] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1D4ED8]"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            Agregar usuario
+            Invitar persona
           </button>
         </div>
       </div>
@@ -198,22 +218,10 @@ export function UsersPage() {
             <div className="flex-1">
               <label htmlFor="users-page-f238" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Correo</label>
               <input id="users-page-f238" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="empleado@empresa.com" />
-              {emailCheck === "checking" && <p className="mt-1 text-[10px] text-[#64748B]">Comprobando...</p>}
-              {emailCheck === "existing" && <p className="mt-1 text-[10px] font-medium text-[#0D9488]">Ya tiene cuenta en Logify</p>}
             </div>
-            {emailCheck === "existing" ? (
-              <div className="flex-1">
-                <p className="mt-1 text-xs text-[#64748B] sm:mt-[22px]">
-                  Esta persona ya tiene cuenta en Logify. Se agregará a tu empresa con la contraseña que ya usa para iniciar sesión.
-                </p>
-              </div>
-            ) : (
-              <div className="flex-1">
-                <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Contraseña</label>
-                <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} aria-describedby="users-page-password-help" autoComplete="new-password" className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="••••••" />
-                <p id="users-page-password-help" className="mt-1 max-w-xs text-[10px] leading-4 text-[#64748B]">10+ caracteres, con mayúscula, minúscula, número y símbolo. No reutilices una contraseña conocida o filtrada.</p>
-              </div>
-            )}
+            <div className="flex-1 text-xs leading-5 text-[#64748B]">
+              La persona recibirá un correo y definirá sus propias credenciales. Si ya usa Logify, ingresará con su cuenta actual.
+            </div>
             <div>
               <label htmlFor="users-page-f246" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Rol</label>
               <select id="users-page-f246" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })} className="h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-2 text-sm">
@@ -221,7 +229,7 @@ export function UsersPage() {
               </select>
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={handleAddUser} className="h-9 rounded bg-[#2563EB] px-4 text-xs font-bold text-white hover:bg-[#1D4ED8]">Crear</button>
+              <button type="button" onClick={handleAddUser} className="h-9 rounded bg-[#2563EB] px-4 text-xs font-bold text-white hover:bg-[#1D4ED8]">Enviar</button>
               <button type="button" onClick={() => setShowAdd(false)} className="h-9 rounded border border-[#E2E8F0] px-3 text-xs font-semibold text-[#64748B] hover:bg-[#F8FAFC]">Cancelar</button>
             </div>
           </div>
@@ -243,6 +251,26 @@ export function UsersPage() {
 
       {feedback && (
         <div className="rounded border border-[#0D9488]/30 bg-[#0D9488]/5 px-4 py-2 text-xs font-medium text-[#0D9488]">{feedback}</div>
+      )}
+
+      {invitations.some((invitation) => invitation.status === "pending" || invitation.status === "expired") && (
+        <section className="rounded border border-[#E2E8F0] bg-white p-4">
+          <h2 className="text-sm font-bold text-[#172554]">Invitaciones pendientes</h2>
+          <div className="mt-3 divide-y divide-[#E2E8F0]">
+            {invitations.filter((invitation) => invitation.status === "pending" || invitation.status === "expired").map((invitation) => (
+              <div key={invitation.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-[#172554]">{invitation.name}</p>
+                  <p className="text-xs text-[#64748B]">{invitation.email} · {getRoleProfile(invitation.role as Role).label} · {invitation.status === "expired" ? "Expirada" : "Esperando aceptación"}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => handleResend(invitation)} className="rounded border border-[#2563EB] px-3 py-1.5 text-xs font-bold text-[#2563EB]">Reenviar</button>
+                  <button type="button" onClick={() => handleRevoke(invitation)} className="rounded border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600">Revocar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="rounded border border-[#E2E8F0] bg-white">

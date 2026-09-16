@@ -9,15 +9,16 @@ vi.mock("@/app/auth", () => ({
 const mockFetchUsers = vi.fn();
 const mockDeleteUser = vi.fn();
 const mockUpdateUser = vi.fn();
-const mockRegisterUser = vi.fn();
-const mockCheckEmailExists = vi.fn();
+const mockInviteUser = vi.fn();
 
 vi.mock("@/lib/local-jwt-auth", () => ({
   fetchUsers: (...args: unknown[]) => mockFetchUsers(...args),
-  registerUser: (...args: unknown[]) => mockRegisterUser(...args),
+  fetchInvitations: vi.fn().mockResolvedValue([]),
+  inviteUser: (...args: unknown[]) => mockInviteUser(...args),
+  resendInvitation: vi.fn(),
+  revokeInvitation: vi.fn(),
   updateUser: (...args: unknown[]) => mockUpdateUser(...args),
   deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
-  checkEmailExists: (...args: unknown[]) => mockCheckEmailExists(...args),
 }));
 
 const USERS = [
@@ -35,10 +36,10 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
     mockFetchUsers.mockReset();
     mockDeleteUser.mockReset();
     mockUpdateUser.mockReset();
-    mockCheckEmailExists.mockReset();
+    mockInviteUser.mockReset();
     mockFetchUsers.mockResolvedValue(USERS);
     mockDeleteUser.mockResolvedValue(undefined);
-    mockCheckEmailExists.mockResolvedValue(false);
+    mockInviteUser.mockResolvedValue({ id: 3, email: "nuevo@empresa.cl", name: "Nuevo Usuario", role: "ops", status: "pending", expires_at: "2026-09-23", created_at: "2026-09-16" });
     mockUpdateUser.mockImplementation(async (_token, id, changes) => ({
       ...USERS.find((user) => user.id === id),
       ...changes,
@@ -93,75 +94,29 @@ describe("UsersPage — proteccion de autoeliminacion", () => {
     await waitFor(() => expect(screen.getAllByText("Empleado Actualizado").length).toBeGreaterThan(0));
   });
 
-  it("crea un usuario directo con correo y contraseña (sin invitación)", async () => {
-    mockRegisterUser.mockResolvedValue({
-      id: 3, username: "nuevot1", name: "Nuevo Usuario", email: "nuevo@empresa.cl", role: "warehouse", linkedExistingAccount: false,
-    });
+  it("envía una invitación sin pedir ni enviar contraseña", async () => {
     render(<UsersPage />);
     await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
 
-    fireEvent.click(screen.getAllByRole("button", { name: /agregar usuario/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /invitar persona/i })[0]);
     fireEvent.change(screen.getByPlaceholderText("Nombre completo"), { target: { value: "Nuevo Usuario" } });
     fireEvent.change(screen.getByPlaceholderText("empleado@empresa.com"), { target: { value: "nuevo@empresa.cl" } });
-    fireEvent.change(screen.getByPlaceholderText("••••••"), { target: { value: "ClaveSegura123!" } });
-    expect(screen.getByText(/10\+ caracteres/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Crear" }));
+    expect(screen.queryByPlaceholderText("••••••")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    await waitFor(() => expect(mockRegisterUser).toHaveBeenCalledWith("tok", {
+    await waitFor(() => expect(mockInviteUser).toHaveBeenCalledWith("tok", {
       email: "nuevo@empresa.cl",
-      password: "ClaveSegura123!",
       name: "Nuevo Usuario",
       role: "ops",
     }));
-    await waitFor(() => expect(screen.getAllByText("Usuario creado").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText(/invitación enviada/i).length).toBeGreaterThan(0));
   });
 
-  it("avisa cuando el correo ya tenía cuenta en otra empresa y fue agregado a esta", async () => {
-    mockRegisterUser.mockResolvedValue({
-      id: 4, username: "ya-existiat1", name: "Persona Existente", email: "existente@empresa.cl", role: "ops", linkedExistingAccount: true,
-    });
+  it("explica que una cuenta existente conserva sus credenciales", async () => {
     render(<UsersPage />);
     await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
 
-    fireEvent.click(screen.getAllByRole("button", { name: /agregar usuario/i })[0]);
-    fireEvent.change(screen.getByPlaceholderText("Nombre completo"), { target: { value: "Persona Existente" } });
-    fireEvent.change(screen.getByPlaceholderText("empleado@empresa.com"), { target: { value: "existente@empresa.cl" } });
-    fireEvent.change(screen.getByPlaceholderText("••••••"), { target: { value: "ClaveSegura123!" } });
-    fireEvent.click(screen.getByRole("button", { name: "Crear" }));
-
-    await waitFor(() => expect(screen.getAllByText(/ya tenía cuenta en Logify y fue agregado a tu empresa/).length).toBeGreaterThan(0));
-  });
-
-  it("oculta el campo de contraseña y la omite del alta cuando el correo ya tiene cuenta en Logify", async () => {
-    mockCheckEmailExists.mockResolvedValue(true);
-    mockRegisterUser.mockResolvedValue({
-      id: 5, username: "yaexistiat1", name: "Ya Existe", email: "yaexiste@empresa.cl", role: "ops", linkedExistingAccount: true,
-    });
-    render(<UsersPage />);
-    await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
-
-    fireEvent.click(screen.getAllByRole("button", { name: /agregar usuario/i })[0]);
-    fireEvent.change(screen.getByPlaceholderText("Nombre completo"), { target: { value: "Ya Existe" } });
-    fireEvent.change(screen.getByPlaceholderText("empleado@empresa.com"), { target: { value: "yaexiste@empresa.cl" } });
-
-    await waitFor(() => expect(mockCheckEmailExists).toHaveBeenCalledWith("tok", "yaexiste@empresa.cl"), { timeout: 2000 });
-    await waitFor(() => expect(screen.getAllByText(/ya tiene cuenta en Logify/i).length).toBeGreaterThan(0));
-    expect(screen.queryByPlaceholderText("••••••")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Crear" }));
-
-    await waitFor(() => expect(mockRegisterUser).toHaveBeenCalledWith("tok", {
-      email: "yaexiste@empresa.cl",
-      password: undefined,
-      name: "Ya Existe",
-      role: "ops",
-    }));
-  });
-
-  it("no muestra ninguna opción de invitar por correo", async () => {
-    render(<UsersPage />);
-    await waitFor(() => expect(screen.getAllByText("Empleado Uno").length).toBeGreaterThan(0));
-
-    expect(screen.queryByRole("button", { name: /^invitar$/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: /invitar persona/i })[0]);
+    expect(screen.getByText(/si ya usa Logify, ingresará con su cuenta actual/i)).toBeInTheDocument();
   });
 });

@@ -15,6 +15,7 @@ const mockClerk = {
     createUser: jest.fn().mockResolvedValue({ id: 'user_signup' }),
     deleteUser: jest.fn().mockResolvedValue({}),
     getUserList: jest.fn().mockResolvedValue({ data: [] }),
+    getUser: jest.fn().mockResolvedValue({ id: 'user_signup', firstName: 'Ana', lastName: 'Contreras', primaryEmailAddress: { emailAddress: 'contacto@acme.cl' }, emailAddresses: [] }),
   },
 };
 jest.mock('@clerk/backend', () => ({ createClerkClient: jest.fn(() => mockClerk) }));
@@ -22,6 +23,7 @@ jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt-token'),
   verifyToken: jest.fn().mockReturnValue({ sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
   authMiddleware: (req, _res, next) => { req.user = { sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }; next(); },
+  clerkIdentityMiddleware: (req, _res, next) => { req.clerkIdentity = { clerkUserId: 'user_signup' }; next(); },
   requireRole: () => (req, _res, next) => next(),
   requireTenant: (req, _res, next) => { req.tenantId = req.user?.tenant_id ?? 1; next(); },
   extractRoleFromRequest: (req) => (req.user && req.user.role) ? req.user.role.toLowerCase() : null,
@@ -63,6 +65,7 @@ const VALID_SIGNUP_BODY = {
 describe('POST /api/signup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQuery.mockReset();
     mockQuery.mockResolvedValue({ rows: [] });
     mockClerk.organizations.createOrganization.mockResolvedValue({ id: 'org_signup' });
     mockClerk.organizations.createOrganizationMembership.mockResolvedValue({ id: 'orgmem_signup' });
@@ -123,23 +126,17 @@ describe('POST /api/signup', () => {
     expect(mockClerk.users.createUser.mock.calls[0][0]).not.toHaveProperty('username');
   });
 
-  it('multi-org: reusa la identidad de Clerk si el correo ya existe (dueño de otra empresa) en vez de crear una nueva', async () => {
-    const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
+  it('exige iniciar sesión si el correo ya tiene identidad, sin crear ni modificar credenciales', async () => {
     mockClerk.users.getUserList.mockResolvedValueOnce({ data: [{ id: 'user_existing', emailAddresses: [{ emailAddress: 'contacto@acme.cl' }] }] });
-    mockQuery
-      .mockResolvedValueOnce({ rows: [] }) // slug disponible
-      .mockResolvedValueOnce({ rows: [] }) // sin conflicto de suscripcion activa
-      .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] }) // insert tenant
-      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] }); // insert user
 
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('SIGN_IN_REQUIRED');
+    expect(res.body.createOrganizationUrl).toContain('/create-organization');
     expect(mockClerk.users.createUser).not.toHaveBeenCalled();
-    expect(mockClerk.organizations.createOrganizationMembership).toHaveBeenCalledWith({
-      organizationId: 'org_signup', userId: 'user_existing', role: 'org:admin',
-    });
-    expect(mockQuery).toHaveBeenCalledWith('UPDATE users SET clerk_user_id=$1 WHERE id=$2', ['user_existing', 10]);
+    expect(mockClerk.organizations.createOrganization).not.toHaveBeenCalled();
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it('multi-org: el filtro de correo de Clerk es solo un match parcial, así que solo reusa la identidad con igualdad exacta', async () => {
@@ -169,25 +166,18 @@ describe('POST /api/signup', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('ACTIVE_SUBSCRIPTION_EXISTS');
-    expect(mockClerk.users.getUserList).not.toHaveBeenCalled();
+    expect(mockClerk.users.getUserList).toHaveBeenCalledWith({ emailAddress: ['contacto@acme.cl'] });
     expect(mockClerk.organizations.createOrganization).not.toHaveBeenCalled();
   });
 
-  it('multi-org: no borra una identidad de Clerk reusada si Postgres falla después de vincularla', async () => {
-    const trialEndsAt = new Date(Date.now() + 90 * 86400000).toISOString();
+  it('multi-org: no toca recursos si una identidad existente usa el formulario antiguo', async () => {
     mockClerk.users.getUserList.mockResolvedValueOnce({ data: [{ id: 'user_existing', emailAddresses: [{ emailAddress: 'contacto@acme.cl' }] }] });
-    mockQuery
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ id: 2, slug: 'acme', name: 'Acme Distribuciones', trial_ends_at: trialEndsAt }] })
-      .mockResolvedValueOnce({ rows: [{ id: 10, username: 'anacontrerast2', name: 'Ana Contreras', role: 'owner' }] })
-      .mockRejectedValueOnce(new Error('DB down')); // falla al vincular clerk_org_id/clerk_user_id
 
     const res = await request(app).post('/api/signup').send(VALID_SIGNUP_BODY);
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(409);
     expect(mockClerk.users.deleteUser).not.toHaveBeenCalled();
-    expect(mockClerk.organizations.deleteOrganization).toHaveBeenCalledWith('org_signup');
+    expect(mockClerk.organizations.deleteOrganization).not.toHaveBeenCalled();
   });
 
   it('responde 503 antes de escribir si la identidad central no está configurada', async () => {
@@ -325,6 +315,40 @@ describe('POST /api/signup', () => {
       .mockResolvedValueOnce({ rows: [] }); // cupón no encontrado (invalido/expirado/agotado)
     const res = await request(app).post('/api/signup').send({ ...VALID_SIGNUP_BODY, couponCode: 'NOEXISTE' });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/organizations', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockQuery.mockReset();
+    mockQuery.mockResolvedValue({ rows: [] });
+    mockClerk.users.getUser.mockResolvedValue({ id: 'user_signup', firstName: 'Ana', lastName: 'Contreras', primaryEmailAddress: { emailAddress: 'contacto@acme.cl' }, emailAddresses: [] });
+    mockClerk.organizations.createOrganization.mockResolvedValue({ id: 'org_signup' });
+    mockClerk.organizations.createOrganizationMembership.mockResolvedValue({ id: 'orgmem_signup' });
+    mockClerk.organizations.updateOrganizationMembershipMetadata.mockResolvedValue({});
+  });
+
+  it('crea otra organización desde una identidad Clerk autenticada sin contraseña', async () => {
+    const trialEndsAt = new Date(Date.now() + 30 * 86400000).toISOString();
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 12, slug: 'otra-empresa', name: 'Otra Empresa', trial_ends_at: trialEndsAt }] })
+      .mockResolvedValueOnce({ rows: [{ id: 33, username: 'contactot12' }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app).post('/api/organizations').send({ companyName: 'Otra Empresa', slug: 'otra-empresa' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.organizationId).toBe('org_signup');
+    expect(mockClerk.users.getUser).toHaveBeenCalledWith('user_signup');
+    expect(mockClerk.users.createUser).not.toHaveBeenCalled();
+    expect(mockClerk.organizations.createOrganizationMembership).toHaveBeenCalledWith({
+      organizationId: 'org_signup', userId: 'user_signup', role: 'org:admin',
+    });
+    const userInsert = mockQuery.mock.calls.find(([query]) => String(query).includes('INSERT INTO users'));
+    expect(userInsert?.[0]).not.toContain('password_hash');
   });
 });
 
