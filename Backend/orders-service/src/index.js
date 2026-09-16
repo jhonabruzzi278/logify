@@ -572,6 +572,44 @@ async function findClerkUserByExactEmail(clerk, email) {
   return data.find((u) => u.emailAddresses.some((e) => e.emailAddress.toLowerCase() === normalized)) || null;
 }
 
+function clerkErrorDetails(err) {
+  const errors = Array.isArray(err?.errors) ? err.errors : [];
+  const codes = errors.map((item) => item?.code).filter(Boolean);
+  const status = Number(err?.status || err?.statusCode || 0) || null;
+  if (!status && !codes.length && !err?.clerkTraceId) return null;
+  return {
+    status,
+    codes,
+    traceId: err?.clerkTraceId || null,
+    firstError: errors[0] || null,
+  };
+}
+
+function sendClerkRegistrationError(res, err) {
+  const details = clerkErrorDetails(err);
+  if (!details) return false;
+
+  const code = details.codes[0] || 'CLERK_REQUEST_REJECTED';
+  const messages = {
+    form_password_pwned: 'Esa contraseña apareció en una filtración de datos. Usa una contraseña nueva y diferente.',
+    form_password_matches_identifier: 'La contraseña no puede contener el nombre ni el correo de la persona.',
+    form_password_length_too_short: 'La contraseña no cumple el largo mínimo requerido.',
+    form_identifier_exists: 'Ya existe una cuenta de acceso con ese correo.',
+  };
+  const status = code === 'form_identifier_exists' ? 409 : (details.status === 422 ? 422 : 502);
+
+  log.warn('Clerk rejected user registration', {
+    clerkStatus: details.status,
+    clerkCodes: details.codes,
+    clerkTraceId: details.traceId,
+  });
+  res.status(status).json({
+    error: messages[code] || 'Clerk rechazó los datos de acceso. Revisa el correo y usa una contraseña diferente.',
+    code,
+  });
+  return true;
+}
+
 app.get('/api/signup/check-slug', requireSignupEnabled, async (req, res) => {
   try {
     const slug = (req.query.slug || '').toString().trim().toLowerCase();
@@ -921,7 +959,9 @@ app.post('/api/auth/register', authMiddleware, requireTenant, withTenantDb, requ
       [usernameNorm, hash, name.trim(), role.toLowerCase(), normalizedEmail, req.tenantId]
     )).rows[0];
     res.status(201).json({ ...created, linkedExistingAccount: false });
-  } catch (err) { sendError(res, 500, 'Register failed', err); }
+  } catch (err) {
+    if (!sendClerkRegistrationError(res, err)) sendError(res, 500, 'Register failed', err);
+  }
 });
 
 app.get('/api/auth/users', authMiddleware, requireTenant, withTenantDb, requireRole('owner', 'admin'), async (req, res) => {

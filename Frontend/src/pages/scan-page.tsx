@@ -6,19 +6,13 @@ import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { usePermissions } from "@/hooks/use-permissions";
 import { adaptInventory } from "@/lib/api-adapters";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
+import { lookupBarcode } from "@/lib/barcode-lookup";
 import { cn } from "@/lib/utils";
 import type { ApiInventory } from "@/types/api";
 import type { Product, ProductCategory } from "@/types/domain";
 import { BarcodeScannerModal } from "@/components/pos/barcode-scanner-modal";
 import { ApiErrorBanner } from "@/components/common/api-error-banner";
 import { Input } from "@/components/ui/input";
-
-interface BarcodeLookupResponse {
-  found: boolean;
-  name?: string;
-  category?: ProductCategory;
-  imageUrl?: string | null;
-}
 
 export function ScanPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -61,7 +55,7 @@ export function ScanPage() {
     if (!scannedCode || product || loading) return;
     let cancelled = false;
     setLookupState("loading");
-    apiFetch<BarcodeLookupResponse>(`/api/inventory/barcode-lookup?barcode=${encodeURIComponent(scannedCode)}`)
+    lookupBarcode(scannedCode)
       .then((result) => {
         if (cancelled) return;
         if (result.found) {

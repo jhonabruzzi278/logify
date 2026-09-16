@@ -1085,6 +1085,43 @@ describe('orders-service', () => {
         expect(mockCreateUser).not.toHaveBeenCalled();
       });
 
+      it('propaga como 422 una contraseña filtrada rechazada por Clerk con un mensaje útil', async () => {
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] });
+        mockCreateUser.mockRejectedValueOnce({
+          message: 'Unprocessable Entity',
+          status: 422,
+          clerkTraceId: 'trace_password_pwned',
+          errors: [{ code: 'form_password_pwned', longMessage: 'Password found in breach data' }],
+        });
+
+        const res = await request(app).post('/api/auth/register').send(newUser);
+
+        expect(res.status).toBe(422);
+        expect(res.body).toEqual({
+          error: 'Esa contraseña apareció en una filtración de datos. Usa una contraseña nueva y diferente.',
+          code: 'form_password_pwned',
+        });
+      });
+
+      it('no expone detalles internos si Clerk devuelve un 422 desconocido', async () => {
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] });
+        mockCreateUser.mockRejectedValueOnce({
+          message: 'Unprocessable Entity',
+          status: 422,
+          errors: [{ code: 'form_password_validation_failed', longMessage: 'internal provider detail' }],
+        });
+
+        const res = await request(app).post('/api/auth/register').send(newUser);
+
+        expect(res.status).toBe(422);
+        expect(res.body.error).toMatch(/Clerk rechazó los datos de acceso/i);
+        expect(res.body.error).not.toContain('internal provider detail');
+      });
+
       // Corazon del pedido: la persona agregada ya inicia sesion de forma
       // independiente con su propia contraseña (de otro tenant, u otra vez
       // en este) -- no hay que pedirle ni usar una nueva.

@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { Banknote, Camera, Check, CreditCard, DollarSign, Landmark, Lock, Minus, PiggyBank, Plus, Receipt, Search, ShoppingCart, Tag, Trash2, User, X } from "lucide-react";
+import { Banknote, Camera, Check, CreditCard, DollarSign, Landmark, Loader2, Lock, Minus, PiggyBank, Plus, Receipt, Search, ShoppingCart, Sparkles, Tag, Trash2, User, X } from "lucide-react";
 import { useAuth } from "@/app/auth";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { CUSTOMER_TYPE_BY_MODE } from "@/hooks/use-business-mode";
@@ -8,6 +8,7 @@ import { useOperationalWorkspace } from "@/hooks/use-operational-workspace";
 import { formatUF, formatUSD, useIndicadores } from "@/hooks/use-indicadores";
 import { adaptCashSession, adaptCustomer, adaptInventory } from "@/lib/api-adapters";
 import { apiFetch, ApiRequestError } from "@/lib/api-client";
+import { lookupBarcode, type BarcodeLookupResult } from "@/lib/barcode-lookup";
 import { ApiErrorBanner } from "@/components/common/api-error-banner";
 import { AddAmountModal } from "@/components/pos/add-amount-modal";
 import { BarcodeScannerModal } from "@/components/pos/barcode-scanner-modal";
@@ -48,6 +49,7 @@ export function PosPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [successSale, setSuccessSale] = useState<Sale | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [barcodeLookup, setBarcodeLookup] = useState<{ code: string; loading: boolean; result?: BarcodeLookupResult } | null>(null);
   const [closeRegisterOpen, setCloseRegisterOpen] = useState(false);
   const [openRegisterOpen, setOpenRegisterOpen] = useState(false);
   const [priceCheckOpen, setPriceCheckOpen] = useState(false);
@@ -206,8 +208,9 @@ export function PosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, paymentMethod, selectedCustomer, total, saleItems]);
 
-  function handleBarcodeDetected(code: string) {
+  async function handleBarcodeDetected(code: string) {
     setScannerOpen(false);
+    setBarcodeLookup(null);
     const product = operationalInventory.find((p) =>
       p.sku.toLowerCase() === code.toLowerCase() || p.barcode?.toLowerCase() === code.toLowerCase()
     );
@@ -215,6 +218,13 @@ export function PosPage() {
       handleQuickAdd(product);
     } else {
       setSearch(code);
+      setBarcodeLookup({ code, loading: true });
+      try {
+        const result = await lookupBarcode(code);
+        setBarcodeLookup({ code, loading: false, result });
+      } catch {
+        setBarcodeLookup({ code, loading: false, result: { found: false, reason: "upstream_unavailable" } });
+      }
     }
   }
 
@@ -552,6 +562,18 @@ export function PosPage() {
               </button>
             </div>
           </div>
+
+          {barcodeLookup && (
+            <div role="status" className="rounded border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+              {barcodeLookup.loading ? (
+                <span className="flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Consultando Open Food Facts…</span>
+              ) : barcodeLookup.result?.found ? (
+                <span className="flex items-start gap-2"><Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0D9488]" /><span><strong className="text-foreground">{barcodeLookup.result.name}</strong>{barcodeLookup.result.quantity ? ` · ${barcodeLookup.result.quantity}` : ""}. Está identificado por Open Food Facts, pero debes agregarlo al inventario antes de venderlo.</span></span>
+              ) : (
+                <span>El código {barcodeLookup.code} no está en tu inventario ni en Open Food Facts.</span>
+              )}
+            </div>
+          )}
 
           {/* Product grid */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">

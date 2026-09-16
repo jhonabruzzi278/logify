@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useApiQuery } from "@/hooks/use-api-query";
 import { usePermissions } from "@/hooks/use-permissions";
 import { apiFetch } from "@/lib/api-client";
+import { lookupBarcode, type BarcodeLookupResult } from "@/lib/barcode-lookup";
 import { cn } from "@/lib/utils";
 import type { ApiInventorySession, ApiInventorySessionItem } from "@/types/api";
 
@@ -51,6 +52,7 @@ export function InventorySessionPage() {
   const [lastScanned, setLastScanned] = useState<ApiInventorySessionItem | null>(null);
   const [busySku, setBusySku] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [unknownProduct, setUnknownProduct] = useState<BarcodeLookupResult | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [confirmMissing, setConfirmMissing] = useState(false);
@@ -87,6 +89,7 @@ export function InventorySessionPage() {
   async function scanProduct(code: string) {
     setScannerOpen(false);
     setActionError(null);
+    setUnknownProduct(null);
     try {
       const item = await apiFetch<ApiInventorySessionItem>(`/api/inventory-sessions/${sessionId}/scan`, {
         method: "POST",
@@ -96,7 +99,22 @@ export function InventorySessionPage() {
       refresh();
     } catch (scanError) {
       setLastScanned(null);
-      setActionError(scanError instanceof Error ? scanError.message : "No se pudo registrar el producto");
+      const status = typeof scanError === "object" && scanError !== null && "status" in scanError
+        ? Number((scanError as { status?: unknown }).status)
+        : null;
+      if (status === 404) {
+        try {
+          const productInfo = await lookupBarcode(code);
+          setUnknownProduct(productInfo.found ? productInfo : null);
+          setActionError(productInfo.found
+            ? `${productInfo.name} está en Open Food Facts, pero debes agregarlo al inventario antes de contarlo.`
+            : "Producto no encontrado en el inventario ni en Open Food Facts");
+        } catch {
+          setActionError(scanError.message);
+        }
+      } else {
+        setActionError(scanError instanceof Error ? scanError.message : "No se pudo registrar el producto");
+      }
     }
   }
 
@@ -178,6 +196,12 @@ export function InventorySessionPage() {
         </section>
       ) : null}
       {actionError ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p> : null}
+      {unknownProduct ? (
+        <section className="flex min-w-0 items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          {unknownProduct.imageUrl ? <img src={unknownProduct.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" /> : <PackagePlus className="h-8 w-8 shrink-0 text-amber-600" />}
+          <div className="min-w-0"><p className="break-words font-bold text-amber-950">{unknownProduct.name}</p><p className="text-sm text-amber-800">{unknownProduct.brands?.join(", ") || "Producto identificado"}{unknownProduct.quantity ? ` · ${unknownProduct.quantity}` : ""}</p></div>
+        </section>
+      ) : null}
 
       {isDraft ? (
         <button type="button" onClick={() => setScannerOpen(true)} className="flex min-h-28 w-full items-center justify-center gap-3 rounded-2xl bg-[#2563EB] px-6 text-lg font-bold text-white shadow-sm transition hover:bg-[#1D4ED8] active:scale-[0.99]">

@@ -145,6 +145,28 @@ describe("InventorySessionPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Código no encontrado");
   });
 
+  it("consulta Open Food Facts cuando el codigo no existe en el inventario", async () => {
+    mockUseApiQuery.mockReturnValue({ data: buildSession(), loading: false, error: null, refresh: vi.fn() });
+    mockApiFetch
+      .mockRejectedValueOnce({ status: 404, message: "Producto no encontrado" })
+      .mockResolvedValueOnce({
+        found: true,
+        name: "Agua Mineral",
+        brands: ["Marca Uno"],
+        quantity: "1.5 L",
+        imageUrl: "https://example.com/agua.jpg",
+        source: "openfoodfacts",
+      });
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Escanear producto" }));
+    fireEvent.click(screen.getByText("Simular escaneo"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Agua Mineral está en Open Food Facts/i);
+    expect(screen.getByText("Marca Uno · 1.5 L")).toBeInTheDocument();
+    expect(mockApiFetch).toHaveBeenNthCalledWith(2, "/api/inventory/barcode-lookup?barcode=7801234567890");
+  });
+
   it("actualiza la cantidad de un producto con los botones y confirma con la API", async () => {
     const refresh = vi.fn();
     mockUseApiQuery.mockReturnValue({ data: buildSession(), loading: false, error: null, refresh });

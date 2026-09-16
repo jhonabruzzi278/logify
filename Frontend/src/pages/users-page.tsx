@@ -210,7 +210,8 @@ export function UsersPage() {
             ) : (
               <div className="flex-1">
                 <label htmlFor="users-page-f242" className="block text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B] mb-1">Contraseña</label>
-                <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="••••••" />
+                <input id="users-page-f242" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} aria-describedby="users-page-password-help" autoComplete="new-password" className="h-9 w-full rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm" placeholder="••••••" />
+                <p id="users-page-password-help" className="mt-1 max-w-xs text-[10px] leading-4 text-[#64748B]">10+ caracteres, con mayúscula, minúscula, número y símbolo. No reutilices una contraseña conocida o filtrada.</p>
               </div>
             )}
             <div>

@@ -125,7 +125,7 @@ async function rollbackQuietly(client) {
   await client.query('ROLLBACK').catch(() => {});
 }
 
-function registerInventorySessionRoutes({ app, pool, authMiddleware, requireTenant, requireRole, sendError }) {
+function registerInventorySessionRoutes({ app, pool, authMiddleware, requireTenant, requireRole, sendError, lookupBarcode }) {
   const ownerOnly = [authMiddleware, requireTenant, requireRole('owner')];
 
   app.get('/api/inventory-sessions', ...ownerOnly, async (req, res) => {
@@ -244,7 +244,14 @@ function registerInventorySessionRoutes({ app, pool, authMiddleware, requireTena
       );
       if (!productResult.rows.length) {
         await rollbackQuietly(client);
-        return res.status(404).json({ error: 'Producto no encontrado', code });
+        const productInfo = lookupBarcode ? await lookupBarcode(code) : { found: false, reason: 'not_found' };
+        return res.status(404).json({
+          error: productInfo.found
+            ? `${productInfo.name} fue encontrado en Open Food Facts, pero todavía no existe en tu inventario`
+            : 'Producto no encontrado',
+          code,
+          productInfo,
+        });
       }
       const product = productResult.rows[0];
       const itemResult = await client.query(
