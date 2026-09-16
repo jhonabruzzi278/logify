@@ -15,6 +15,8 @@ const mockGetOrganizationMembershipList = jest.fn().mockResolvedValue({ data: []
 const mockDeleteOrganizationMembership = jest.fn().mockResolvedValue({});
 const mockGetUserList = jest.fn().mockResolvedValue({ data: [] });
 const mockCreateUser = jest.fn();
+const mockCreateOrganizationInvitation = jest.fn();
+const mockRevokeOrganizationInvitation = jest.fn();
 jest.mock('@clerk/backend', () => ({
   createClerkClient: jest.fn(() => ({
     organizations: {
@@ -23,6 +25,8 @@ jest.mock('@clerk/backend', () => ({
       updateOrganizationMembershipMetadata: (...args) => mockUpdateOrganizationMembershipMetadata(...args),
       getOrganizationMembershipList: (...args) => mockGetOrganizationMembershipList(...args),
       deleteOrganizationMembership: (...args) => mockDeleteOrganizationMembership(...args),
+      createOrganizationInvitation: (...args) => mockCreateOrganizationInvitation(...args),
+      revokeOrganizationInvitation: (...args) => mockRevokeOrganizationInvitation(...args),
     },
     users: {
       getUserList: (...args) => mockGetUserList(...args),
@@ -34,6 +38,7 @@ jest.mock('../shared/auth', () => ({
   signToken: jest.fn().mockReturnValue('test-jwt-token'),
   verifyToken: jest.fn().mockReturnValue({ sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }),
   authMiddleware: (req, _res, next) => { req.user = { sub: 'admin', name: 'Admin', role: 'owner', tenant_id: 1, tenant_slug: 'logify', 'cognito:groups': ['owner'] }; next(); },
+  clerkIdentityMiddleware: (req, _res, next) => { req.clerkIdentity = { clerkUserId: 'user_owner' }; next(); },
   requireRole: () => (req, _res, next) => next(),
   requireTenant: (req, _res, next) => { req.tenantId = req.user?.tenant_id ?? 1; next(); },
   extractRoleFromRequest: (req) => (req.user && req.user.role) ? req.user.role.toLowerCase() : null,
@@ -81,6 +86,7 @@ const mockCustomer = {
 describe('orders-service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQuery.mockReset();
     mockQuery.mockResolvedValue({ rows: [] });
     global.fetch = jest.fn().mockResolvedValue({ ok: true, text: jest.fn().mockResolvedValue('') });
   });
@@ -1003,7 +1009,22 @@ describe('orders-service', () => {
       expect(res.status).toBe(500);
     });
 
-    describe('con Clerk configurada (multi-org)', () => {
+    it('bloquea el alta directa en tenants Clerk y exige invitaciones', async () => {
+      process.env.CLERK_SECRET_KEY = 'sk_test_register';
+      try {
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] });
+        const res = await request(app).post('/api/auth/register').send(newUser);
+        expect(res.status).toBe(410);
+        expect(res.body.code).toBe('USE_INVITATIONS');
+        expect(mockCreateUser).not.toHaveBeenCalled();
+      } finally {
+        delete process.env.CLERK_SECRET_KEY;
+      }
+    });
+
+    describe.skip('flujo Clerk de alta directa retirado', () => {
       const ORIGINAL_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 
       beforeEach(() => {
@@ -1154,9 +1175,36 @@ describe('orders-service', () => {
     });
   });
 
+  describe('POST /api/auth/invitations', () => {
+    it('envía invitación Clerk sin crear usuario ni recibir contraseña', async () => {
+      process.env.CLERK_SECRET_KEY = 'sk_test_invite';
+      try {
+        mockCreateOrganizationInvitation.mockResolvedValueOnce({ id: 'orginv_1' });
+        mockQuery
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ clerk_org_id: 'org_1' }] })
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ id: 7, email: 'persona@empresa.cl', name: 'Persona', role: 'ops', status: 'pending' }] });
+
+        const res = await request(app).post('/api/auth/invitations').send({ email: 'persona@empresa.cl', name: 'Persona', role: 'ops' });
+
+        expect(res.status).toBe(201);
+        expect(res.body.status).toBe('pending');
+        expect(mockCreateOrganizationInvitation).toHaveBeenCalledWith(expect.objectContaining({
+          organizationId: 'org_1', emailAddress: 'persona@empresa.cl', role: 'org:member',
+          redirectUrl: 'https://app.logify.cl/accept-invitation',
+        }));
+        expect(mockCreateUser).not.toHaveBeenCalled();
+      } finally {
+        delete process.env.CLERK_SECRET_KEY;
+      }
+    });
+  });
+
   // ─── GET /api/auth/check-email ────────────────────────────────────────────────
 
-  describe('GET /api/auth/check-email', () => {
+  describe.skip('GET /api/auth/check-email retirado', () => {
     it('rechaza sin email → 400', async () => {
       const res = await request(app).get('/api/auth/check-email');
       expect(res.status).toBe(400);
@@ -1748,7 +1796,8 @@ describe('POST /api/webhooks/clerk', () => {
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT id FROM users WHERE clerk_user_id=$1 AND tenant_id=$2'), ['user_1', 7]);
       expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO users'), ['juanp', 'Juan Perez', 'vendor', 7, 'user_1']);
-      expect(mockQuery).toHaveBeenCalledTimes(3);
+      expect(mockQuery).toHaveBeenNthCalledWith(4, expect.stringContaining("UPDATE user_invitations SET status='accepted'"), [7, 'juan@acme.cl']);
+      expect(mockQuery).toHaveBeenCalledTimes(4);
     });
 
     it('actualiza el usuario existente en organizationMembership.updated', async () => {
@@ -1769,7 +1818,8 @@ describe('POST /api/webhooks/clerk', () => {
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT id FROM users WHERE clerk_user_id=$1 AND tenant_id=$2'), ['user_1', 7]);
       expect(mockQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE users'), ['Juan Perez', 'ops', 42]);
-      expect(mockQuery).toHaveBeenCalledTimes(3);
+      expect(mockQuery).toHaveBeenNthCalledWith(4, expect.stringContaining("UPDATE user_invitations SET status='accepted'"), [7, 'juan@acme.cl']);
+      expect(mockQuery).toHaveBeenCalledTimes(4);
     });
 
     // Multi-org: la misma persona (mismo clerk_user_id) puede tener una fila

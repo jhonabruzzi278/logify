@@ -46,4 +46,13 @@ async function verifyClerkToken(token) {
   return toAppUser(payload);
 }
 
-module.exports = { isClerkConfigured, verifyClerkToken };
+// Verifica una sesion de Clerk sin exigir una Organization activa. Este
+// token se usa exclusivamente en operaciones previas al tenant, como crear
+// la primera (o una nueva) empresa. `sub` conserva el Clerk User ID real.
+async function verifyClerkIdentityToken(token) {
+  const payload = await verifyToken(token, { secretKey: CLERK_SECRET_KEY });
+  if (!payload.sub) throw new Error('Token de Clerk valido pero sin identidad');
+  return { clerkUserId: payload.sub };
+}
+
+module.exports = { isClerkConfigured, verifyClerkToken, verifyClerkIdentityToken };

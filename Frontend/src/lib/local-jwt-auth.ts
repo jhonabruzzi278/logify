@@ -49,44 +49,45 @@ export async function loginWithLocalJwt(username: string, password: string): Pro
   };
 }
 
-// Pre-chequeo del formulario de "Agregar usuario": si el correo ya tiene
-// cuenta en Logify (de este tenant o de otro), esa persona inicia sesión de
-// forma independiente con su propia contraseña -- no hace falta pedirle una
-// nueva. Si Clerk no está configurado siempre responde exists:false (no hay
-// concepto de identidad reusable en el fallback local).
-export async function checkEmailExists(token: string, email: string): Promise<boolean> {
-  const response = await fetch(apiUrl(`/api/auth/check-email?email=${encodeURIComponent(email)}`), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) return false;
-  const body = (await response.json()) as { exists?: boolean };
-  return Boolean(body.exists);
+export interface UserInvitation {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  expires_at: string;
+  created_at: string;
 }
 
-// Alta directa multi-org (reemplaza el viejo flujo de invitación por correo):
-// el owner/admin crea la cuenta al instante con correo+contraseña -- si ese
-// correo ya tiene identidad en Clerk (de este tenant o de otro), el backend
-// la reusa en vez de fallar (linkedExistingAccount:true en la respuesta) y
-// cualquier password enviado se ignora, por eso es opcional aquí.
-export async function registerUser(
-  token: string,
-  userData: { email: string; password?: string; name: string; role: string }
-): Promise<{ id: number; username: string; name: string; role: string; email: string; linkedExistingAccount: boolean }> {
-  const response = await fetch(apiUrl("/api/auth/register"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(userData),
+async function invitationRequest(token: string, path: string, init?: RequestInit): Promise<Response> {
+  const response = await fetch(apiUrl(path), {
+    ...init,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...init?.headers },
   });
-
   if (!response.ok) {
-    const body = await response.json().catch(() => ({ error: "Error al registrar" })) as { error?: string };
-    throw new Error(body.error || "Error al registrar usuario");
+    const body = await response.json().catch(() => ({ error: "No se pudo procesar la invitación" })) as { error?: string };
+    throw new Error(body.error || "No se pudo procesar la invitación");
   }
+  return response;
+}
 
-  return response.json() as Promise<{ id: number; username: string; name: string; role: string; email: string; linkedExistingAccount: boolean }>;
+export async function inviteUser(token: string, data: { email: string; name: string; role: string }): Promise<UserInvitation> {
+  const response = await invitationRequest(token, "/api/auth/invitations", { method: "POST", body: JSON.stringify(data) });
+  return response.json() as Promise<UserInvitation>;
+}
+
+export async function fetchInvitations(token: string): Promise<UserInvitation[]> {
+  const response = await invitationRequest(token, "/api/auth/invitations");
+  return response.json() as Promise<UserInvitation[]>;
+}
+
+export async function resendInvitation(token: string, id: number): Promise<UserInvitation> {
+  const response = await invitationRequest(token, `/api/auth/invitations/${id}/resend`, { method: "POST" });
+  return response.json() as Promise<UserInvitation>;
+}
+
+export async function revokeInvitation(token: string, id: number): Promise<void> {
+  await invitationRequest(token, `/api/auth/invitations/${id}`, { method: "DELETE" });
 }
 
 export async function fetchUsers(token: string): Promise<Array<{ id: number; username: string; name: string; email: string; role: string; created_at: string; updated_at: string; last_login_at: string | null }>> {
