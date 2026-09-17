@@ -100,9 +100,11 @@ function createApp(dbName, port) {
     next();
   });
 
-  async function start() {
+  async function start(onServerStarted) {
     const server = app.listen(port, () => log.info(`${dbName} running on port ${port}`));
+    if (onServerStarted) onServerStarted(server);
     gracefulShutdown(server, [pool, runtimePool], null, dbName);
+    return server;
   }
 
   return { app, pool, runtimePool, sendError, interServiceFetch, start };

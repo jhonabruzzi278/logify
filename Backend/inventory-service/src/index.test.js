@@ -15,6 +15,7 @@ jest.mock('../shared/auth', () => ({
 }));
 
 const request = require('supertest');
+const { WebSocket } = require('ws');
 const { createPool } = require('../shared/db');
 
 const mockQuery = jest.fn();
@@ -23,6 +24,7 @@ const mockClient = { query: mockQuery, release: mockClientRelease };
 createPool.mockReturnValue({ query: mockQuery, connect: jest.fn().mockResolvedValue(mockClient), on: jest.fn(), end: jest.fn() });
 
 const { app, ensureTables, ensureTenantColumns, ensureTenantConstraints } = require('./index');
+const { registerPosCartWebSocket, publishCartUpdate } = require('./pos-cart');
 
 const mockProduct = { id: 1, sku: 'COCA-2L', stock: 50 };
 const mockSale = { id: 1, sku: 'COCA-2L', quantity: 5, sale_date: new Date().toISOString() };
@@ -1623,6 +1625,108 @@ describe('inventory-service', () => {
 
       const corto = await request(app).get('/api/inventory/barcode-lookup?barcode=123');
       expect(corto.status).toBe(400);
+    });
+  });
+
+  describe('POST /api/inventory/upsert-by-barcode', () => {
+    it('suma stock cuando el código ya existe y registra la mutación idempotente', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('pg_advisory_xact_lock')) return { rows: [{}] };
+        if (text.includes('SELECT response FROM inventory_stock_mutations')) return { rows: [] };
+        if (text.includes('SELECT * FROM inventory WHERE tenant_id=$1 AND barcode=$2')) {
+          return { rows: [{ id: 8, sku: 'AUTO-123', barcode: '7801234567890', name: 'Bebida', stock: 5 }] };
+        }
+        if (text.includes('UPDATE inventory SET stock=stock+$1')) {
+          return { rows: [{ id: 8, sku: 'AUTO-123', barcode: '7801234567890', name: 'Bebida', stock: 7 }] };
+        }
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/inventory/upsert-by-barcode').send({
+        barcode: '7801234567890', quantity: 2, mutationId: 'scan-1',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ created: false, quantityAdded: 2, product: { stock: 7 } });
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO inventory_stock_mutations'),
+        expect.arrayContaining([1, 'scan-1'])
+      );
+    });
+
+    it('valida código, cantidad y mutationId antes de tocar la base', async () => {
+      const res = await request(app).post('/api/inventory/upsert-by-barcode').send({ barcode: 'ABC', quantity: 0 });
+      expect(res.status).toBe(400);
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/pos/cart', () => {
+    it('recupera el carrito persistente del usuario dentro del tenant', async () => {
+      mockQuery.mockImplementation(async (text) => {
+        if (text.includes('INSERT INTO pos_carts')) {
+          return { rows: [{ id: 'cart-1', tenant_id: 1, user_id: 'admin', version: 3, updated_at: '2026-09-16T12:00:00.000Z' }] };
+        }
+        if (text.includes('FROM pos_cart_items ci')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).get('/api/pos/cart');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: 'cart-1', version: 3, items: [] });
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('tenant_id, user_id'), expect.arrayContaining([1, 'admin']));
+    });
+  });
+
+  describe('POST /api/pos/cart/checkout', () => {
+    it('descuenta stock, registra la venta y vacía el carrito en una transacción', async () => {
+      const cart = { id: 'cart-1', tenant_id: 1, user_id: 'admin', version: 3, updated_at: '2026-09-16T12:00:00.000Z' };
+      const cartItem = { id: 'item-1', cart_id: 'cart-1', tenant_id: 1, sku: 'COCA-2L', product_name: 'Coca Cola', quantity: 2, unit_price: 1500, is_manual_amount: false };
+      mockQuery.mockImplementation(async (text) => {
+        if (text === 'BEGIN' || text === 'COMMIT' || text === 'ROLLBACK') return { rows: [] };
+        if (text.includes('INSERT INTO pos_carts')) return { rows: [cart] };
+        if (text.includes('SELECT 1 FROM pos_cart_mutations')) return { rows: [] };
+        if (text.includes('SELECT * FROM pos_cart_items') && text.includes('FOR UPDATE')) return { rows: [cartItem] };
+        if (text.includes('SELECT stock,cost FROM inventory')) return { rows: [{ stock: 10, cost: 700 }] };
+        if (text.includes('INSERT INTO sales')) return { rows: [{ id: 90, sku: 'COCA-2L', quantity: 2, total: 3000 }] };
+        if (text.includes('FROM pos_cart_items ci')) return { rows: [] };
+        return { rows: [] };
+      });
+
+      const res = await request(app).post('/api/pos/cart/checkout').send({
+        mutationId: 'checkout-1', paymentMethod: 'cash', vendorId: 'admin', vendorName: 'Admin',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toMatchObject({ total: 3000, items: [{ id: 90 }], cart: { items: [] } });
+      expect(mockQuery).toHaveBeenCalledWith('UPDATE inventory SET stock=stock-$1 WHERE tenant_id=$2 AND sku=$3', [2, 1, 'COCA-2L']);
+      expect(mockQuery).toHaveBeenCalledWith('DELETE FROM pos_cart_items WHERE cart_id=$1', ['cart-1']);
+      expect(mockQuery).toHaveBeenCalledWith('COMMIT');
+    });
+  });
+
+  describe('WebSocket /api/pos/cart/ws', () => {
+    it('entrega en tiempo real solo el carrito confirmado del usuario', async () => {
+      const server = app.listen(0);
+      const wss = registerPosCartWebSocket(server);
+      const port = server.address().port;
+      const socket = new WebSocket(`ws://127.0.0.1:${port}/api/pos/cart/ws`, ['logify-cart-v1', 'auth.test-token']);
+      const messages = [];
+      socket.on('message', (data) => messages.push(JSON.parse(data.toString())));
+      await new Promise((resolve, reject) => {
+        socket.once('open', resolve);
+        socket.once('error', reject);
+      });
+
+      publishCartUpdate(1, 'admin', { id: 'cart-live', version: 9, items: [] });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(messages).toContainEqual({ type: 'cart', cart: { id: 'cart-live', version: 9, items: [] } });
+      await new Promise((resolve) => { socket.once('close', resolve); socket.close(); });
+      await new Promise((resolve) => wss.close(resolve));
+      await new Promise((resolve) => server.close(resolve));
     });
   });
 

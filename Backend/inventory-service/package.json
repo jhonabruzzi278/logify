@@ -17,7 +17,8 @@
     "jsonwebtoken": "^9.0.3",
     "pdfkit": "^0.15.2",
     "pg": "^8.13.1",
-    "uuid": "^11.0.5"
+    "uuid": "^11.0.5",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "jest": "^29.7.0",

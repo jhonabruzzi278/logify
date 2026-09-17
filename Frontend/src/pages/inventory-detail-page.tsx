@@ -156,8 +156,7 @@ export function InventoryDetailPage() {
           )}
           <div>
             <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Producto</p>
-            <h1 className="text-xl font-bold text-[#172554]">SKU {resolvedProduct.sku}</h1>
-            <p className="text-sm text-[#64748B]">{resolvedProduct.name}</p>
+            <h1 className="text-xl font-bold text-[#172554]">{resolvedProduct.name}</h1>
             {resolvedProduct.barcode && <p className="text-xs font-mono text-[#64748B]">Código {resolvedProduct.barcode}</p>}
           </div>
         </div>
@@ -301,7 +300,7 @@ export function InventoryDetailPage() {
 
         {/* Related orders */}
         <div className="rounded border border-[#E2E8F0] bg-white p-5">
-          <p className="mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Pedidos con este SKU ({relatedOrders.length})</p>
+          <p className="mb-4 text-[0.6875rem] font-bold uppercase tracking-[0.92px] text-[#64748B]">Pedidos con este producto ({relatedOrders.length})</p>
 
           {relatedOrders.length > 0 ? (
             <div className="space-y-2">

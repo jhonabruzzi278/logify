@@ -5,6 +5,8 @@ const { requireAdminKey } = require('../shared/admin');
 const log = require('../shared/logger');
 const { ensureInventorySessionTables, registerInventorySessionRoutes } = require('./inventory-sessions');
 const { lookupBarcode } = require('./barcode-lookup');
+const { ensurePosCartTables, registerPosCartRoutes, registerPosCartWebSocket } = require('./pos-cart');
+const { randomUUID } = require('crypto');
 
 const { app, pool, sendError, start } = createApp('inventory_db', process.env.PORT || 8082);
 
@@ -59,6 +61,10 @@ async function ensureTables() {
     closed_at TIMESTAMP, counted_amount NUMERIC, expected_amount NUMERIC, difference NUMERIC,
     status VARCHAR(10) NOT NULL DEFAULT 'open', created_at TIMESTAMP DEFAULT NOW())`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_cash_sessions_tenant ON cash_sessions (tenant_id)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS inventory_stock_mutations (
+    tenant_id INTEGER NOT NULL, mutation_id VARCHAR(100) NOT NULL,
+    response JSONB NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tenant_id, mutation_id))`);
 
   // Fase 1 del roadmap de expansión comercial (ver aidlc-docs/): proveedores
   // y productos ampliados. Las "variantes" (talla/color/presentación) se
@@ -79,6 +85,7 @@ async function ensureTables() {
   await ensureTenantColumns();
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_tenant_barcode ON inventory (tenant_id, barcode) WHERE barcode IS NOT NULL`).catch(() => {});
   await ensureInventorySessionTables(pool);
+  await ensurePosCartTables(pool);
 }
 
 // Fase 4A del roadmap multi-tenant (ver wiki/Multi-Tenant.md): backfill al
@@ -169,6 +176,7 @@ app.get('/api/inventory', authMiddleware, requireTenant, async (req, res) => {
 });
 
 registerInventorySessionRoutes({ app, pool, authMiddleware, requireTenant, requireRole, sendError, lookupBarcode });
+registerPosCartRoutes({ app, pool, authMiddleware, requireTenant, requireRole, sendError });
 
 app.get('/api/inventory/report', authMiddleware, requireTenant, async (req, res) => {
   try { res.json((await pool.query('SELECT * FROM fn_get_inventory_report($1)', [req.tenantId])).rows); }
@@ -320,6 +328,71 @@ app.get('/api/inventory/barcode-lookup', authMiddleware, requireTenant, async (r
   res.json(await lookupBarcode(barcode));
 });
 
+// Flujo único para escáneres: el código de barras es la identidad visible. Si
+// ya existe suma stock; si no, crea el producto con un SKU interno opaco. La
+// mutación idempotente evita duplicar unidades cuando un teléfono reintenta.
+app.post('/api/inventory/upsert-by-barcode', authMiddleware, requireTenant, requireRole('owner', 'ops', 'warehouse'), async (req, res) => {
+  const barcode = String(req.body?.barcode || '').trim();
+  const quantity = Number.parseInt(req.body?.quantity, 10);
+  const mutationId = String(req.body?.mutationId || '').trim();
+  if (!/^\d{6,14}$/.test(barcode)) return res.status(400).json({ error: 'Código de barras inválido' });
+  if (!Number.isInteger(quantity) || quantity <= 0) return res.status(400).json({ error: 'quantity debe ser un entero positivo' });
+  if (!mutationId || mutationId.length > 100) return res.status(400).json({ error: 'mutationId es requerido' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`inventory:${req.tenantId}:${mutationId}`]);
+    const replay = (await client.query(
+      'SELECT response FROM inventory_stock_mutations WHERE tenant_id=$1 AND mutation_id=$2',
+      [req.tenantId, mutationId]
+    )).rows[0];
+    if (replay) {
+      await client.query('COMMIT');
+      res.setHeader('Idempotency-Replayed', 'true');
+      return res.json(replay.response);
+    }
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`barcode:${req.tenantId}:${barcode}`]);
+    let product = (await client.query(
+      'SELECT * FROM inventory WHERE tenant_id=$1 AND barcode=$2 FOR UPDATE',
+      [req.tenantId, barcode]
+    )).rows[0];
+    let created = false;
+    let lookup = null;
+    if (product) {
+      product = (await client.query(
+        'UPDATE inventory SET stock=stock+$1 WHERE id=$2 AND tenant_id=$3 RETURNING *',
+        [quantity, product.id, req.tenantId]
+      )).rows[0];
+    } else {
+      lookup = await lookupBarcode(barcode);
+      const name = String(req.body?.name || (lookup.found ? lookup.name : '') || '').trim();
+      if (!name) throw Object.assign(new Error('No encontramos el producto; ingresa un nombre para crearlo'), { statusCode: 422 });
+      const sku = `AUTO-${randomUUID()}`;
+      product = (await client.query(
+        `INSERT INTO inventory (sku,barcode,stock,name,price,cost,category,image_url,tenant_id,unit_of_measure,tax_rate,active)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true) RETURNING *`,
+        [sku, barcode, quantity, name, Number(req.body?.price || 0), Number(req.body?.cost || 0),
+         req.body?.category || (lookup.found ? lookup.category : 'otros'),
+         req.body?.imageUrl || (lookup.found ? lookup.imageUrl : null), req.tenantId,
+         req.body?.unitOfMeasure || 'unidad', Number(req.body?.taxRate || 0)]
+      )).rows[0];
+      created = true;
+    }
+    const response = { product, created, quantityAdded: quantity, source: lookup?.source || null };
+    await client.query(
+      'INSERT INTO inventory_stock_mutations (tenant_id,mutation_id,response) VALUES ($1,$2,$3::jsonb)',
+      [req.tenantId, mutationId, JSON.stringify(response)]
+    );
+    await client.query('COMMIT');
+    res.status(created ? 201 : 200).json(response);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    if (err.code === '23505') return res.status(409).json({ error: 'El código ya fue registrado por otra operación; vuelve a escanear' });
+    sendError(res, 500, 'Failed to upsert inventory by barcode', err);
+  } finally { client.release(); }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 
 app.get('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) => {
@@ -332,21 +405,23 @@ app.get('/api/inventory/:sku', authMiddleware, requireTenant, async (req, res) =
 
 app.post('/api/inventory', authMiddleware, requireTenant, requireRole('owner', 'warehouse'), async (req, res) => {
   try {
-    const errors = validateInventoryBody(req.body);
+    const generatedSku = !req.body?.sku && req.body?.barcode ? `AUTO-${randomUUID()}` : req.body?.sku;
+    const body = { ...req.body, sku: generatedSku };
+    const errors = validateInventoryBody(body);
     if (errors.length) return res.status(400).json({ error: errors.join(', ') });
-    if ((await pool.query('SELECT 1 FROM inventory WHERE sku=$1 AND tenant_id=$2', [req.body.sku, req.tenantId])).rows.length)
+    if ((await pool.query('SELECT 1 FROM inventory WHERE sku=$1 AND tenant_id=$2', [body.sku, req.tenantId])).rows.length)
       return res.status(409).json({ error: 'SKU ya existe' });
-    const barcode = typeof req.body.barcode === 'string' ? req.body.barcode.trim() || null : null;
+    const barcode = typeof body.barcode === 'string' ? body.barcode.trim() || null : null;
     if (barcode && (await pool.query('SELECT 1 FROM inventory WHERE barcode=$1 AND tenant_id=$2', [barcode, req.tenantId])).rows.length)
       return res.status(409).json({ error: 'Código de barras ya existe' });
     const result = await pool.query(
       `INSERT INTO inventory (sku, stock, name, price, cost, category, image_url, tenant_id,
         supplier_id, unit_of_measure, tax_rate, price_includes_tax, active, parent_sku, variant_label, barcode)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
-      [req.body.sku, req.body.stock || 0, req.body.name || null, req.body.price || 0, req.body.cost || 0,
-       req.body.category || 'otros', req.body.imageUrl || null, req.tenantId,
-       req.body.supplierId || null, req.body.unitOfMeasure || 'unidad', req.body.taxRate || 0,
-       req.body.priceIncludesTax !== false, req.body.active !== false, req.body.parentSku || null, req.body.variantLabel || null, barcode]);
+      [body.sku, body.stock || 0, body.name || null, body.price || 0, body.cost || 0,
+       body.category || 'otros', body.imageUrl || null, req.tenantId,
+       body.supplierId || null, body.unitOfMeasure || 'unidad', body.taxRate || 0,
+       body.priceIncludesTax !== false, body.active !== false, body.parentSku || null, body.variantLabel || null, barcode]);
     res.status(201).json(result.rows[0]);
   } catch (err) { sendError(res, 500, 'Failed to create inventory', err); }
 });
@@ -846,7 +921,7 @@ app.delete('/api/admin/tenants/:tenantId/purge', requireAdminKey, async (req, re
     try {
       await client.query('BEGIN');
       const counts = {};
-      for (const table of ['inventory_session_items', 'inventory_movements', 'inventory_sessions', 'sales', 'purchases', 'cash_sessions', 'processed_events', 'inventory', 'suppliers']) {
+      for (const table of ['pos_cart_items', 'pos_cart_mutations', 'pos_carts', 'inventory_stock_mutations', 'inventory_session_items', 'inventory_movements', 'inventory_sessions', 'sales', 'purchases', 'cash_sessions', 'processed_events', 'inventory', 'suppliers']) {
         const r = await client.query(`DELETE FROM ${table} WHERE tenant_id=$1`, [tenantId]);
         counts[table] = r.rowCount;
       }
@@ -862,7 +937,7 @@ app.delete('/api/admin/tenants/:tenantId/purge', requireAdminKey, async (req, re
 });
 
 if (require.main === module) {
-  (async () => { await ensureTables(); await ensureTenantConstraints(); await ensureProcedures(); start(); })();
+  (async () => { await ensureTables(); await ensureTenantConstraints(); await ensureProcedures(); start(registerPosCartWebSocket); })();
 }
 
 module.exports = { app, ensureTables, ensureTenantColumns, ensureTenantConstraints };

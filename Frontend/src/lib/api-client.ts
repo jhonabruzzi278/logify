@@ -66,6 +66,10 @@ export class ApiClient {
     this.onAuthRefresh = handler;
   }
 
+  getConnectionConfig() {
+    return { baseUrl: this.baseUrl, token: this.token };
+  }
+
   async fetch<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await this.request(path, init);
     return this.handleResponse<T>(response);
@@ -232,4 +236,8 @@ export function setApiAuthRefreshHandler(handler: (() => Promise<string | null>)
 
 export function updateApiToken(token: string | null): void {
   apiClient.setToken(token);
+}
+
+export function getApiConnectionConfig() {
+  return apiClient.getConnectionConfig();
 }
