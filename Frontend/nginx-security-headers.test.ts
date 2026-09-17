@@ -118,4 +118,14 @@ describe("Frontend/nginx.prod.conf - headers de seguridad", () => {
     expect(conf).not.toContain('Permissions-Policy "camera=(),');
     expect(vercelConfig).not.toContain('"value": "camera=(),');
   });
+
+  it("permite el WebSocket seguro del carrito POS en Vercel y nginx", () => {
+    const vercelConfig = readFileSync(VERCEL_CONFIG_PATH, "utf-8");
+    const websocketOrigin = "wss://api.logify.cl";
+
+    expect(conf).toContain(`connect-src 'self' https://api.logify.cl ${websocketOrigin}`);
+    expect(vercelConfig).toContain(
+      `connect-src 'self' https://api.logify.cl ${websocketOrigin}`,
+    );
+  });
 });
