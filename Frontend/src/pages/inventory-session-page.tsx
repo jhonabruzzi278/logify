@@ -212,7 +212,7 @@ export function InventorySessionPage() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-        <input aria-label="Buscar productos del inventario" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, SKU o código" className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white pl-10 pr-3 text-sm outline-none focus:border-[#2563EB]" />
+        <input aria-label="Buscar productos del inventario" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre o código" className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white pl-10 pr-3 text-sm outline-none focus:border-[#2563EB]" />
       </div>
 
       {visibleItems.length === 0 ? (

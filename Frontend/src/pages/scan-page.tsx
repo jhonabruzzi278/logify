@@ -20,8 +20,8 @@ export function ScanPage() {
   const [adjusting, setAdjusting] = useState(false);
   const [adjusted, setAdjusted] = useState<number | null>(null);
   const [lookupState, setLookupState] = useState<"idle" | "loading" | "found" | "not_found">("idle");
-  const [addForm, setAddForm] = useState<{ name: string; sku: string; stock: number; category: ProductCategory; imageUrl?: string | null }>({
-    name: "", sku: "", stock: 1, category: "otros",
+  const [addForm, setAddForm] = useState<{ name: string; stock: number; category: ProductCategory; imageUrl?: string | null }>({
+    name: "", stock: 1, category: "otros",
   });
   const [addError, setAddError] = useState("");
   const [adding, setAdding] = useState(false);
@@ -32,7 +32,7 @@ export function ScanPage() {
     path: "/api/inventory",
     transform: (response) => response.map(adaptInventory),
   });
-  const { operationalInventory, adjustInventory, addProduct } = useOperationalWorkspace({ inventory });
+  const { operationalInventory, adjustInventory } = useOperationalWorkspace({ inventory });
 
   const product = useMemo(() => {
     const normalized = scannedCode.trim().toLowerCase();
@@ -48,7 +48,7 @@ export function ScanPage() {
     setScannerOpen(false);
     setLookupState("idle");
     setAddError("");
-    setAddForm({ name: "", sku: "", stock: 1, category: "otros" });
+    setAddForm({ name: "", stock: 1, category: "otros" });
   }, []);
 
   useEffect(() => {
@@ -72,14 +72,20 @@ export function ScanPage() {
   async function handleAddProduct() {
     if (adding) return;
     const name = addForm.name.trim();
-    const sku = addForm.sku.trim();
-    if (!name || !sku) { setAddError("Nombre y SKU son obligatorios"); return; }
+    if (!name) { setAddError("El nombre es obligatorio"); return; }
     setAddError("");
     setAdding(true);
     try {
-      await addProduct({
-        sku, name, stock: addForm.stock, price: 0, cost: 0, category: addForm.category,
-        imageUrl: addForm.imageUrl ?? undefined, barcode: scannedCode,
+      await apiFetch("/api/inventory/upsert-by-barcode", {
+        method: "POST",
+        body: JSON.stringify({
+          barcode: scannedCode,
+          quantity: addForm.stock,
+          name,
+          category: addForm.category,
+          imageUrl: addForm.imageUrl ?? undefined,
+          mutationId: crypto.randomUUID(),
+        }),
       });
       await refresh();
     } catch (err) {
@@ -93,7 +99,14 @@ export function ScanPage() {
     if (!product || adjusting) return;
     setAdjusting(true);
     try {
-      await adjustInventory(product, delta, "Ajuste desde escáner móvil");
+      if (delta > 0 && /^\d{6,14}$/.test(scannedCode)) {
+        await apiFetch("/api/inventory/upsert-by-barcode", {
+          method: "POST",
+          body: JSON.stringify({ barcode: scannedCode, quantity: delta, mutationId: crypto.randomUUID() }),
+        });
+      } else {
+        await adjustInventory(product, delta, "Ajuste desde escáner móvil");
+      }
       setAdjusted(delta);
       await refresh();
     } finally {
@@ -115,7 +128,7 @@ export function ScanPage() {
         <div>
           <p className="text-[0.6875rem] font-bold uppercase tracking-[1.2px] text-[#64748B]">Inventario móvil</p>
           <h1 className="mt-0.5 text-2xl font-bold text-[#172554]">Escanear código</h1>
-          <p className="mt-1 max-w-md text-sm text-[#64748B]">Encuentra un producto por su código de barras o SKU y actualiza el stock en segundos.</p>
+          <p className="mt-1 max-w-md text-sm text-[#64748B]">Encuentra un producto por su código de barras y actualiza el stock en segundos.</p>
         </div>
         <Link to="/inventory" className="hidden items-center gap-1 text-sm font-semibold text-[#2563EB] sm:flex">Ver inventario <ArrowRight className="h-4 w-4" /></Link>
       </div>
@@ -145,8 +158,7 @@ export function ScanPage() {
 
           <div className="grid gap-5 py-6 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="space-y-2">
-              <div className="flex min-w-0 items-center gap-2 text-sm text-[#64748B]"><Barcode className="h-4 w-4 shrink-0" /><span className="shrink-0">SKU</span><strong className="min-w-0 break-all font-mono text-[#172554]">{product.sku}</strong></div>
-              {product.barcode && <div className="flex min-w-0 items-center gap-2 text-sm text-[#64748B]"><ScanLine className="h-4 w-4 shrink-0" /><span className="shrink-0">Código</span><strong className="min-w-0 break-all font-mono text-[#172554]">{product.barcode}</strong></div>}
+              {product.barcode && <div className="flex min-w-0 items-center gap-2 text-sm text-[#64748B]"><Barcode className="h-4 w-4 shrink-0" /><span className="shrink-0">Código de barras</span><strong className="min-w-0 break-all font-mono text-[#172554]">{product.barcode}</strong></div>}
               <div className="flex items-center gap-2 text-sm text-[#64748B]"><Boxes className="h-4 w-4" /><span>Stock disponible</span></div>
               <p className={cn("text-4xl font-bold", product.stock <= 5 ? "text-red-500" : "text-[#172554]")}>{product.stock} <span className="text-sm font-semibold text-[#64748B]">unidades</span></p>
             </div>
@@ -189,15 +201,9 @@ export function ScanPage() {
                 <label htmlFor="scan-page-add-name" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nombre*</label>
                 <Input id="scan-page-add-name" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} placeholder="Nombre del producto" maxLength={100} className="h-10 text-sm" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label htmlFor="scan-page-add-barcode" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código de barras</label>
-                  <Input id="scan-page-add-barcode" value={scannedCode} readOnly className="h-10 text-sm bg-[#F8FAFC]" />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="scan-page-add-sku" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">SKU*</label>
-                  <Input id="scan-page-add-sku" value={addForm.sku} onChange={(e) => setAddForm({ ...addForm, sku: e.target.value })} placeholder="Ej: COCA-2L" className="h-10 text-sm" />
-                </div>
+              <div className="space-y-1">
+                <label htmlFor="scan-page-add-barcode" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código de barras</label>
+                <Input id="scan-page-add-barcode" value={scannedCode} readOnly className="h-10 bg-[#F8FAFC] text-sm" />
               </div>
               <div className="space-y-1">
                 <label htmlFor="scan-page-add-stock" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Stock inicial</label>

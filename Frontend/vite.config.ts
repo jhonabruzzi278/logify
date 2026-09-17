@@ -89,7 +89,8 @@ export default defineConfig({
       },
       "/api": {
         target: edgeTarget,
-        changeOrigin: true
+        changeOrigin: true,
+        ws: true
       },
       "/actuator": {
         target: edgeTarget,

@@ -82,9 +82,9 @@ export function PosPage() {
     return customers.filter((c) => `${c.name} ${c.phone ?? ""}`.toLowerCase().includes(q)).slice(0, 8);
   }, [customers, customerSearch]);
 
-  const { operationalInventory, recordSale } = useOperationalWorkspace({ inventory });
+  const { operationalInventory } = useOperationalWorkspace({ inventory });
 
-  const { items, addToCart, addManualAmount, removeFromCart, updateQuantity, clearCart, total, itemCount, saleItems } = usePosCart();
+  const { items, addToCart, addManualAmount, removeFromCart, updateQuantity, clearCart, checkout, syncing, syncError, realtimeConnected, total, itemCount, saleItems } = usePosCart(session?.token);
   const { uf, dolar } = useIndicadores();
 
   const filteredProducts = useMemo(() => {
@@ -116,7 +116,7 @@ export function PosPage() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   async function handleCheckout() {
-    if (items.length === 0) return;
+    if (items.length === 0 || syncing) return;
     setCheckoutError(null);
     setCreditWarning(null);
 
@@ -144,8 +144,19 @@ export function PosPage() {
       createdAt: new Date().toISOString(),
     };
 
-    await recordSale(sale);
-    refresh();
+    try {
+      await checkout({
+        paymentMethod,
+        vendorId: sale.vendorId,
+        vendorName: sale.vendorName,
+        customerId: sale.customerId,
+        customerName: sale.customerName,
+      });
+      await refresh();
+    } catch (err) {
+      setCheckoutError(err instanceof ApiRequestError ? err.message : "No se pudo completar la venta");
+      return;
+    }
 
     if (paymentMethod === "credit" && selectedCustomer) {
       try {
@@ -163,7 +174,6 @@ export function PosPage() {
     }
 
     setSuccessSale(sale);
-    clearCart();
     setCartOpen(false);
     setSelectedCustomer(null);
     setCustomerSearch("");
@@ -243,6 +253,12 @@ export function PosPage() {
           Vaciar
         </button>
       </div>
+
+      {(syncing || syncError || !realtimeConnected) && (
+        <p role="status" className={cn("px-4 py-1.5 text-[11px]", syncError ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700")}>
+          {syncError ?? (syncing ? "Sincronizando carrito con tu cuenta…" : "Reconectando sincronización en tiempo real…")}
+        </p>
+      )}
 
       {items.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 py-12">
@@ -403,10 +419,11 @@ export function PosPage() {
 
             <button type="button"
               onClick={handleCheckout}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D9488] py-3 text-sm font-bold text-white transition-colors hover:bg-[#0D9488] active:scale-[0.98]"
+              disabled={syncing}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D9488] py-3 text-sm font-bold text-white transition-colors hover:bg-[#0D9488] active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
             >
-              <Check className="h-5 w-5" />
-              Cobrar {formatCurrency(total)}
+              {syncing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+              {syncing ? "Sincronizando…" : `Cobrar ${formatCurrency(total)}`}
             </button>
           </div>
         </>

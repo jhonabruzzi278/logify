@@ -30,7 +30,7 @@ export function InventoryPage() {
   const [filter, setFilter] = useState<"all" | "critical" | "warning" | "healthy">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    sku: "", barcode: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0,
+    barcode: "", name: "", category: "bebidas" as ProductCategory, stock: 0, price: 0, cost: 0,
     supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true, imageUrl: "" as string,
   });
   const [formError, setFormError] = useState("");
@@ -70,7 +70,7 @@ export function InventoryPage() {
   }
 
   async function handleAdd(data: {
-    sku: string; name: string; stock: number; price: number; cost: number; category: ProductCategory;
+    sku?: string; name: string; stock: number; price: number; cost: number; category: ProductCategory;
     barcode?: string | null; imageUrl?: string;
     supplierId?: number | null; unitOfMeasure?: string; taxRate?: number; active?: boolean;
   }) {
@@ -291,23 +291,19 @@ export function InventoryPage() {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 setFormError("");
-                if (!form.sku.trim() || !form.name.trim()) { setFormError("SKU y Nombre son obligatorios"); return; }
+                if (!form.name.trim()) { setFormError("El nombre es obligatorio"); return; }
+                if (!form.barcode.trim()) { setFormError("El código de barras es obligatorio; el SKU se genera automáticamente"); return; }
                 if (form.stock < 0 || form.price < 0 || form.cost < 0) { setFormError("Stock, Precio y Costo no pueden ser negativos"); return; }
                 await handleAdd({
-                  sku: form.sku, name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost,
+                  name: form.name, category: form.category, stock: form.stock, price: form.price, cost: form.cost,
                   barcode: form.barcode || null, imageUrl: form.imageUrl || undefined,
                   supplierId: form.supplierId ? Number(form.supplierId) : null, unitOfMeasure: form.unitOfMeasure, taxRate: form.taxRate, active: form.active,
                 });
-                setForm({ sku: "", barcode: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true, imageUrl: "" });
+                setForm({ barcode: "", name: "", category: "bebidas", stock: 0, price: 0, cost: 0, supplierId: "", unitOfMeasure: "unidad", taxRate: 19, active: true, imageUrl: "" });
                 setLookupState("idle");
                 setDialogOpen(false);
               }} className="space-y-3">
-                <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
-                  <div className="space-y-1">
-                    <label htmlFor="inventory-page-f287" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">SKU</label>
-                    <Input id="inventory-page-f287" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="COCA-COLA-2L" className="h-9 text-sm" />
-                  </div>
-                  <div className="space-y-1">
+                <div className="space-y-1">
                     <label htmlFor="inventory-page-f291" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Categoría</label>
                     <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as ProductCategory })}>
                       <SelectTrigger id="inventory-page-f291" size="sm" className="h-9 w-full"><SelectValue /></SelectTrigger>
@@ -318,7 +314,6 @@ export function InventoryPage() {
                         <SelectItem value="otros">Otros</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
                 </div>
                 <div className="space-y-1">
                   <label htmlFor="inventory-page-f304" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Nombre</label>
@@ -327,7 +322,7 @@ export function InventoryPage() {
                 <div className="space-y-1">
                   <label htmlFor="inventory-page-barcode" className="text-[10px] font-bold uppercase tracking-[0.92px] text-[#64748B]">Código de barras</label>
                   <div className="flex gap-2">
-                    <Input id="inventory-page-barcode" inputMode="numeric" value={form.barcode} onChange={(e) => { setForm({ ...form, barcode: e.target.value }); setLookupState("idle"); }} placeholder="78006027 (opcional)" className="h-9 text-sm" />
+                    <Input id="inventory-page-barcode" inputMode="numeric" value={form.barcode} onChange={(e) => { setForm({ ...form, barcode: e.target.value }); setLookupState("idle"); }} placeholder="78006027" className="h-9 text-sm" required />
                     <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => { setDialogOpen(false); setScannerOpen(true); }} aria-label="Escanear código de barras">
                       <ScanLine className="h-4 w-4" />
                     </Button>
@@ -424,7 +419,7 @@ export function InventoryPage() {
             </DialogContent>
           </Dialog>
           )}
-          <span className="text-xs text-[#64748B]">{counts.total} SKU · {counts.totalUnits} unids totales</span>
+          <span className="text-xs text-[#64748B]">{counts.total} productos · {counts.totalUnits} unids totales</span>
         </div>
       </div>
 
@@ -434,7 +429,7 @@ export function InventoryPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por nombre, SKU o código de barras..."
+            placeholder="Buscar por nombre o código de barras..."
             className="h-10 w-full rounded border border-input bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
@@ -460,8 +455,7 @@ export function InventoryPage() {
             <div className="flex min-w-0 items-start justify-between gap-3">
               <Link to={`/inventory/${product.sku}`} className="min-w-0 flex-1">
                 <p className="break-words text-sm font-bold text-[#172554]">{product.name}</p>
-                <p className="mt-1 break-all font-mono text-xs text-[#64748B]">SKU {product.sku}</p>
-                {product.barcode && <p className="mt-0.5 break-all font-mono text-xs text-[#64748B]">Código {product.barcode}</p>}
+                <p className="mt-1 break-all font-mono text-xs text-[#64748B]">Código {product.barcode || "Sin código"}</p>
               </Link>
               {isOwner && (
                 <button type="button" onClick={() => setDeleteConfirm({ sku: product.sku, name: product.name })} aria-label={`Eliminar ${product.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50">
@@ -492,7 +486,7 @@ export function InventoryPage() {
             <thead>
               <tr className="border-b border-[#E2E8F0] text-xs font-bold uppercase tracking-[0.92px] text-muted-foreground">
                 <th className="px-4 py-3 w-6"></th>
-                <th className="px-4 py-3">SKU</th>
+                <th className="px-4 py-3">Código de barras</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Nombre</th>
                 <th className="px-4 py-3">Stock</th>
                 <th className="px-4 py-3 hidden md:table-cell">Estado</th>
@@ -526,7 +520,7 @@ export function InventoryPage() {
                     ) : (
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[#F8FAFC]"><ImageOff className="h-3 w-3 text-[#E2E8F0]" /></span>
                     )}
-                    {product.sku}
+                    {product.barcode || "Sin código"}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell text-xs">{product.name}</td>

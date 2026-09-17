@@ -129,12 +129,13 @@ describe("InventoryPage — escanear para autocompletar", () => {
     await openCreateFormAndScanner();
     await waitFor(() => expect(screen.getByPlaceholderText("Coca-Cola 2L")).toHaveValue("Jugo Natural 1L"));
 
-    fireEvent.change(screen.getByPlaceholderText("COCA-COLA-2L"), { target: { value: "JUGO-1L" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalledWith("/api/inventory", expect.objectContaining({
       method: "POST",
       body: expect.stringContaining("https://example.com/jugo.jpg"),
     })));
+    const createCall = mockApiFetch.mock.calls.find(([path, options]) => path === "/api/inventory" && options?.method === "POST");
+    expect(JSON.parse(createCall?.[1]?.body as string)).not.toHaveProperty("sku");
   });
 });
