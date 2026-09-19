@@ -1,0 +1,56 @@
+name: Deploy Billing Sandbox
+
+on:
+  pull_request:
+    branches: [main]
+    types: [labeled, synchronize, reopened]
+
+concurrency:
+  group: billing-sandbox
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy isolated billing sandbox
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'feat/billing-core-sandbox' &&
+      contains(github.event.pull_request.labels.*.name, 'deploy-sandbox')
+    runs-on: ubuntu-latest
+    environment: sandbox
+    steps:
+      - name: Deploy separate Docker project via SSH
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        env:
+          SANDBOX_DEPLOY_SHA: ${{ github.event.pull_request.head.sha }}
+          POSTGRES_PASSWORD: ${{ secrets.SANDBOX_POSTGRES_PASSWORD }}
+          DB_RUNTIME_PASSWORD: ${{ secrets.SANDBOX_DB_RUNTIME_PASSWORD }}
+          JWT_SECRET: ${{ secrets.SANDBOX_JWT_SECRET }}
+          BILLING_METRICS_TOKEN: ${{ secrets.SANDBOX_BILLING_METRICS_TOKEN }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          PLATFORM_ADMIN_CLERK_USER_IDS: ${{ secrets.PLATFORM_ADMIN_CLERK_USER_IDS }}
+          ALLOWED_ORIGINS: https://gestion.logify.cl
+          BILLING_FAKE_CHECKOUT_URL: https://gestion-sandbox.logify.cl/billing/fake
+          PUBLISH_SANDBOX_EDGE: "1"
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 15m
+          envs: SANDBOX_DEPLOY_SHA,POSTGRES_PASSWORD,DB_RUNTIME_PASSWORD,JWT_SECRET,BILLING_METRICS_TOKEN,CLERK_SECRET_KEY,PLATFORM_ADMIN_CLERK_USER_IDS,ALLOWED_ORIGINS,BILLING_FAKE_CHECKOUT_URL,PUBLISH_SANDBOX_EDGE
+          script: |
+            set -euo pipefail
+            sandbox_root="$HOME/logify-billing-sandbox"
+            source_dir="$sandbox_root/source"
+            mkdir -p "$sandbox_root"
+            if [[ ! -d "$source_dir/.git" ]]; then
+              git clone --filter=blob:none --no-checkout https://github.com/${{ github.repository }}.git "$source_dir"
+            fi
+            git -C "$source_dir" fetch --depth=1 origin "$SANDBOX_DEPLOY_SHA"
+            git -C "$source_dir" checkout --detach --force FETCH_HEAD
+            cd "$source_dir"
+            bash Backend/scripts/03-vps-deploy-billing-sandbox.sh
